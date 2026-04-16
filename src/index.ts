@@ -59,3 +59,8 @@ export type {
   TypedDocumentNode,
   VariablesOf,
 } from './types/document'
+
+export type {
+  FragmentOf,
+  FragmentRef,
+} from './types/masking'
