@@ -90,7 +90,6 @@ export type IntersectionAvoidEmpty<T, U>
       ? T
       : T & U
 
-
 export type TypenameField<Name extends string>
   = Field<'String!', ScalarType<'String', Name, Name>>
 
@@ -181,7 +180,6 @@ type RelaxInputArray<T, U>
     : T extends Array<any>
       ? T | U
       : T
-
 
 export type SchemaRequire<Gazania extends TypedGazania<any>, Modifier extends string>
   = Gazania extends TypedGazania<infer Schema>

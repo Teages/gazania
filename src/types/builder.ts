@@ -7,7 +7,6 @@ import type { FragmentOf, FragmentRef, TypedPartialSpreadReturn } from './maskin
 import type { Expand } from './utils'
 import type { PrepareVariables, RequireVariables, VariablesDefinition, VariableStore } from './variable'
 
-
 export type OperationTypeObject<
   Schema extends DefineSchema<any>,
   Type extends string,
@@ -16,7 +15,6 @@ export type OperationTypeObject<
     ? Namespace[Type]
     : never
   : never
-
 
 export interface TypedOperationBuilderWithoutVars<
   Schema extends DefineSchema<any>,
@@ -38,7 +36,6 @@ export interface TypedOperationBuilderWithoutVars<
   >
 }
 
-
 export interface TypedOperationBuilderWithVars<
   Schema extends DefineSchema<any>,
   OpType extends BaseObject<any, any, any>,
@@ -58,7 +55,6 @@ export interface TypedOperationBuilderWithVars<
     RequireVariables<Schema, V>
   >
 }
-
 
 export type FragmentBase<Schema extends DefineSchema<any>>
   = Schema extends DefineSchema<infer Namespace>
@@ -156,7 +152,6 @@ export interface TypedPartialBuilderOnTypeWithVar<
   ) => TypedPartialPackage<T, Result, PrepareVariables<V>, Name>
 }
 
-
 export interface TypedPartialPackage<
   _T extends BaseObject<string, any, any>,
   _P,
@@ -207,7 +202,6 @@ export interface ReadFragmentFn {
     data: ReadonlyArray<FragmentOf<T> | null | undefined>,
   ): ReadonlyArray<RequireOperationPartialData<T> | null | undefined>
 }
-
 
 export interface TypedGazania<Schema extends DefineSchema<any>> {
   query: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>

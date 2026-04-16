@@ -3,7 +3,6 @@ import type { ExtractPartialSpreadFragmentRefs, OmitPartialSpreadKeys } from './
 import type { TypedScalarSelection, TypedSelectionSet } from './selection'
 import type { Expand, FlatRecord, IntersectionAvoidEmpty, MayBePartial, ParseOutputModifier, Trim, Typename, UnionToIntersection, Values } from './utils'
 
-
 export type ParseSelection<
   T extends BaseType<any, any> | undefined,
   Selection,
@@ -21,12 +20,10 @@ export type ParseSelection<
   >
   : never
 
-
 export type ParseObjectSelection<
   T extends BaseObject<any, any, any>,
   Selection extends Array<any>,
 > = ParseObjectSelectionContext<T, AnalyzedObjectSelection<Selection>>
-
 
 export type ParseObjectSelectionContext<
   T extends BaseObject<any, any, any>,
@@ -115,7 +112,6 @@ export type ParseInlineFragmentReturn<
     ? MayBePartial<Result>
     : Result
   : never
-
 
 export type AnalyzedObjectSelection<Selection>
   = FlatRecord<UnionToIntersection<

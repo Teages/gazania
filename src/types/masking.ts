@@ -48,7 +48,6 @@ export type FragmentOf<T>
     ? Ref
     : never
 
-
 /**
  * Pick only `$partial:*` keys from a context record.
  */
@@ -89,7 +88,6 @@ type _CollectFragmentRefs<Context>
 // (A => void) & (B => void) infers intersection I = A & B.
 type _FragmentRefsToIntersection<U>
   = (U extends any ? (x: U) => void : never) extends ((x: infer I) => void) ? I : never
-
 
 /**
  * Compute the return type of `TypedPartialPackage` callable.

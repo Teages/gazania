@@ -22,7 +22,6 @@ export type PrepareSelection<T extends BaseType<any, any>>
 // Scalar selection is simply `true`
 export type ScalarSelection = true
 
-
 export type ObjectSelection<T extends BaseObject<any, any, any>>
   = | ObjectSelectionSimple<ObjectSelectionContext<T>>[]
     | [...ObjectSelectionSimple<ObjectSelectionContext<T>>[], ObjectSelectionContext<T>]
@@ -34,10 +33,8 @@ export type ObjectSelectionSimple<Context> = keyof {
   [K in keyof Context as true extends Context[K] ? K : never]: true
 }
 
-
 export type ObjectSelectionContext<T extends BaseObject<any, any, any>>
   = ObjectSelectionOnFields<T> & ObjectSelectionOnInlineFragments<T>
-
 
 export type ObjectSelectionOnFields<
   T extends BaseObject<any, any, any>,
@@ -52,7 +49,6 @@ export type ObjectSelectionOnFields<
     & { [K in '__typename' as WithAlias<K>]?: SelectionOnField<TypenameField<Name>> })
   : never
 
-
 export type ObjectSelectionOnInlineFragments<
   T extends BaseObject<any, any, any>,
 > = T extends BaseObject<any, any, infer Implements>
@@ -65,7 +61,6 @@ export type ObjectSelectionOnInlineFragments<
       : { [K in keyof Implements as `... on ${K & string}`]?: SelectionFnOnInlineFragment<Implements[K]> })
     & { '...'?: SelectionFnOnInlineFragment<T> })
   : never
-
 
 export type SelectionOnField<T extends Field<any, any, any>>
   = T extends Field<any, infer Type, infer Arguments>

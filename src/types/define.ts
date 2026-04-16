@@ -1,6 +1,5 @@
 import type { PackedEnum } from './enum'
 
-
 export interface BaseType<Base extends string, Name extends string> {
   __base__?: () => Base
   __name__?: () => Name
@@ -42,7 +41,6 @@ export interface Field<
 > {
   __define__?: (args: Args) => [Modifier, Type]
 }
-
 
 export interface ScalarType<
   Name extends string,

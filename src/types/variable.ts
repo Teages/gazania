@@ -15,7 +15,6 @@ export interface VariableDefResult<T = unknown> {
   [VariableDefResultSymbol]?: () => T
 }
 
-
 export type VariablesDefinitionDollarPackage<T extends string>
   = ($: VariablesDefinitionDollar) => VariableDefResult<T>
 
@@ -36,7 +35,6 @@ type UnpackDollar<T>
   = T extends (($: VariablesDefinitionDollar) => VariableDefResult<infer U extends string>)
     ? U
     : T
-
 
 export type AcceptVariable<Modifier extends string>
   = | Variable<Modifier>
@@ -69,7 +67,6 @@ type AcceptSimplifiedListModifier<Modifier extends string>
     : Modifier extends `${infer F}!`
       ? AcceptSimplifiedListModifier<F>
       : Modifier
-
 
 export type RequireVariables<Schema, T extends VariablesDefinition<string>> = RelaxedOptional<{
   [K in keyof T]: UnpackDollar<T[K]> extends `${infer Modifier} = ${infer _Default}`
