@@ -1,0 +1,16 @@
+{
+  "name": "playground",
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "play": "jiti .",
+    "schema": "gazania"
+  },
+  "dependencies": {
+    "@teages/oh-my-graphql": "^0.1.1",
+    "gazania": "workspace:*"
+  },
+  "devDependencies": {
+    "jiti": "^2.6.1"
+  }
+}

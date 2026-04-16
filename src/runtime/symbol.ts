@@ -1,0 +1,5 @@
+export const DollarPackageSymbol = Symbol('@gazania:DollarPackage')
+export const DirectivesSymbol = Symbol('@gazania:Directives')
+export const PartialFragmentNameSymbol = Symbol('@gazania:PartialFragmentName')
+export const PartialDocumentNodeSymbol = Symbol('@gazania:PartialDocumentNode')
+export const PartialContentSymbol = Symbol.for('@gazania:PartialContent')

@@ -1,0 +1,74 @@
+{
+  "name": "gazania",
+  "type": "module",
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.28.2",
+  "description": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Teages/gazania.git"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./codegen": {
+      "types": "./dist/codegen/index.d.mts",
+      "import": "./dist/codegen/index.mjs"
+    }
+  },
+  "module": "./dist/index.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/index.d.mts"
+      ],
+      "codegen": [
+        "./dist/codegen/index.d.mts"
+      ]
+    }
+  },
+  "bin": {
+    "gazania": "./dist/cli/index.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "unbuild",
+    "play:prepare": "unbuild --stub",
+    "play": "pnpm -C playground play",
+    "docs:dev": "pnpm -C docs dev",
+    "docs:build": "pnpm -C docs build",
+    "docs:preview": "pnpm -C docs preview",
+    "dev": "vitest dev",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "prepack": "pnpm build",
+    "test": "vitest run --coverage",
+    "typecheck": "tsc --noEmit --skipLibCheck"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "graphql": "^16.13.2"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^8.2.0",
+    "@types/node": "^24.12.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.2.0",
+    "jiti": "2.6.1",
+    "typescript": "^6.0.2",
+    "unbuild": "^3.6.1",
+    "vitest": "^4.1.4"
+  }
+}
