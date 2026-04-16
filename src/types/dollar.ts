@@ -4,17 +4,17 @@ import type { EnumFunction } from './enum'
 import type { ObjectSelection } from './prepare'
 import type { ParseObjectSelection } from './result'
 import type { TypedScalarSelection, TypedSelectionSet } from './selection'
-import type { VariableStore } from './variable'
+import type { AnyVariables } from './variable'
 
 export type { TypedScalarSelection, TypedSelectionSet } from './selection'
 
 /** Shared payload accessible on every dollar (vars + enum). */
-export interface DollarPayload<Variables extends VariableStore> {
+export interface DollarPayload<Variables extends AnyVariables> {
   vars: Variables
   enum: EnumFunction
 }
 
-export type DirectiveDollar<Variables extends VariableStore> = DollarPayload<Variables>
+export type DirectiveDollar<Variables extends AnyVariables> = DollarPayload<Variables>
 
 /**
  * Dollar for scalar fields. Is itself a `TypedScalarSelection`, so it can be returned

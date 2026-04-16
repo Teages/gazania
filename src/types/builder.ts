@@ -5,7 +5,7 @@ import type { RootDollar, TypedSelectionSet } from './dollar'
 import type { EnumFunction } from './enum'
 import type { FragmentOf, FragmentRef, TypedPartialSpreadReturn } from './masking'
 import type { Expand } from './utils'
-import type { PrepareVariables, RequireVariables, VariablesDefinition, VariableStore } from './variable'
+import type { AnyVariables, PrepareVariables, RequireVariables, VariablesDefinition } from './variable'
 
 export type OperationTypeObject<
   Schema extends DefineSchema<any>,
@@ -131,7 +131,7 @@ export interface TypedPartialBuilderOnType<
 
   select: <Result>(
     callback: ($: RootDollar<T>) => TypedSelectionSet<Result>,
-  ) => TypedPartialPackage<T, Result, VariableStore, Name>
+  ) => TypedPartialPackage<T, Result, AnyVariables, Name>
 }
 
 export interface TypedPartialBuilderOnTypeWithVar<
@@ -155,7 +155,7 @@ export interface TypedPartialBuilderOnTypeWithVar<
 export interface TypedPartialPackage<
   _T extends BaseObject<string, any, any>,
   _P,
-  _Variables extends VariableStore,
+  _Variables extends AnyVariables,
   _Name extends string = string,
 > {
   (vars: _Variables, directives?: DirectiveInput[]): TypedPartialSpreadReturn<_T, _Name>

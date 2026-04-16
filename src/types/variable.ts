@@ -3,7 +3,7 @@ import type { FindType, ModifiedName, RelaxedOptional, RequireInput } from './ut
 
 declare const VariableIdentitySymbol: unique symbol
 
-export type VariableStore = Record<string, Variable<string>>
+export type AnyVariables = Record<string, Variable<string>>
 
 export interface Variable<T extends string> {
   [VariableIdentitySymbol]?: () => T
