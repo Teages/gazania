@@ -8,6 +8,5 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
-  "exclude": ["src/cli"]
+  "include": ["src/cli", "test"]
 }

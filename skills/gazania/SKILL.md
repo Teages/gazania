@@ -1,6 +1,6 @@
 ---
 name: gazania
-description: "Set up and use Gazania — a TypeScript GraphQL query builder. Applies when: generating schema types, writing type-safe queries/mutations/subscriptions, using fragments and partials to reuse selection sets, extracting result and variable types."
+description: "Gazania — a TypeScript GraphQL query builder. Applies when: writing graphql queries/mutations/subscriptions with gazania."
 applyTo: "**/*.ts,**/*.tsx,**/*.vue,**/*.svelte,gazania.config.ts,gazania.config.js"
 ---
 
@@ -8,24 +8,113 @@ applyTo: "**/*.ts,**/*.tsx,**/*.vue,**/*.svelte,gazania.config.ts,gazania.config
 
 Gazania lets you write GraphQL operations as TypeScript code with full type inference, autocompletion, and compile-time error checking.
 
-## Quick-start
+## Quick start
+
+### Installation
 
 ```sh
 pnpm install gazania
-npx gazania generate --schema https://api.example.com/graphql --output src/schema.ts
+npx gazania generate --schema https://api.example.com/graphql --output src/gazania-schema.d.ts
 ```
 
+### Examples
+
+#### Basic query
+
 ```ts
-import type { Schema } from './schema'
 import { createGazania } from 'gazania'
 
-const gazania = createGazania({} as Schema)
+const gazania = createGazania('https://api.example.com/graphql')
 
-const userQuery = gazania.query('GetUser')
-  .vars({ id: 'Int!' })
+const GetHelloQuery = gazania.query('GetHello')
+  .select($ => $.select(['hello']))
+```
+
+```graphql
+query GetHello {
+  hello
+}
+```
+
+#### With variables and arguments
+
+```ts
+const FindAdminQuery = gazania.query('FindAdmin')
+  .vars({ name: 'String!' })
   .select(($, vars) => $.select([{
-    user: $ => $.args({ id: vars.id }).select(['id', 'name', 'email']),
+    users: $ => $.args({ name: vars.name, first: 1, role: gazania.enum('ADMIN') })
+      .select(['id', 'name', 'email']),
   }]))
+```
+
+```graphql
+query FindAdmin($name: String!) {
+  users(name: $name, first: 1, role: ADMIN) {
+    id
+    name
+    email
+  }
+}
+```
+
+### Directives
+
+```ts
+const WithDirectiveQuery = gazania.query('WithDirective')
+  .vars({ includeEmail: 'Boolean!' })
+  .directives(vars => [
+    ['@cache', { disable: vars.includeEmail }],
+  ])
+  .select(($, vars) => $.select([{
+    users: $ => $.args({ first: 1 })
+      .select([
+        'id',
+        'name',
+        {
+          email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+        }
+      ]),
+  }]))
+```
+
+```graphql
+query WithDirective($includeEmail: Boolean!) @cache(disable: $includeEmail) {
+  users(first: 1) {
+    id
+    name
+    email @include(if: $includeEmail)
+  }
+}
+```
+
+### Splitting / Reuse Query
+
+```ts
+const UserBasicInfo_UserFragment = gazania.partial('UserBasicInfo_User')
+  .on('User')
+  .select(['id', 'name', 'email'])
+
+const UserBasicInfoQuery = gazania.query('UserBasicInfo')
+  .select(($, vars) => $.select([{
+    users: $ => $.args({ first: 1 })
+      .select([
+        ...UserBasicInfo_UserFragment(vars)
+      ]),
+  }]))
+```
+
+```graphql
+query UserBasicInfo {
+  users(first: 1) {
+    ...UserBasicInfo_User
+  }
+}
+
+fragment UserBasicInfo_User on User {
+  id
+  name
+  email
+}
 ```
 
 ## References
@@ -47,3 +136,4 @@ Always follow these rules when writing Gazania code:
 - Use `ResultOf` / `VariablesOf` to extract types (e.g. `type User = ResultOf<typeof userQuery>`) — never write them manually
 - For fragment masking: type props with `FragmentOf<typeof partial>` and access data via `readFragment()`
 - Config file should be named `gazania.config.ts` (Node.js >= 22.6) or `gazania.config.js`
+- **NEVER** use external variables or functions inside selection builders, the query **MUST BE** standalone and statically analyzable

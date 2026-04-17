@@ -49,7 +49,9 @@ const query = gazania.query('GetUser')
 Directives here are applied to the fragment spread (`...UserFields @cached(ttl: 30)`):
 
 ```ts
-...userPartial($, [['@cached', { ttl: 30 }]])
+[
+  ...userPartial($, [['@cached', { ttl: 30 }]])
+]
 ```
 
 ### Partial with variables
@@ -71,7 +73,7 @@ When a partial is spread in a query, its fields are **masked** in the result: th
 
 ### Type component props with `FragmentOf`
 
-```ts
+```tsx
 import type { FragmentOf } from 'gazania'
 import { readFragment } from 'gazania'
 

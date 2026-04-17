@@ -65,8 +65,8 @@ The `$` in a field callback is a **field dollar** with `.args()`, `.select()`, `
 
 ```ts
 $.select(['id', 'name', {
-  address: a => a.select(['city', 'country']),  // nested object
-  hello: $ => $.args({ name: 'world' }),         // scalar with args (no .select() needed)
+  address: a => a.select(['city', 'country']), // nested object
+  hello: $ => $.args({ name: 'world' }), // scalar with args (no .select() needed)
 }])
 ```
 

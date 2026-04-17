@@ -137,8 +137,8 @@ const apiB = createGazania({} as SchemaB)
 Use `gazania/codegen` in build scripts instead of the CLI:
 
 ```ts
-import { generate } from 'gazania/codegen'
 import { writeFile } from 'node:fs/promises'
+import { generate } from 'gazania/codegen'
 
 const code = await generate('https://api.example.com/graphql', {
   scalars: { DateTime: 'string' },

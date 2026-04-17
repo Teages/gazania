@@ -83,7 +83,7 @@ import type { TypedDocumentNode } from 'gazania'
 
 // Explicit annotation when passing to a typed function
 const query: TypedDocumentNode<
-  { user: { id: number; name: string } },
+  { user: { id: number, name: string } },
   { id: number }
 > = gazania.query('GetUser')
   .vars({ id: 'Int!' })

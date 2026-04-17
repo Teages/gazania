@@ -1,12 +1,12 @@
 # Gazania
 
+Gazania lets you write GraphQL operations as TypeScript code with full type inference, autocompletion, and compile-time error checking.
+
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 
 <!-- [![bundle][bundle-src]][bundle-href] -->
 <!-- [![Codecov][codecov-src]][codecov-href] -->
-
-Gazania provides a *typed* way to write GraphQL queries with the help of TypeScript.
 
 ## Usage
 
