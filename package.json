@@ -18,6 +18,10 @@
     "./codegen": {
       "types": "./dist/codegen/index.d.mts",
       "import": "./dist/codegen/index.mjs"
+    },
+    "./transform": {
+      "types": "./dist/transform/index.d.mts",
+      "import": "./dist/transform/index.mjs"
     }
   },
   "module": "./dist/index.mjs",
@@ -28,6 +32,9 @@
       ],
       "codegen": [
         "./dist/codegen/index.d.mts"
+      ],
+      "transform": [
+        "./dist/transform/index.d.mts"
       ]
     }
   },
@@ -58,10 +65,14 @@
     "access": "public"
   },
   "dependencies": {
-    "graphql": "^16.13.2"
+    "acorn": "^8.16.0",
+    "graphql": "^16.13.2",
+    "magic-string": "^0.30.21",
+    "unplugin": "^3.0.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.2.0",
+    "@types/estree": "^1.0.8",
     "@types/node": "^24.12.0",
     "@vitest/coverage-v8": "^4.1.4",
     "changelogen": "^0.6.2",
