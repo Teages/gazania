@@ -25,7 +25,7 @@ export interface ExtractManifest {
 
 /**
  * Recursively find files matching a simple glob pattern.
- * Supports patterns like `**\/*.{ts,tsx,js,jsx}`.
+ * Supports patterns like `**.{ts,tsx,js,jsx}`.
  */
 async function findFiles(dir: string, pattern: string): Promise<string[]> {
   const extensions = extractExtensions(pattern)
@@ -200,8 +200,10 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
       const { name, type } = getOperationName(doc)
 
       if (!name) {
-        // Anonymous operations get a hash-based name
-        const anonKey = `Anonymous_${hash.slice(hash.indexOf(':') + 1, hash.indexOf(':') + 9)}`
+        // Anonymous operations get a hash-based name using first 8 hex chars
+        const HASH_PREFIX_LENGTH = 8
+        const hashStart = hash.indexOf(':') + 1
+        const anonKey = `Anonymous_${hash.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
         manifest.operations[anonKey] = { body, hash }
       }
       else if (type === 'fragment') {
