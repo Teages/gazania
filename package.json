@@ -42,17 +42,17 @@
   },
   "scripts": {
     "build": "unbuild",
-    "play:prepare": "unbuild --stub",
-    "play": "pnpm -C playground play",
-    "docs:dev": "pnpm -C docs dev",
-    "docs:build": "pnpm -C docs build",
-    "docs:preview": "pnpm -C docs preview",
+    "prepack": "pnpm run build",
     "dev": "vitest dev",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "prepack": "pnpm build",
-    "test": "vitest run --coverage",
-    "typecheck": "tsc --noEmit --skipLibCheck"
+    "test": "pnpm run build && vitest run --coverage",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "play:prepare": "unbuild --stub",
+    "play": "pnpm -C playground run play",
+    "docs:dev": "pnpm -C docs run dev",
+    "docs:build": "pnpm -C docs run build",
+    "docs:preview": "pnpm -C docs run preview"
   },
   "publishConfig": {
     "access": "public"
@@ -67,6 +67,7 @@
     "changelogen": "^0.6.2",
     "eslint": "^10.2.1",
     "jiti": "2.6.1",
+    "tsnapi": "^0.3.2",
     "typescript": "^6.0.3",
     "unbuild": "^3.6.1",
     "vitest": "^4.1.4"
