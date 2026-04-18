@@ -3,29 +3,29 @@
  */
 // #region Interfaces
 export interface Config {
-    schema: SchemaSource;
+  schema: SchemaSource;
+  output: string;
+  scalars?: Record<string, string | {
+    input: string;
     output: string;
-    scalars?: Record<string, string | {
-        input: string;
-        output: string;
-    }>;
+  }>;
 }
 export interface GenerateOptions {
-    scalars?: Record<string, string | {
-        input: string;
-        output: string;
-    }>;
+  scalars?: Record<string, string | {
+    input: string;
+    output: string;
+  }>;
 }
 export interface JsonSource {
-    json: string;
+  json: string;
 }
 export interface SdlSource {
-    sdl: string;
+  sdl: string;
 }
 export interface UrlSource {
-    url: string;
-    headers?: Record<string, string>;
-    method?: 'GET' | 'POST';
+  url: string;
+  headers?: Record<string, string>;
+  method?: 'GET' | 'POST';
 }
 // #endregion
 
@@ -38,11 +38,11 @@ export type UserConfig = Config | Config[];
 // #region Functions
 export declare function defineConfig(_: Config): Config;
 export declare function generate(_: SchemaSource, _?: GenerateOptions & {
-    url?: string;
+  url?: string;
 }): Promise<string>;
 export declare function loadSchema(_: SchemaSource): Promise<string>;
 export declare function parseSchema(_: string, _?: GenerateOptions): SchemaData;
 export declare function printSchema(_: SchemaData, _?: GenerateOptions & {
-    url?: string;
+  url?: string;
 }): string;
 // #endregion

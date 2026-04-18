@@ -1,17 +1,33 @@
+import type { BuildConfig } from 'obuild/config'
 import { readFileSync } from 'node:fs'
-import { defineBuildConfig } from 'unbuild'
+import { defineBuildConfig } from 'obuild/config'
+
+type RolldownConfig = (Exclude<NonNullable<BuildConfig['entries']>[number], string> & { type: 'bundle' })['rolldown']
 
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
-export default defineBuildConfig({
-  declaration: true,
-  entries: [
-    'src/index.ts',
-    'src/codegen/index.ts',
-    'src/cli/index.ts',
-  ],
-  replace: {
-    'import.meta.vitest': 'undefined',
-    '__CLI_VERSION__': JSON.stringify(version),
+const rolldownConfig = {
+  transform: {
+    define: {
+      'import.meta.vitest': 'undefined',
+      '__CLI_VERSION__': JSON.stringify(version),
+    },
   },
+} satisfies RolldownConfig
+
+export default defineBuildConfig({
+  entries: [
+    {
+      type: 'bundle',
+      input: [
+        'src/index.ts',
+        'src/codegen/index.ts',
+        'src/cli/index.ts',
+      ],
+      dts: {
+        build: true,
+      },
+      rolldown: rolldownConfig,
+    },
+  ],
 })
