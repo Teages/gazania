@@ -1,8 +1,8 @@
-import type { Context } from 'node:vm'
 import type { Node, Program } from 'estree'
+import type { Context } from 'node:vm'
+import type { NodeWithPosition } from './walk'
 import { createContext, runInContext } from 'node:vm'
 import * as gazaniaExports from '../index'
-import type { NodeWithPosition } from './walk'
 import { walkAST } from './walk'
 
 const GAZANIA_SPECIFIERS = new Set(['gazania'])

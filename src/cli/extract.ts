@@ -1,7 +1,7 @@
 import type { DocumentNode } from 'graphql'
 import { createHash } from 'node:crypto'
-import { readdir, readFile } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, join, relative } from 'node:path'
 import { print } from 'graphql'
 
 export interface ExtractCommandOptions {
@@ -131,28 +131,22 @@ async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
 
 /**
  * Strip TypeScript type annotations using Node.js built-in module.
- * Falls back to a simpler approach if not available.
+ * Returns the original code if type stripping is not available.
  */
 async function stripTypes(code: string): Promise<string> {
   // Node.js 22.6+ has built-in type stripping
   try {
-    const { transformSync } = await import('node:module') as any
-    if (typeof transformSync === 'function') {
-      const result = transformSync(code, { mode: 'strip-only' })
+    const mod = await import('node:module') as any
+    if (typeof mod.transformSync === 'function') {
+      const result = mod.transformSync(code, { mode: 'strip-only' })
       return typeof result === 'string' ? result : result.code
     }
   }
   catch {
-    // Not available
+    // Not available — return original code
   }
 
-  // Fallback: remove common TS patterns (best effort)
   return code
-    .replace(/:\s*[\w<>\[\]|&,\s{}()]+(?=\s*[=,;)\]}])/g, '')
-    .replace(/\binterface\b[^{]*\{[^}]*\}/g, '')
-    .replace(/\btype\b\s+\w+[^=]*=[^;]+;/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\bas\s+\w+/g, '')
 }
 
 function computeHash(body: string, algorithm: string): string {
@@ -223,13 +217,9 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
   log(`Extracted ${totalFound} GraphQL document(s).`)
 
-  const { writeFile } = await import('node:fs/promises')
-  const { dirname } = await import('node:path')
-  const { mkdir } = await import('node:fs/promises')
-
   const outputPath = join(cwd, output)
   await mkdir(dirname(outputPath), { recursive: true })
-  await writeFile(outputPath, JSON.stringify(manifest, null, 2) + '\n', 'utf-8')
+  await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
 
   log(`Manifest written to ${outputPath}`)
 }

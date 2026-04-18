@@ -34,7 +34,7 @@ export const GazaniaTransformPlugin = /* #__PURE__ */ createUnplugin((options?: 
       }
 
       // JS/TS files
-      if (/\.((c|m)?j|t)sx?$/.test(pathname)) {
+      if (/\.(?:(?:c|m)?j|t)sx?$/.test(pathname)) {
         return true
       }
 

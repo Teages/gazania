@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { argv, exit, stderr, stdout } from 'node:process'
+import { argv, exit, cwd as getCwd, stderr, stdout } from 'node:process'
 import { parseArgs } from 'node:util'
 import { runExtract } from './extract'
 import { runGenerate } from './generate'
@@ -114,7 +114,7 @@ else if (command === 'extract') {
       include: values.include ?? '**/*.{ts,tsx,js,jsx}',
       algorithm: values.algorithm ?? 'sha256',
       silent: values.silent ?? false,
-      cwd: process.cwd(),
+      cwd: getCwd(),
     })
   }
   catch (err) {
