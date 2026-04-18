@@ -29,10 +29,10 @@ export type ParseObjectSelectionContext<
   T extends BaseObject<any, any, any>,
   Context,
 > = Context extends Record<string, any>
-  ? _ParseObjectSelectionContextCore<
-      T,
-      OmitPartialSpreadKeys<OmitSectionSpreadKeys<Context>>
-    > & ExtractPartialSpreadFragmentRefs<Context> & ExtractSectionSpreadResults<Context>
+  ? (
+    _ParseObjectSelectionContextCore<T, OmitPartialSpreadKeys<OmitSectionSpreadKeys<Context>>>
+    & ExtractPartialSpreadFragmentRefs<Context>
+    & ExtractSectionSpreadResults<Context>)
   : never
 
 // Internal: handles field and inline fragment parsing on the cleaned context

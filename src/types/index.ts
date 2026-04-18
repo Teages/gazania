@@ -26,7 +26,7 @@ export type {
   TypedSelectionSet,
 } from './dollar'
 export type { EnumFunction, EnumPackage, PackedEnum } from './enum'
-export type { FragmentOf, FragmentRef, TypedSectionSpreadReturn, TypedSectionSpreadEntry } from './masking'
+export type { FragmentOf, FragmentRef, TypedSectionSpreadEntry, TypedSectionSpreadReturn } from './masking'
 export type { PrepareSelection } from './prepare'
 export type { ParseSelection } from './result'
 export type { FindType, ModifiedName, ParseOutputModifier, SchemaRequire, Typename } from './utils'

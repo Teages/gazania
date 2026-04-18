@@ -1,4 +1,4 @@
-import type { RequireOperationPartialData, TypedGazania, TypedPartialPackage } from '../../src/types/builder'
+import type { RequireOperationPartialData, TypedPartialPackage } from '../../src/types/builder'
 import type { ResultOf } from '../../src/types/document'
 import type { FragmentOf, FragmentRef } from '../../src/types/masking'
 import type { AnalyzedObjectSelection, ParseObjectSelection, ParseObjectSelectionContext } from '../../src/types/result'
