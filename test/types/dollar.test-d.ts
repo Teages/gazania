@@ -59,11 +59,11 @@ describe('types/dollar', () => {
     expectTypeOf<Dollar['select']>().toBeFunction()
   })
 
-  test('ObjectFieldDollar pipeline: args -> withDirective -> select', () => {
+  test('ObjectFieldDollar pipeline: args -> directives -> select', () => {
     type Dollar = ObjectFieldDollar<Type_User, { id: number }>
-    // After args, withDirective and select are available but not args
+    // After args, directives and select are available but not args
     type AfterArgs = ReturnType<Dollar['args']>
-    expectTypeOf<AfterArgs>().toHaveProperty('withDirective')
+    expectTypeOf<AfterArgs>().toHaveProperty('directives')
     expectTypeOf<AfterArgs>().toHaveProperty('select')
   })
 

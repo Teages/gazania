@@ -63,7 +63,7 @@ const userPartial = gazania.partial('UserFields')
   .select(($, vars) => $.select([
     'id',
     'name',
-    { email: $ => $.withDirective(['@include', { if: vars.includeEmail }]) },
+    { email: $ => $.directives(['@include', { if: vars.includeEmail }]) },
   ]))
 ```
 

@@ -47,7 +47,7 @@ const userFragment = gazania.fragment('UserFields')
     'id',
     'name',
     {
-      email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+      email: $ => $.directives(['@include', { if: vars.includeEmail }]),
     },
   ]))
 ```
@@ -186,7 +186,7 @@ const userPartial = gazania.partial('UserFields')
     'id',
     'name',
     {
-      email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+      email: $ => $.directives(['@include', { if: vars.includeEmail }]),
     },
   ]))
 ```

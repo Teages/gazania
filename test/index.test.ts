@@ -271,7 +271,7 @@ describe('gazania runtime', () => {
           'id',
           'name',
           {
-            email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+            email: $ => $.directives(['@include', { if: vars.includeEmail }]),
           },
         ]))
 
@@ -288,7 +288,7 @@ describe('gazania runtime', () => {
       const doc = gazania.query('Test')
         .vars({ hidePosts: 'Boolean! = false' })
         .select(($, vars) => $.select([{
-          posts: $ => $.withDirective(['@skip', { if: vars.hidePosts }])
+          posts: $ => $.directives(['@skip', { if: vars.hidePosts }])
             .select(['id', 'title']),
         }]))
 
@@ -307,7 +307,7 @@ describe('gazania runtime', () => {
         .vars({ name: 'String!', show: 'Boolean!' })
         .select(($, vars) => $.select([{
           greeting: $ => $.args({ name: vars.name })
-            .withDirective(['@include', { if: vars.show }]),
+            .directives(['@include', { if: vars.show }]),
         }]))
 
       expect(print(doc)).toMatchInlineSnapshot(`
@@ -407,7 +407,7 @@ describe('gazania runtime', () => {
           'id',
           'name',
           {
-            email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+            email: $ => $.directives(['@include', { if: vars.includeEmail }]),
           },
         ]))
 
@@ -495,8 +495,8 @@ describe('gazania runtime', () => {
             'id',
             'name',
             {
-              email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
-              posts: $ => $.withDirective(['@skip', { if: vars.hidePosts }])
+              email: $ => $.directives(['@include', { if: vars.includeEmail }]),
+              posts: $ => $.directives(['@skip', { if: vars.hidePosts }])
                 .select(['id', 'title']),
             },
           ]),

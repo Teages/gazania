@@ -18,7 +18,7 @@ gazania.query('MyQuery')
 ### Root dollar vs field dollar
 
 - **Root dollar** (`$` in `.select()` on builders): the root operation type (Query, Mutation, or Subscription). Has `.select()`.
-- **Field dollar** (`_` in field callbacks): a specific field. Has `.args()`, `.select()`, `.withDirective()`, and `.enum()`.
+- **Field dollar** (`_` in field callbacks): a specific field. Has `.args()`, `.select()`, `.directives()`, and `.enum()`.
 
 ## Scalar fields
 
@@ -90,11 +90,11 @@ $.select([{
 
 ### Field-level directives
 
-Add directives to fields with `.withDirective()`:
+Add directives to fields with `.directives()`:
 
 ```ts
 $.select([{
-  email: $ => $.withDirective(['@include', { if: true }]),
+  email: $ => $.directives(['@include', { if: true }]),
 }])
 ```
 
@@ -114,8 +114,8 @@ Multiple directives can be chained:
 ```ts
 $.select([{
   field: $ => $
-    .withDirective(['@skip', { if: true }])
-    .withDirective(['@cached', { ttl: 30 }]),
+    .directives(['@skip', { if: true }])
+    .directives(['@cached', { ttl: 30 }]),
 }])
 ```
 
@@ -130,7 +130,7 @@ gazania.query('ConditionalQuery')
     'id',
     'name',
     {
-      email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+      email: $ => $.directives(['@include', { if: vars.includeEmail }]),
     },
   ]))
 ```

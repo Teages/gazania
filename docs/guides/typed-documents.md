@@ -127,7 +127,7 @@ Directives like `@skip` or `@include` make the field potentially absent, so the 
 ```ts
 const skipQuery = gazania.query('SkipQuery')
   .select($ => $.select([{
-    hello: $ => $.withDirective(['@skip', { if: true }]),
+    hello: $ => $.directives(['@skip', { if: true }]),
   }]))
 
 type SkipResult = ResultOf<typeof skipQuery>

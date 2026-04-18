@@ -34,7 +34,7 @@ export class FieldDollar {
     return this
   }
 
-  withDirective(...directives: DirectiveInput[]): FieldDollar {
+  directives(...directives: DirectiveInput[]): FieldDollar {
     this._directives = this._directives || []
     this._directives.push(...directives)
     return this
@@ -94,10 +94,10 @@ if (import.meta.vitest) {
       expect(d._selection).toEqual(['id', 'name'])
     })
 
-    it('withDirective appends directives', () => {
+    it('directives appends directives', () => {
       const d = createFieldDollar()
-      d.withDirective(['@skip', { if: true }])
-      d.withDirective(['@include', { if: false }])
+      d.directives(['@skip', { if: true }])
+      d.directives(['@include', { if: false }])
       expect(d._directives).toHaveLength(2)
     })
 

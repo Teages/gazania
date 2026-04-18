@@ -112,7 +112,7 @@ if (import.meta.vitest) {
           'id',
           'name',
           {
-            email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+            email: $ => $.directives(['@include', { if: vars.includeEmail }]),
           },
         ]))
       expect(print(doc)).toContain('fragment UserFields on User')
@@ -133,7 +133,7 @@ if (import.meta.vitest) {
         .vars({ skip: 'Boolean!' })
         .directives(vars => [['@skip', { if: vars.skip }]])
         .select(($, vars) => $.select([{
-          id: $ => $.withDirective(['@include', { if: vars.skip }]),
+          id: $ => $.directives(['@include', { if: vars.skip }]),
         }]))
       expect(print(doc)).toContain('fragment UserFields on User @skip(if: $skip)')
     })

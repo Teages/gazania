@@ -58,7 +58,7 @@ describe('skills examples', () => {
             'id',
             'name',
             {
-              email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+              email: $ => $.directives(['@include', { if: vars.includeEmail }]),
             },
           ]),
       }]))

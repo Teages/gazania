@@ -179,12 +179,12 @@ query AliasQuery {
 
 ## Field directives
 
-Use `.withDirective()` on field dollars to add directives:
+Use `.directives()` on field dollars to add directives:
 
 ```ts
 const skipQuery = gazania.query('SkipQuery')
   .select($ => $.select([{
-    hello: $ => $.withDirective(['@skip', { if: true }]),
+    hello: $ => $.directives(['@skip', { if: true }]),
   }]))
 ```
 

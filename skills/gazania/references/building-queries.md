@@ -61,7 +61,7 @@ Variables with a default value or without `!` are optional in the resulting Type
 - **A string** — selects a scalar field by name (`'id'`, `'name'`)
 - **An object** — maps field names to callbacks for nested selections or arguments
 
-The `$` in a field callback is a **field dollar** with `.args()`, `.select()`, `.withDirective()`, and `.enum()`:
+The `$` in a field callback is a **field dollar** with `.args()`, `.select()`, `.directives()`, and `.enum()`:
 
 ```ts
 $.select(['id', 'name', {
@@ -128,12 +128,12 @@ $.select([{
 
 ## Directives
 
-Add directives to fields with `.withDirective()`. The argument is a tuple of `[directiveName, args?]`:
+Add directives to fields with `.directives()`. The argument is a tuple of `[directiveName, args?]`:
 
 ```ts
 $.select([{
-  email: $ => $.withDirective(['@include', { if: vars.showEmail }]),
-  title: $ => $.withDirective(['@deprecated']),
+  email: $ => $.directives(['@include', { if: vars.showEmail }]),
+  title: $ => $.directives(['@deprecated']),
 }])
 ```
 
@@ -142,8 +142,8 @@ Chain multiple directives:
 ```ts
 $.select([{
   field: $ => $
-    .withDirective(['@skip', { if: true }])
-    .withDirective(['@cached', { ttl: 30 }]),
+    .directives(['@skip', { if: true }])
+    .directives(['@cached', { ttl: 30 }]),
 }])
 ```
 

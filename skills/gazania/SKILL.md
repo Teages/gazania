@@ -71,7 +71,7 @@ const WithDirectiveQuery = gazania.query('WithDirective')
         'id',
         'name',
         {
-          email: $ => $.withDirective(['@include', { if: vars.includeEmail }]),
+          email: $ => $.directives(['@include', { if: vars.includeEmail }]),
         }
       ]),
   }]))

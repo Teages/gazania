@@ -365,7 +365,7 @@ Sets the nested field selection.
 
 Returns: `FieldDollar`
 
-### `.withDirective(...directives)`
+### `.directives(...directives)`
 
 Adds one or more directives to the field.
 
