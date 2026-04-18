@@ -103,7 +103,7 @@ const query = gazania.query('GetUser')
   .vars({ id: 'Int!' })
   .select(($, vars) => $.select([{
     user: $ => $.args({ id: vars.id }).select([
-      ...userPartial($),
+      ...userPartial(vars),
       '__typename',
     ]),
   }]))
@@ -191,6 +191,43 @@ const userPartial = gazania.partial('UserFields')
   ]))
 ```
 
+## Sections
+
+Sections are the opt-out path for fragment masking. They use the same GraphQL fragment spread output as partials, but the result type exposes the actual selected fields directly.
+
+```ts
+const userBasicFields = gazania.section('UserBasicFields')
+  .on('User')
+  .select($ => $.select(['id', 'name', 'email']))
+
+const query = gazania.query('GetUsers')
+  .select($ => $.select([{
+    users: $ => $.select([
+      ...userBasicFields({}),
+      '__typename',
+    ]),
+  }]))
+```
+
+The generated GraphQL is still a fragment spread:
+
+```graphql
+query GetUsers {
+  users {
+    ...UserBasicFields
+    __typename
+  }
+}
+
+fragment UserBasicFields on User {
+  id
+  name
+  email
+}
+```
+
+The resulting query type is transparent for the section fields, so you can access them directly without `readFragment()`.
+
 ## Fragment masking
 
 When a partial is spread into a query, its fields are masked in the result type. The position carries an opaque `FragmentRef` marker instead of the concrete fields. You call `readFragment()` to access them.
@@ -255,7 +292,7 @@ const userCardPartial = gazania.partial('UserCardFields')
 const getUsersQuery = gazania.query('GetUsers')
   .select($ => $.select([{
     users: $ => $.select([
-      ...userCardPartial($),
+      ...userCardPartial({}),
       '__typename',
     ]),
   }]))
@@ -280,7 +317,7 @@ Partials are a Gazania abstraction on top of fragments. They give you a simpler 
 | Feature | Fragment | Partial |
 |---|---|---|
 | Produces | `DocumentNode` | Spreadable selection package |
-| Composable in queries | Not directly (standalone document) | Yes, via `...partial($)` |
+| Composable in queries | Not directly (standalone document) | Yes, via `...partial(vars)` |
 | Auto fragment spread | No | Yes |
 | Fragment masking support | No | Yes, via `FragmentOf` + `readFragment` |
 | Type-safe field isolation | No | Yes |

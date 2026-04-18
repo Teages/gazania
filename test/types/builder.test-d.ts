@@ -1,4 +1,4 @@
-import type { OperationTypeObject, TypedFragmentBuilder, TypedFragmentBuilderOnType, TypedFragmentBuilderOnTypeWithVar, TypedGazania, TypedOperationBuilderWithoutVars, TypedPartialBuilder, TypedPartialBuilderOnType, TypedPartialBuilderOnTypeWithVar } from '../../src/types/builder'
+import type { OperationTypeObject, TypedFragmentBuilder, TypedFragmentBuilderOnType, TypedFragmentBuilderOnTypeWithVar, TypedGazania, TypedOperationBuilderWithoutVars, TypedPartialBuilder, TypedPartialBuilderOnType, TypedPartialBuilderOnTypeWithVar, TypedSectionBuilder, TypedSectionBuilderOnType, TypedSectionBuilderOnTypeWithVar } from '../../src/types/builder'
 import type { ResultOf, VariablesOf } from '../../src/types/document'
 import type { RequireVariables } from '../../src/types/variable'
 import type { Schema, Type_Mutation, Type_Query, Type_Subscription } from './schema'
@@ -91,6 +91,41 @@ describe('types/builder', () => {
   test('TypedPartialBuilder', () => {
     type PB = TypedPartialBuilder<Schema>
     expectTypeOf<PB>().toHaveProperty('on')
+  })
+
+  test('TypedSectionBuilder', () => {
+    type SB = TypedSectionBuilder<Schema>
+    expectTypeOf<SB>().toHaveProperty('on')
+  })
+
+  test('TypedSectionBuilderOnType has vars, directives, and select', () => {
+    type SB = TypedSectionBuilderOnType<Schema, Type_Query>
+    expectTypeOf<SB>().toHaveProperty('vars')
+    expectTypeOf<SB>().toHaveProperty('directives')
+    expectTypeOf<SB>().toHaveProperty('select')
+  })
+
+  test('TypedSectionBuilderOnType.directives returns self', () => {
+    type SB = TypedSectionBuilderOnType<Schema, Type_Query>
+    type Result = ReturnType<SB['directives']>
+    expectTypeOf<Result>().toEqualTypeOf<SB>()
+  })
+
+  test('TypedSectionBuilderOnTypeWithVar has directives and select', () => {
+    type SB = TypedSectionBuilderOnTypeWithVar<Schema, Type_Query, { skip: 'Boolean!' }>
+    expectTypeOf<SB>().toHaveProperty('directives')
+    expectTypeOf<SB>().toHaveProperty('select')
+  })
+
+  test('TypedGazania has all operation methods', () => {
+    type Gazania = TypedGazania<Schema>
+    expectTypeOf<Gazania>().toHaveProperty('query')
+    expectTypeOf<Gazania>().toHaveProperty('mutation')
+    expectTypeOf<Gazania>().toHaveProperty('subscription')
+    expectTypeOf<Gazania>().toHaveProperty('fragment')
+    expectTypeOf<Gazania>().toHaveProperty('partial')
+    expectTypeOf<Gazania>().toHaveProperty('section')
+    expectTypeOf<Gazania>().toHaveProperty('enum')
   })
 
   test('TypedPartialBuilderOnType has vars, directives, and select', () => {

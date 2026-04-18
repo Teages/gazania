@@ -96,6 +96,16 @@ Creates a partial (reusable selection) builder.
 
 Returns: [`PartialBuilder`](#partialbuilder)
 
+### `gazania.section(name)`
+
+Creates a section builder. Sections behave like partials at runtime, but their result types are transparent instead of masked.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `name` | `string` | Section name |
+
+Returns: [`SectionBuilder`](#sectionbuilder)
+
 ### `gazania.enum(value)`
 
 Creates a typed enum value for use in arguments.
@@ -317,7 +327,7 @@ const userPartial = gazania.partial('UserFields')
 // Usage in a query
 gazania.query('GetUser')
   .select($ => $.select([{
-    user: $ => $.select([...userPartial($)]),
+    user: $ => $.select([...userPartial({})]),
   }]))
 ```
 
@@ -338,6 +348,70 @@ Returns: `PartialBuilderOnTypeWithVar`
 Builds the partial package with variable access.
 
 Returns: `PartialPackage`
+
+---
+
+## SectionBuilder
+
+Builder for reusable selection sections.
+
+### `.on(typeName)`
+
+Specifies the type condition.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `typeName` | `string` | The GraphQL type name |
+
+Returns: `SectionBuilderOnType`
+
+### SectionBuilderOnType
+
+#### `.vars(definitions)`
+
+Declares variables for the section.
+
+Returns: `SectionBuilderOnTypeWithVar`
+
+#### `.directives(fn)`
+
+Adds directives to the fragment definition (not the spread site).
+
+| Parameter | Type | Description |
+|---|---|---|
+| `fn` | `() => DirectiveInput[]` | Function returning directive tuples |
+
+Returns: `SectionBuilderOnType`
+
+#### `.select(callback)`
+
+Builds the section package.
+
+Returns: `SectionPackage` — A function that can be spread into selections.
+
+```ts
+gazania.section('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))
+```
+
+### SectionBuilderOnTypeWithVar
+
+#### `.directives(fn)`
+
+Adds directives to the fragment definition with access to variable proxies.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `fn` | `(vars) => DirectiveInput[]` | Function receiving variables and returning directive tuples |
+
+Returns: `SectionBuilderOnTypeWithVar`
+
+#### `.select(callback)`
+
+Builds the section package with variable access.
+
+Returns: `SectionPackage`
 
 ---
 

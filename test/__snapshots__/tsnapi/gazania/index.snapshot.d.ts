@@ -30,6 +30,7 @@ export interface Gazania {
   subscription: (_?: string) => OperationBuilderWithoutVars;
   fragment: (_: string) => FragmentBuilder;
   partial: (_: string) => PartialBuilder;
+  section: (_: string) => SectionBuilder;
   enum: EnumFunction$1;
 }
 export interface Input<Modifier extends string, Type extends BaseType<string, string>> {
@@ -58,6 +59,7 @@ export interface TypedGazania<Schema extends DefineSchema<any>> {
   subscription: (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>;
   fragment: (_: string) => TypedFragmentBuilder<Schema>;
   partial: <Name extends string>(_: Name) => TypedPartialBuilder<Schema, Name>;
+  section: <Name extends string>(_: Name) => TypedSectionBuilder<Schema, Name>;
   enum: EnumFunction;
 }
 export interface UnionType<Name extends string, Implements extends Record<string, BaseObject<any, any, any>>> extends BaseObject<Name, Record<string, never>, Implements> {

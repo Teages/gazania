@@ -431,7 +431,7 @@ describe('gazania runtime', () => {
         .vars({ id: 'ID!' })
         .select(($, vars) => $.select([{
           user: $ => $.args({ id: vars.id }).select([
-            ...userPartial($),
+            ...userPartial(vars),
             '__typename',
           ]),
         }]))
@@ -572,6 +572,172 @@ describe('gazania runtime', () => {
       expect(print(doc)).toMatchInlineSnapshot(`
         "{
           fieldName
+        }"
+      `)
+    })
+  })
+
+  describe('section', () => {
+    it('section produces same GraphQL output as partial', () => {
+      const userSection = gazania.section('UserFields')
+        .on('User')
+        .select($ => $.select(['id', 'name', 'email']))
+
+      const doc = gazania.query('GetUser')
+        .select($ => $.select([{
+          user: $ => $.select([
+            ...userSection({}),
+            '__typename',
+          ]),
+        }]))
+
+      expect(print(doc)).toMatchInlineSnapshot(`
+        "query GetUser {
+          user {
+            ...UserFields
+            __typename
+          }
+        }
+
+        fragment UserFields on User {
+          id
+          name
+          email
+        }"
+      `)
+    })
+
+    it('section with directive on spread', () => {
+      const userSection = gazania.section('UserFields')
+        .on('User')
+        .select($ => $.select(['id', 'name', 'email']))
+
+      const doc = gazania.query('GetUser')
+        .select($ => $.select([{
+          user: $ => $.select([
+            ...userSection({}, [['@include', { if: true }]]),
+          ]),
+        }]))
+
+      expect(print(doc)).toMatchInlineSnapshot(`
+        "query GetUser {
+          user {
+            ...UserFields @include(if: true)
+          }
+        }
+
+        fragment UserFields on User {
+          id
+          name
+          email
+        }"
+      `)
+    })
+
+    it('section with variables', () => {
+      const sayingsSection = gazania.section('UserSayings')
+        .on('User')
+        .vars({ category: 'CategoryEnum' })
+        .select(($, vars) => $.select([
+          'id',
+          {
+            sayings: $ => $.args({ category: vars.category }).select(['id', 'content']),
+          },
+        ]))
+
+      const doc = gazania.query('GetUsers')
+        .vars({ cat: 'CategoryEnum' })
+        .select(($, vars) => $.select([{
+          users: $ => $.select([
+            ...sayingsSection(vars),
+          ]),
+        }]))
+
+      expect(print(doc)).toMatchInlineSnapshot(`
+        "query GetUsers($cat: CategoryEnum) {
+          users {
+            ...UserSayings
+          }
+        }
+
+        fragment UserSayings on User {
+          id
+          sayings(category: $category) {
+            id
+            content
+          }
+        }"
+      `)
+    })
+
+    it('section and partial together produce correct GraphQL', () => {
+      const nameSection = gazania.section('UserName')
+        .on('User')
+        .select($ => $.select(['id', 'name']))
+
+      const emailPartial = gazania.partial('UserEmail')
+        .on('User')
+        .select($ => $.select(['email']))
+
+      const doc = gazania.query('GetUsers')
+        .select($ => $.select([{
+          users: $ => $.select([
+            ...nameSection({}),
+            ...emailPartial({}),
+          ]),
+        }]))
+
+      expect(print(doc)).toMatchInlineSnapshot(`
+        "query GetUsers {
+          users {
+            ...UserName
+            ...UserEmail
+          }
+        }
+
+        fragment UserEmail on User {
+          email
+        }
+
+        fragment UserName on User {
+          id
+          name
+        }"
+      `)
+    })
+
+    it('two section spreads in same selection', () => {
+      const nameSection = gazania.section('UserName')
+        .on('User')
+        .select($ => $.select(['id', 'name']))
+
+      const emailSection = gazania.section('UserEmail')
+        .on('User')
+        .select($ => $.select(['email']))
+
+      const doc = gazania.query('GetUsers')
+        .select($ => $.select([{
+          users: $ => $.select([
+            ...nameSection({}),
+            ...emailSection({}),
+          ]),
+        }]))
+
+      expect(print(doc)).toMatchInlineSnapshot(`
+        "query GetUsers {
+          users {
+            ...UserName
+            ...UserEmail
+          }
+        }
+
+        fragment UserEmail on User {
+          email
+        }
+
+        fragment UserName on User {
+          id
+          name
         }"
       `)
     })

@@ -3,7 +3,7 @@ import type { DirectiveInput } from './directive'
 import type { TypedDocumentNode } from './document'
 import type { RootDollar, TypedSelectionSet } from './dollar'
 import type { EnumFunction } from './enum'
-import type { FragmentOf, FragmentRef, TypedPartialSpreadReturn } from './masking'
+import type { FragmentOf, FragmentRef, TypedPartialSpreadReturn, TypedSectionSpreadReturn } from './masking'
 import type { Expand } from './utils'
 import type { AnyVariables, PrepareVariables, RequireVariables, VariablesDefinition } from './variable'
 
@@ -116,6 +116,48 @@ export interface TypedPartialBuilder<
   ) => TypedPartialBuilderOnType<Schema, FragmentBase<Schema>[Type], Name>
 }
 
+export interface TypedSectionBuilder<
+  Schema extends DefineSchema<any>,
+  Name extends string = string,
+> {
+  on: <Type extends string & keyof FragmentBase<Schema>>(
+    typeName: Type,
+  ) => TypedSectionBuilderOnType<Schema, FragmentBase<Schema>[Type], Name>
+}
+
+export interface TypedSectionBuilderOnType<
+  Schema extends DefineSchema<any>,
+  T extends BaseObject<any, any, any>,
+  Name extends string = string,
+> {
+  vars: <const V extends VariablesDefinition<string>>(
+    defs: V,
+  ) => TypedSectionBuilderOnTypeWithVar<Schema, T, V, Name>
+
+  directives: (
+    fn: () => DirectiveInput[],
+  ) => TypedSectionBuilderOnType<Schema, T, Name>
+
+  select: <Result>(
+    callback: ($: RootDollar<T>) => TypedSelectionSet<Result>,
+  ) => TypedSectionPackage<T, Result, AnyVariables, Name>
+}
+
+export interface TypedSectionBuilderOnTypeWithVar<
+  _Schema extends DefineSchema<any>,
+  T extends BaseObject<any, any, any>,
+  V extends VariablesDefinition<string>,
+  Name extends string = string,
+> {
+  directives: (
+    fn: (vars: PrepareVariables<V>) => DirectiveInput[],
+  ) => TypedSectionBuilderOnTypeWithVar<_Schema, T, V, Name>
+
+  select: <Result>(
+    callback: ($: RootDollar<T>, vars: PrepareVariables<V>) => TypedSelectionSet<Result>,
+  ) => TypedSectionPackage<T, Result, PrepareVariables<V>, Name>
+}
+
 export interface TypedPartialBuilderOnType<
   Schema extends DefineSchema<any>,
   T extends BaseObject<any, any, any>,
@@ -166,6 +208,15 @@ export interface TypedPartialPackage<
     : never
 }
 
+export interface TypedSectionPackage<
+  _T extends BaseObject<string, any, any>,
+  _P,
+  _Variables extends AnyVariables,
+  _Name extends string = string,
+> {
+  (vars: _Variables, directives?: DirectiveInput[]): TypedSectionSpreadReturn<Expand<_P>, _Name>
+}
+
 export type RequireOperationPartialData<
   T extends TypedPartialPackage<any, any, any, any>,
 > = T extends TypedPartialPackage<any, infer Result, any, any>
@@ -209,5 +260,6 @@ export interface TypedGazania<Schema extends DefineSchema<any>> {
   subscription: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>
   fragment: (name: string) => TypedFragmentBuilder<Schema>
   partial: <Name extends string>(name: Name) => TypedPartialBuilder<Schema, Name>
+  section: <Name extends string>(name: Name) => TypedSectionBuilder<Schema, Name>
   enum: EnumFunction
 }

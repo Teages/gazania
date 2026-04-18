@@ -4,7 +4,7 @@ import type { FragmentOf, FragmentRef } from '../../src/types/masking'
 import type { AnalyzedObjectSelection, ParseObjectSelection, ParseObjectSelectionContext } from '../../src/types/result'
 import type { Schema, Type_User } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
-import { readFragment } from '../../src'
+import { createGazania, readFragment } from '../../src'
 
 describe('types/masking', () => {
   test('FragmentRef creates opaque marker type', () => {
@@ -48,6 +48,14 @@ describe('types/masking', () => {
     expectTypeOf<Analyzed>().toHaveProperty('$partial:UserFields')
   })
 
+  test('AnalyzedObjectSelection handles section spread entries', () => {
+    type Selection = [{ readonly '$section:UserBasic': { id: number, name: string } }, '__typename']
+    type Analyzed = AnalyzedObjectSelection<Selection>
+
+    expectTypeOf<Analyzed>().toHaveProperty('__typename')
+    expectTypeOf<Analyzed>().toHaveProperty('$section:UserBasic')
+  })
+
   test('ParseObjectSelectionContext extracts FragmentRef from partial spread keys', () => {
     // Context with a partial spread key and a regular field
     interface Context {
@@ -59,6 +67,16 @@ describe('types/masking', () => {
     // Result should be { __typename: 'User' } & FragmentRef<'UserFields', 'User'>
     expectTypeOf<Result>().toHaveProperty('__typename')
     expectTypeOf<Result>().toHaveProperty(' $fragmentRefs')
+  })
+
+  test('ParseObjectSelectionContext extracts section result from section spread keys', () => {
+    interface Context {
+      '__typename': true
+      '$section:UserBasic': { id: number, name: string }
+    }
+    type Result = ParseObjectSelectionContext<Type_User, Context>
+
+    expectTypeOf<Result>().toEqualTypeOf<{ __typename: 'User' } & { id: number, name: string }>()
   })
 
   test('ParseObjectSelection with partial spread produces masked result', () => {
@@ -97,8 +115,7 @@ describe('types/masking', () => {
   })
 
   test('TypedGazania.partial captures fragment name literal', () => {
-    type Gazania = TypedGazania<Schema>
-    const g: Gazania = null as any
+    const g = createGazania({} as Schema)
 
     // partial() should infer literal type for name
     const builder = g.partial('UserFields')
@@ -122,8 +139,7 @@ describe('types/masking', () => {
   })
 
   test('End-to-end: query result with partial spread is masked', () => {
-    type Gazania = TypedGazania<Schema>
-    const g: Gazania = null as any
+    const g = createGazania({} as Schema)
 
     const userPartial = g.partial('UserFields')
       .on('User')
@@ -160,8 +176,7 @@ describe('types/masking', () => {
   })
 
   test('End-to-end: query result with multiple partial spreads', () => {
-    type Gazania = TypedGazania<Schema>
-    const g: Gazania = null as any
+    const g = createGazania({} as Schema)
 
     const userBasic = g.partial('UserBasic')
       .on('User')
@@ -197,8 +212,7 @@ describe('types/masking', () => {
   })
 
   test('End-to-end: partial on different type (Saying)', () => {
-    type Gazania = TypedGazania<Schema>
-    const g: Gazania = null as any
+    const g = createGazania({} as Schema)
 
     const _sayingPartial = g.partial('SayingFields')
       .on('Saying')
@@ -245,5 +259,153 @@ describe('types/masking', () => {
 
     const result = readFragment(pkg, refs)
     expectTypeOf(result).toEqualTypeOf<ReadonlyArray<{ id: number, name: string } | null | undefined>>()
+  })
+
+  test('TypedGazania.section captures fragment name literal', () => {
+    const g = createGazania({} as Schema)
+
+    const _section = g.section('UserBasic')
+      .on('User')
+      .select($ => $.select(['id', 'name']))
+
+    // section does not carry $fragmentOf — FragmentOf is not applicable
+    type Pkg = typeof _section
+    expectTypeOf<Pkg>().not.toHaveProperty(' $fragmentOf')
+
+    // The callable should still return an array (section spread)
+    type Ret = ReturnType<Pkg>
+    expectTypeOf<Ret>().toBeArray()
+  })
+
+  test('End-to-end: query result with section spread has transparent fields', () => {
+    const g = createGazania({} as Schema)
+
+    const userSection = g.section('UserBasicFields')
+      .on('User')
+      .select($ => $.select(['id', 'name', 'email']))
+
+    const _query = g.query('GetUsers')
+      .select($ => $.select([{
+        users: $ => $.select([
+          ...userSection({}),
+        ]),
+      }]))
+
+    type QueryResult = ResultOf<typeof _query>
+    type UserItem = QueryResult['users'][number]
+
+    // section fields are directly accessible — no masking
+    expectTypeOf<UserItem>().toHaveProperty('id')
+    expectTypeOf<UserItem>().toHaveProperty('name')
+    expectTypeOf<UserItem>().toHaveProperty('email')
+
+    // section does NOT add a $fragmentRefs marker
+    expectTypeOf<UserItem>().not.toHaveProperty(' $fragmentRefs')
+  })
+
+  test('End-to-end: section and partial mixed — partial is masked, section is transparent', () => {
+    const g = createGazania({} as Schema)
+
+    const userSection = g.section('UserBasicFields')
+      .on('User')
+      .select($ => $.select(['id', 'name']))
+
+    const userPartial = g.partial('UserEmail')
+      .on('User')
+      .select($ => $.select(['email']))
+
+    const _query = g.query('GetUsers')
+      .select($ => $.select([{
+        users: $ => $.select([
+          ...userSection({}),
+          ...userPartial({}),
+          '__typename',
+        ]),
+      }]))
+
+    type QueryResult = ResultOf<typeof _query>
+    type UserItem = QueryResult['users'][number]
+
+    // Section fields are transparent
+    expectTypeOf<UserItem>().toHaveProperty('id')
+    expectTypeOf<UserItem>().toHaveProperty('name')
+    expectTypeOf<UserItem>().toHaveProperty('__typename')
+
+    // Partial is masked — email is NOT directly accessible
+    expectTypeOf<UserItem>().not.toHaveProperty('email')
+
+    // But the fragment ref marker IS present for the partial
+    expectTypeOf<UserItem>().toHaveProperty(' $fragmentRefs')
+    type Refs = NonNullable<UserItem[' $fragmentRefs']>
+    expectTypeOf<Refs>().toHaveProperty('UserEmail')
+  })
+
+  test('End-to-end: multiple section spreads on same type are merged', () => {
+    const g = createGazania({} as Schema)
+
+    const nameSection = g.section('UserName')
+      .on('User')
+      .select($ => $.select(['id', 'name']))
+
+    const emailSection = g.section('UserEmail')
+      .on('User')
+      .select($ => $.select(['email']))
+
+    const _query = g.query('GetUsers')
+      .select($ => $.select([{
+        users: $ => $.select([
+          ...nameSection({}),
+          ...emailSection({}),
+        ]),
+      }]))
+
+    type QueryResult = ResultOf<typeof _query>
+    type UserItem = QueryResult['users'][number]
+
+    // All fields from both sections are directly accessible
+    expectTypeOf<UserItem>().toHaveProperty('id')
+    expectTypeOf<UserItem>().toHaveProperty('name')
+    expectTypeOf<UserItem>().toHaveProperty('email')
+
+    // No masking at all
+    expectTypeOf<UserItem>().not.toHaveProperty(' $fragmentRefs')
+  })
+
+  test('End-to-end: section with variables', () => {
+    const g = createGazania({} as Schema)
+
+    const userSection = g.section('UserWithSayings')
+      .on('User')
+      .vars({ category: 'CategoryEnum' })
+      .select(($, vars) => $.select([
+        'id',
+        {
+          sayings: $ => $.args({ category: vars.category }).select(['id', 'content']),
+        },
+      ]))
+
+    const _query = g.query('GetUsers')
+      .vars({ category: 'CategoryEnum' })
+      .select(($, vars) => $.select([{
+        users: $ => $.select([
+          ...userSection(vars),
+        ]),
+      }]))
+
+    type QueryResult = ResultOf<typeof _query>
+    type UserItem = QueryResult['users'][number]
+
+    // Section fields accessible without readFragment
+    expectTypeOf<UserItem>().toHaveProperty('id')
+    expectTypeOf<UserItem>().toHaveProperty('sayings')
+  })
+
+  test('section: FragmentOf<typeof section> resolves to never', () => {
+    const g = createGazania({} as Schema)
+    const _section = g.section('UserBasic').on('User').select($ => $.select(['id']))
+
+    // TypedSectionPackage has no ' $fragmentOf' phantom, so FragmentOf resolves to never
+    type Ref = FragmentOf<typeof _section>
+    expectTypeOf<Ref>().toBeNever()
   })
 })

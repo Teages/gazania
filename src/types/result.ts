@@ -1,5 +1,5 @@
 import type { BaseObject, BaseScalar, BaseType, Field } from './define'
-import type { ExtractPartialSpreadFragmentRefs, OmitPartialSpreadKeys } from './masking'
+import type { ExtractPartialSpreadFragmentRefs, ExtractSectionSpreadResults, OmitPartialSpreadKeys, OmitSectionSpreadKeys } from './masking'
 import type { TypedScalarSelection, TypedSelectionSet } from './selection'
 import type { Expand, FlatRecord, IntersectionAvoidEmpty, MayBePartial, ParseOutputModifier, Trim, Typename, UnionToIntersection, Values } from './utils'
 
@@ -29,7 +29,10 @@ export type ParseObjectSelectionContext<
   T extends BaseObject<any, any, any>,
   Context,
 > = Context extends Record<string, any>
-  ? _ParseObjectSelectionContextCore<T, OmitPartialSpreadKeys<Context>> & ExtractPartialSpreadFragmentRefs<Context>
+  ? _ParseObjectSelectionContextCore<
+      T,
+      OmitPartialSpreadKeys<OmitSectionSpreadKeys<Context>>
+    > & ExtractPartialSpreadFragmentRefs<Context> & ExtractSectionSpreadResults<Context>
   : never
 
 // Internal: handles field and inline fragment parsing on the cleaned context

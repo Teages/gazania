@@ -2,12 +2,14 @@ import type { EnumFunction } from '../enum'
 import type { FragmentBuilder } from './fragment'
 import type { OperationBuilderWithoutVars } from './operation'
 import type { PartialBuilder, PartialPackage } from './partial'
+import type { SectionBuilder, SectionPackage } from './section'
 import { createEnumFunction } from '../enum'
 import { createFragmentBuilder } from './fragment'
 import { createOperationBuilder } from './operation'
 import { createPartialBuilder } from './partial'
+import { createSectionBuilder } from './section'
 
-export type { PartialPackage }
+export type { PartialPackage, SectionPackage }
 
 export interface Gazania {
   query: (name?: string) => OperationBuilderWithoutVars
@@ -15,6 +17,7 @@ export interface Gazania {
   subscription: (name?: string) => OperationBuilderWithoutVars
   fragment: (name: string) => FragmentBuilder
   partial: (name: string) => PartialBuilder
+  section: (name: string) => SectionBuilder
   enum: EnumFunction
 }
 
@@ -27,6 +30,7 @@ function initGazania(): Gazania {
     subscription: (name?: string) => createOperationBuilder('subscription', name),
     fragment: (name: string) => createFragmentBuilder(name),
     partial: (name: string) => createPartialBuilder(name),
+    section: (name: string) => createSectionBuilder(name),
     enum: enumFn,
   }
 }

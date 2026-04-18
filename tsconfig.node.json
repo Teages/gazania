@@ -8,5 +8,5 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/cli", "test"]
+  "include": ["src/cli", "src/codegen", "test"]
 }

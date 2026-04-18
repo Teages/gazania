@@ -38,7 +38,7 @@ const query = gazania.query('GetUser')
   .vars({ id: 'Int!' })
   .select(($, vars) => $.select([{
     user: $ => $.args({ id: vars.id }).select([
-      ...userPartial($),
+      ...userPartial(vars),
       '__typename',
     ]),
   }]))
@@ -50,7 +50,7 @@ Directives here are applied to the fragment spread (`...UserFields @cached(ttl: 
 
 ```ts
 [
-  ...userPartial($, [['@cached', { ttl: 30 }]])
+  ...userPartial(vars, [['@cached', { ttl: 30 }]])
 ]
 ```
 
@@ -66,6 +66,26 @@ const userPartial = gazania.partial('UserFields')
     { email: $ => $.directives(['@include', { if: vars.includeEmail }]) },
   ]))
 ```
+
+## Sections
+
+Sections opt out of fragment masking while keeping the same fragment spread GraphQL output as partials. Use `gazania.section()` when you want the selected fields available directly in the query result.
+
+```ts
+const userBasicFields = gazania.section('UserBasicFields')
+  .on('User')
+  .select($ => $.select(['id', 'name', 'email']))
+
+const query = gazania.query('GetUsers')
+  .select($ => $.select([{
+    users: $ => $.select([
+      ...userBasicFields({}),
+      '__typename',
+    ]),
+  }]))
+```
+
+The query result exposes `id`, `name`, and `email` directly on the `user` field, without using `readFragment()`.
 
 ## Fragment masking
 

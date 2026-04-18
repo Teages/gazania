@@ -63,6 +63,20 @@ export type OmitPartialSpreadKeys<T> = {
 }
 
 /**
+ * Pick only `$section:*` keys from a context record.
+ */
+export type PickSectionSpreadKeys<T> = {
+  [K in keyof T as K extends `$section:${string}` ? K : never]: T[K]
+}
+
+/**
+ * Omit `$section:*` keys from a context record.
+ */
+export type OmitSectionSpreadKeys<T> = {
+  [K in keyof T as K extends `$section:${string}` ? never : K]: T[K]
+}
+
+/**
  * Extract and intersect all `FragmentRef` markers from partial spread keys.
  * Returns `unknown` (identity for `&`) when there are no partial spreads.
  */
@@ -108,3 +122,44 @@ export type TypedPartialSpreadEntry<
 > = T extends BaseObject<infer TypeName, any, any>
   ? { readonly [K in `$partial:${Name}`]: FragmentRef<Name, TypeName> }
   : never
+
+/**
+ * Compute the return type of `TypedSectionPackage` callable.
+ */
+export type TypedSectionSpreadReturn<
+  Result,
+  Name extends string,
+> = [TypedSectionSpreadEntry<Result, Name>]
+
+/**
+ * A section spread entry: an object with key `$section:${Name}`
+ * whose value carries the concrete result type.
+ */
+export type TypedSectionSpreadEntry<
+  Result,
+  Name extends string,
+> = { readonly [K in `$section:${Name}`]: Result }
+
+/**
+ * Extract and intersect all section results from section spread keys.
+ * Returns `unknown` (identity for `&`) when there are no section spreads.
+ */
+export type ExtractSectionSpreadResults<Context>
+  = _CollectSectionResults<Context> extends infer U
+    ? [U] extends [never]
+        ? unknown
+        : _SectionResultsToIntersection<U>
+    : unknown
+
+// Collect the values of $section:* keys
+type _CollectSectionResults<Context>
+  = Context extends Record<string, any>
+    ? {
+        [K in keyof Context as K extends `$section:${string}` ? K : never]: Context[K]
+      } extends infer Picked
+        ? Picked[keyof Picked]
+        : never
+    : never
+
+type _SectionResultsToIntersection<U>
+  = (U extends any ? (x: U) => void : never) extends ((x: infer I) => void) ? I : never
