@@ -1,6 +1,6 @@
 import type { Node } from 'estree'
 
-// Parsers like acorn add positional info not present in the estree spec
+// oxc-parser adds positional info (start/end) directly on each node
 export type NodeWithPosition = Node & { start: number, end: number }
 
 /**
@@ -30,11 +30,8 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   async function parseCode(code: string) {
-    const acorn = await import('acorn')
-    return acorn.parse(code, {
-      sourceType: 'module',
-      ecmaVersion: 'latest',
-    }) as any
+    const { parseSync } = await import('oxc-parser')
+    return parseSync('test.js', code).program as any
   }
 
   describe('walkAST', () => {
