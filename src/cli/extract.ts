@@ -97,24 +97,15 @@ async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
     // Node.js strip-only mode preserves positions by replacing type syntax
     // with spaces, so evalCode.slice(pos) always gives the correct JS fragment.
     let evalCode = code
+    const isJSX = filePath.endsWith('.tsx') || filePath.endsWith('.jsx')
     try {
-      const acorn = await import('acorn')
-      ast = acorn.parse(code, {
-        sourceType: 'module',
-        ecmaVersion: 'latest',
-        allowImportExpressions: true,
-      })
+      ast = await parseCode(code, isJSX)
     }
     catch {
-      // If acorn can't parse (e.g. TypeScript), try stripping types first.
+      // If acorn can't parse (e.g. TypeScript/TSX), try stripping types first.
       try {
-        evalCode = await stripTypes(code)
-        const acorn = await import('acorn')
-        ast = acorn.parse(evalCode, {
-          sourceType: 'module',
-          ecmaVersion: 'latest',
-          allowImportExpressions: true,
-        })
+        evalCode = await stripTypes(code, filePath)
+        ast = await parseCode(evalCode, isJSX)
       }
       catch {
         continue
@@ -140,20 +131,78 @@ async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
 }
 
 /**
+ * Parse JavaScript/TypeScript source using acorn.
+ * For JSX files (.tsx/.jsx), uses acorn-jsx plugin.
+ */
+async function parseCode(code: string, isJSX: boolean): Promise<object> {
+  const acorn = await import('acorn')
+  if (isJSX) {
+    const acornJSX = (await import('acorn-jsx')).default
+    const parser = acorn.Parser.extend(acornJSX())
+    return parser.parse(code, {
+      sourceType: 'module',
+      ecmaVersion: 'latest',
+    })
+  }
+  return acorn.parse(code, {
+    sourceType: 'module',
+    ecmaVersion: 'latest',
+  })
+}
+
+/**
  * Strip TypeScript type annotations using Node.js built-in module.
  * Returns the original code if type stripping is not available.
  */
-async function stripTypes(code: string): Promise<string> {
-  // Node.js 22.6+ has built-in type stripping
-  try {
-    const mod = await import('node:module') as any
-    if (typeof mod.transformSync === 'function') {
+async function stripTypes(code: string, filePath?: string): Promise<string> {
+  const mod = await import('node:module') as any
+
+  // Node.js 22.12+ / 23.x+ exposes stripTypeScriptTypes
+  if (typeof mod.stripTypeScriptTypes === 'function') {
+    try {
+      return mod.stripTypeScriptTypes(code, { mode: 'strip' }) as string
+    }
+    catch {
+      // Fall through — may fail for JSX or unsupported syntax
+    }
+  }
+
+  // Legacy Node.js 22.6+ API (renamed to stripTypeScriptTypes in later releases)
+  if (typeof mod.transformSync === 'function') {
+    try {
       const result = mod.transformSync(code, { mode: 'strip-only' })
       return typeof result === 'string' ? result : result.code
     }
+    catch {
+      // Fall through
+    }
+  }
+
+  // Fallback: try TypeScript compiler (handles TSX/JSX + TypeScript).
+  // TypeScript is typically available in projects that use .tsx files.
+  try {
+    const isJSX = filePath?.endsWith('.tsx') || filePath?.endsWith('.jsx')
+    // TypeScript's CJS internals use __filename/__dirname which are unavailable
+    // in pure ESM. Polyfill them on globalThis before importing.
+    if (!('__filename' in globalThis)) {
+      const { fileURLToPath } = await import('node:url')
+      ;(globalThis as any).__filename = fileURLToPath(import.meta.url)
+      ;(globalThis as any).__dirname = (globalThis as any).__filename.slice(
+        0,
+        (globalThis as any).__filename.lastIndexOf('/'),
+      )
+    }
+    const ts = await import('typescript') as any
+    const result = ts.transpileModule(code, {
+      compilerOptions: {
+        jsx: isJSX ? ts.JsxEmit?.React ?? 2 : undefined,
+        module: ts.ModuleKind?.ESNext ?? 99,
+      },
+    })
+    return result.outputText as string
   }
   catch {
-    // Not available — return original code
+    // TypeScript not available — return original code
   }
 
   return code

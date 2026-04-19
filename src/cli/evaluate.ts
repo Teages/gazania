@@ -162,6 +162,14 @@ function preEvaluateVariables(
         continue
       }
 
+      // Capture simple literal declarations (string, number, boolean, null)
+      // so variables like `const API = 'https://...'` are available
+      // when evaluating e.g. `createGazania(API)`.
+      if (decl.init.type === 'Literal') {
+        context[decl.id.name] = decl.init.value
+        continue
+      }
+
       // Check if the init is a call to createGazania() or similar
       if (
         decl.init.type === 'CallExpression'

@@ -16,12 +16,12 @@ pnpm generate
 
 ### 2. Write queries
 
-Queries are defined in `src/queries.ts` using the Gazania builder:
+This example defines the query in `src/index.ts` and reuses the same operation in `src/index.vue`, `src/react.tsx`, and `src/index.svelte`.
 
 ```ts
 import { createGazania } from 'gazania'
 
-const gazania = createGazania('https://nitro-graphql-tester.pages.dev/graphql-user')
+const gazania = createGazania('https://graphql-test.teages.xyz/graphql-user-apq')
 
 export const GetUsers = gazania.query('GetUsers')
   .select($ => $.select([{
@@ -52,12 +52,3 @@ The manifest maps each operation name to its printed query body and SHA-256 hash
 ```
 
 This file can be uploaded to your GraphQL server's trusted document allowlist.
-
-### 4. Run the app
-
-```sh
-pnpm dev
-```
-
-`src/index.ts` loads the manifest at runtime, verifies the hashes, and sends live
-queries to the API using the pre-extracted query bodies.
