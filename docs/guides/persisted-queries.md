@@ -47,7 +47,7 @@ gazania extract [options]
 Options:
   -d, --dir <path>       Directory to scan (default: src)
   -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
-  --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx})
+  --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
   --silent               Suppress output
   -h, --help             Show help
@@ -112,5 +112,6 @@ Each client has a different mechanism for persisted queries. Consult your client
 
 - **Static analysis only**: The extractor evaluates builder calls in a sandboxed VM. Builder chains that depend on runtime values are silently skipped.
 - **TypeScript files**: On Node.js 22.6+, TypeScript files are stripped of types before parsing. On older Node.js versions, only plain JavaScript files are scanned. For best results, run `extract` on Node.js 22.6+.
+- **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
 - **Deduplication**: If the same operation name appears multiple times across files, the last one wins. Use unique operation names to avoid conflicts.

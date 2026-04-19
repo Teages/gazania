@@ -39,7 +39,7 @@ Extract GraphQL operations and produce a persisted query manifest
 Options:
   -d, --dir <path>       Directory to scan (default: src)
   -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
-  --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx})
+  --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
   --silent               Suppress output
   -h, --help             Show help
@@ -111,7 +111,7 @@ else if (command === 'extract') {
     await runExtract({
       dir: values.dir ?? 'src',
       output: values.output ?? 'gazania-manifest.json',
-      include: values.include ?? '**/*.{ts,tsx,js,jsx}',
+      include: values.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}',
       algorithm: values.algorithm ?? 'sha256',
       silent: values.silent ?? false,
       cwd: getCwd(),

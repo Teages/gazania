@@ -35,10 +35,10 @@ async function findFiles(dir: string, pattern: string): Promise<string[]> {
 }
 
 function extractExtensions(pattern: string): Set<string> {
-  // Parse patterns like **/*.{ts,tsx,js,jsx} or **/*.ts
+  // Parse patterns like **/*.{ts,tsx,js,jsx,vue,svelte} or **/*.ts
   const match = /\.\{([^}]+)\}$/.exec(pattern) || /\.(\w+)$/.exec(pattern)
   if (!match) {
-    return new Set(['.ts', '.tsx', '.js', '.jsx'])
+    return new Set(['.ts', '.tsx', '.js', '.jsx', '.vue', '.svelte'])
   }
   const exts = match[1]!.split(',').map(e => `.${e.trim()}`)
   return new Set(exts)
@@ -72,57 +72,67 @@ async function walkDir(dir: string, extensions: Set<string>, results: string[]):
 
 /**
  * Extract gazania queries from a single file's source code.
- * Uses the same sandboxed evaluation as the transform plugin.
+ * Handles Vue SFCs (.vue), Svelte components (.svelte), and plain JS/TS files.
  */
 async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
-  const code = await readFile(filePath, 'utf-8')
+  const rawCode = await readFile(filePath, 'utf-8')
 
-  if (!code.includes('gazania')) {
+  if (!rawCode.includes('gazania')) {
     return []
   }
 
-  // Use jiti for runtime TypeScript evaluation
+  const { getScriptBlocks } = await import('./preprocess')
   const { evaluateGazaniaExpressions } = await import('./evaluate')
 
-  let ast
-  try {
-    // Use acorn to parse
-    const acorn = await import('acorn')
-    ast = acorn.parse(code, {
-      sourceType: 'module',
-      ecmaVersion: 'latest',
-      // Allow import assertions / import attributes
-      allowImportExpressions: true,
-    })
-  }
-  catch {
-    // If acorn can't parse (e.g. TypeScript), try stripping types first
+  const blocks = getScriptBlocks(rawCode, filePath)
+  const documents: DocumentNode[] = []
+
+  for (const code of blocks) {
+    if (!code.includes('gazania')) {
+      continue
+    }
+
+    let ast
+    // The code passed to evaluateGazaniaExpressions must match the AST.
+    // Node.js strip-only mode preserves positions by replacing type syntax
+    // with spaces, so evalCode.slice(pos) always gives the correct JS fragment.
+    let evalCode = code
     try {
-      const stripped = await stripTypes(code)
       const acorn = await import('acorn')
-      ast = acorn.parse(stripped, {
+      ast = acorn.parse(code, {
         sourceType: 'module',
         ecmaVersion: 'latest',
         allowImportExpressions: true,
       })
     }
     catch {
-      return []
-    }
-  }
-
-  const results = evaluateGazaniaExpressions(code, ast as any)
-
-  const documents: DocumentNode[] = []
-  for (const result of results) {
-    try {
-      const doc = JSON.parse(result.replacement) as DocumentNode
-      if (doc.kind === 'Document') {
-        documents.push(doc)
+      // If acorn can't parse (e.g. TypeScript), try stripping types first.
+      try {
+        evalCode = await stripTypes(code)
+        const acorn = await import('acorn')
+        ast = acorn.parse(evalCode, {
+          sourceType: 'module',
+          ecmaVersion: 'latest',
+          allowImportExpressions: true,
+        })
+      }
+      catch {
+        continue
       }
     }
-    catch {
-      // Skip invalid results
+
+    const results = evaluateGazaniaExpressions(evalCode, ast as any)
+
+    for (const result of results) {
+      try {
+        const doc = JSON.parse(result.replacement) as DocumentNode
+        if (doc.kind === 'Document') {
+          documents.push(doc)
+        }
+      }
+      catch {
+        // Skip invalid results
+      }
     }
   }
 
@@ -440,6 +450,108 @@ const doc = gazania.query('TestQuery')
 
       const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
       expect(manifest.operations.TestQuery.hash).toMatch(/^md5:/)
+    })
+
+    it('extracts a query from a .vue <script setup> block', async () => {
+      await writeFileTest(
+        join(dir, 'src', 'Comp.vue'),
+        `<template><div>{{ data }}</div></template>
+<script setup>
+import { gazania } from 'gazania'
+const VueQuery = gazania.query('VueQuery')
+  .select($ => $.select(['id', 'name']))
+</script>`,
+      )
+
+      await runExtract({
+        dir: 'src',
+        output: 'manifest.json',
+        include: '**/*.{ts,tsx,js,jsx,vue,svelte}',
+        algorithm: 'sha256',
+        silent: true,
+        cwd: dir,
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).toHaveProperty('VueQuery')
+      expect(manifest.operations.VueQuery.body).toContain('query VueQuery')
+    })
+
+    it('extracts queries from both <script> and <script setup> in a .vue file', async () => {
+      await writeFileTest(
+        join(dir, 'src', 'Comp.vue'),
+        `<template><div/></template>
+<script>
+import { gazania } from 'gazania'
+const VueFrag = gazania.fragment('VueFrag').on('User').select($ => $.select(['id']))
+</script>
+<script setup>
+import { gazania } from 'gazania'
+const VueSetupQuery = gazania.query('VueSetupQuery').select($ => $.select(['name']))
+</script>`,
+      )
+
+      await runExtract({
+        dir: 'src',
+        output: 'manifest.json',
+        include: '**/*.{vue}',
+        algorithm: 'sha256',
+        silent: true,
+        cwd: dir,
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.fragments).toHaveProperty('VueFrag')
+      expect(manifest.operations).toHaveProperty('VueSetupQuery')
+    })
+
+    it('extracts a query from a .svelte <script> block', async () => {
+      await writeFileTest(
+        join(dir, 'src', 'Comp.svelte'),
+        `<script>
+import { gazania } from 'gazania'
+const SvelteQuery = gazania.query('SvelteQuery')
+  .select($ => $.select(['id', 'name']))
+</script>
+<main><slot /></main>`,
+      )
+
+      await runExtract({
+        dir: 'src',
+        output: 'manifest.json',
+        include: '**/*.{ts,tsx,js,jsx,vue,svelte}',
+        algorithm: 'sha256',
+        silent: true,
+        cwd: dir,
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).toHaveProperty('SvelteQuery')
+      expect(manifest.operations.SvelteQuery.body).toContain('query SvelteQuery')
+    })
+
+    it('extracts from <script context="module"> in a .svelte file', async () => {
+      await writeFileTest(
+        join(dir, 'src', 'Comp.svelte'),
+        `<script context="module">
+import { gazania } from 'gazania'
+export const SvelteModuleQuery = gazania.query('SvelteModuleQuery')
+  .select($ => $.select(['id']))
+</script>
+<main />`,
+      )
+
+      await runExtract({
+        dir: 'src',
+        output: 'manifest.json',
+        include: '**/*.{svelte}',
+        algorithm: 'sha256',
+        silent: true,
+        cwd: dir,
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).toHaveProperty('SvelteModuleQuery')
     })
   })
 }

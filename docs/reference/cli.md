@@ -92,7 +92,7 @@ Extract all Gazania GraphQL operations and produce a persisted query manifest.
 gazania extract [options]
 ```
 
-The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode`, evaluates them at analysis time, and writes a JSON manifest with each operation's body and SHA-256 hash.
+The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode`, evaluates them at analysis time, and writes a JSON manifest with each operation's body and SHA-256 hash. Vue (`.vue`) and Svelte (`.svelte`) single-file components are supported — each `<script>` block is extracted and processed independently.
 
 #### Options
 
@@ -100,7 +100,7 @@ The command scans your source files, finds all Gazania builder chains that produ
 |---|---|---|---|---|
 | `--dir <path>` | `-d` | `string` | `src` | Directory to scan |
 | `--output <path>` | `-o` | `string` | `gazania-manifest.json` | Output manifest file path |
-| `--include <glob>` | | `string` | `**/*.{ts,tsx,js,jsx}` | File pattern to include |
+| `--include <glob>` | | `string` | `**/*.{ts,tsx,js,jsx,vue,svelte}` | File pattern to include |
 | `--algorithm <alg>` | | `string` | `sha256` | Hash algorithm |
 | `--silent` | | `boolean` | `false` | Suppress output |
 | `--help` | `-h` | | | Show help |
