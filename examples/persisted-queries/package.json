@@ -1,0 +1,16 @@
+{
+  "name": "example-persisted-queries",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "jiti src/index.ts",
+    "generate": "gazania generate",
+    "extract": "gazania extract --dir src --output gazania-manifest.json"
+  },
+  "dependencies": {
+    "gazania": "workspace:*"
+  },
+  "devDependencies": {
+    "jiti": "2.6.1"
+  }
+}

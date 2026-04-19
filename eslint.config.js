@@ -18,3 +18,11 @@ export default antfu({
   .append({
     ignores: ['playground/gazania/**/*.ts'],
   })
+
+  // examples
+  .append({
+    files: ['examples/**/*'],
+    rules: {
+      'eslint-comments/no-unlimited-disable': 'off',
+    },
+  })
