@@ -40,6 +40,8 @@ export default defineConfig({
             { text: 'Selections', link: '/guides/selections' },
             { text: 'Fragments & Partials', link: '/guides/fragments-and-partials' },
             { text: 'Multiple Schemas', link: '/guides/multiple-schemas' },
+            { text: 'Build Transform Plugin', link: '/guides/transform-plugin' },
+            { text: 'Persisted Queries', link: '/guides/persisted-queries' },
           ],
         },
         {
@@ -49,6 +51,7 @@ export default defineConfig({
             { text: 'Gazania API', link: '/reference/api' },
             { text: 'Gazania CLI', link: '/reference/cli' },
             { text: 'Config Format', link: '/reference/config-format' },
+            { text: 'Transform Plugin API', link: '/reference/transform-api' },
           ],
         },
       ],

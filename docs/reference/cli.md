@@ -1,6 +1,6 @@
 # Gazania CLI
 
-The CLI generates TypeScript types from a GraphQL schema.
+The CLI provides commands for schema type generation and static query extraction.
 
 ## Installation
 
@@ -81,6 +81,76 @@ npx gazania generate --output src/other-schema.ts
 |---|---|---|
 | `--help` | `-h` | Show help |
 | `--version` | `-v` | Show version |
+
+---
+
+### `extract`
+
+Extract all Gazania GraphQL operations and produce a persisted query manifest.
+
+```
+gazania extract [options]
+```
+
+The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode`, evaluates them at analysis time, and writes a JSON manifest with each operation's body and SHA-256 hash.
+
+#### Options
+
+| Option | Alias | Type | Default | Description |
+|---|---|---|---|---|
+| `--dir <path>` | `-d` | `string` | `src` | Directory to scan |
+| `--output <path>` | `-o` | `string` | `gazania-manifest.json` | Output manifest file path |
+| `--include <glob>` | | `string` | `**/*.{ts,tsx,js,jsx}` | File pattern to include |
+| `--algorithm <alg>` | | `string` | `sha256` | Hash algorithm |
+| `--silent` | | `boolean` | `false` | Suppress output |
+| `--help` | `-h` | | | Show help |
+
+#### Examples
+
+**Use defaults (scan `src/`, write `gazania-manifest.json`):**
+
+```sh
+npx gazania extract
+```
+
+**Scan a custom directory:**
+
+```sh
+npx gazania extract --dir app
+```
+
+**Custom output path:**
+
+```sh
+npx gazania extract --output dist/persisted-queries.json
+```
+
+**Use SHA-512 hashes:**
+
+```sh
+npx gazania extract --algorithm sha512
+```
+
+#### Manifest format
+
+```json
+{
+  "operations": {
+    "FetchAnime": {
+      "body": "query FetchAnime($id: Int = 127549) { ... }",
+      "hash": "sha256:a1b2c3d4..."
+    }
+  },
+  "fragments": {
+    "UserFields": {
+      "body": "fragment UserFields on User { id name email }",
+      "hash": "sha256:e5f6a7b8..."
+    }
+  }
+}
+```
+
+See [Persisted Queries](/guides/persisted-queries) for a full guide on using this manifest with your GraphQL server.
 
 ## Schema sources
 
