@@ -108,18 +108,9 @@ Instead of sending the full query string, your GraphQL client sends the hash. Th
 Each client has a different mechanism for persisted queries. Consult your client's documentation for how to enable hash-based operation sending.
 :::
 
-## Combining with the transform plugin
-
-For maximum optimization, combine persisted queries with the [build transform plugin](/guides/transform-plugin):
-
-- The **transform plugin** removes builder overhead from your client bundle at build time.
-- The **extract command** generates the allowlist manifest from the same source code.
-
-This means your client bundle is smaller (no builder runtime, no `graphql` parser), and your backend only accepts pre-approved operations.
-
 ## Behavior notes
 
-- **Static analysis only**: The extractor evaluates builder calls using the same sandboxed VM approach as the transform plugin. Builder chains that depend on runtime values are silently skipped.
+- **Static analysis only**: The extractor evaluates builder calls in a sandboxed VM. Builder chains that depend on runtime values are silently skipped.
 - **TypeScript files**: On Node.js 22.6+, TypeScript files are stripped of types before parsing. On older Node.js versions, only plain JavaScript files are scanned. For best results, run `extract` on Node.js 22.6+.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
 - **Deduplication**: If the same operation name appears multiple times across files, the last one wins. Use unique operation names to avoid conflicts.

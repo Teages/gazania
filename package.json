@@ -18,10 +18,6 @@
     "./codegen": {
       "types": "./dist/codegen/index.d.mts",
       "import": "./dist/codegen/index.mjs"
-    },
-    "./transform": {
-      "types": "./dist/transform/index.d.mts",
-      "import": "./dist/transform/index.mjs"
     }
   },
   "module": "./dist/index.mjs",
@@ -32,9 +28,6 @@
       ],
       "codegen": [
         "./dist/codegen/index.d.mts"
-      ],
-      "transform": [
-        "./dist/transform/index.d.mts"
       ]
     }
   },
@@ -66,9 +59,7 @@
   },
   "dependencies": {
     "acorn": "^8.16.0",
-    "graphql": "^16.13.2",
-    "magic-string": "^0.30.21",
-    "unplugin": "^3.0.0"
+    "graphql": "^16.13.2"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.2.0",

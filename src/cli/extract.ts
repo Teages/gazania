@@ -82,7 +82,7 @@ async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
   }
 
   // Use jiti for runtime TypeScript evaluation
-  const { evaluateGazaniaExpressions } = await import('../transform/evaluate')
+  const { evaluateGazaniaExpressions } = await import('./evaluate')
 
   let ast
   try {
