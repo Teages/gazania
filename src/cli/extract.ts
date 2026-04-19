@@ -602,5 +602,111 @@ export const SvelteModuleQuery = gazania.query('SvelteModuleQuery')
       const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
       expect(manifest.operations).toHaveProperty('SvelteModuleQuery')
     })
+
+    it('extracts a query from a .ts TypeScript file with type annotations', async () => {
+      // Regression: type annotations must be stripped before acorn can parse
+      await writeFileTest(
+        join(dir, 'src', 'query.ts'),
+        `import { createGazania } from 'gazania'
+const API: string = 'https://api.example.com/graphql'
+const gazania = createGazania(API)
+const TypedQuery = gazania.query('TypedQuery')
+  .select($ => $.select(['id', 'name']))`,
+      )
+
+      await runExtract({
+        dir: 'src',
+        output: 'manifest.json',
+        include: '**/*.{ts,tsx,js,jsx}',
+        algorithm: 'sha256',
+        silent: true,
+        cwd: dir,
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).toHaveProperty('TypedQuery')
+      expect(manifest.operations.TypedQuery.body).toContain('query TypedQuery')
+    })
+
+    it('extracts a query from a .tsx file with JSX and TypeScript types', async () => {
+      // Regression: TSX requires acorn-jsx + TypeScript compiler fallback
+      await writeFileTest(
+        join(dir, 'src', 'App.tsx'),
+        `import { createGazania } from 'gazania'
+const API = 'https://api.example.com/graphql'
+const gazania = createGazania(API)
+const TsxQuery = gazania.query('TsxQuery')
+  .select($ => $.select(['id', 'name']))
+interface User { id: string; name: string }
+function App(): JSX.Element {
+  return <div>{TsxQuery.toString()}</div>
+}`,
+      )
+
+      await runExtract({
+        dir: 'src',
+        output: 'manifest.json',
+        include: '**/*.{ts,tsx,js,jsx}',
+        algorithm: 'sha256',
+        silent: true,
+        cwd: dir,
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).toHaveProperty('TsxQuery')
+      expect(manifest.operations.TsxQuery.body).toContain('query TsxQuery')
+    })
+  })
+
+  describe('parseCode', () => {
+    it('parses plain JavaScript', async () => {
+      const code = `const x = 1`
+      const ast = await parseCode(code, false)
+      expect((ast as any).type).toBe('Program')
+    })
+
+    it('parses JSX when isJSX is true', async () => {
+      const code = `const App = () => <div>hello</div>`
+      const ast = await parseCode(code, true)
+      expect((ast as any).type).toBe('Program')
+    })
+
+    it('throws on TypeScript syntax', async () => {
+      const code = `const x: string = 'hello'`
+      await expect(parseCode(code, false)).rejects.toThrow()
+    })
+
+    it('throws on TypeScript + JSX syntax (acorn-jsx does not understand TS)', async () => {
+      const code = `const x: string = 'hello'; const App = () => <div />`
+      await expect(parseCode(code, true)).rejects.toThrow()
+    })
+  })
+
+  describe('stripTypes', () => {
+    it('strips TypeScript type annotations', async () => {
+      const code = `const x: string = 'hello'\nfunction f(a: number): void {}`
+      const stripped = await stripTypes(code)
+      // Types should be gone; identifiers/values must remain
+      expect(stripped).not.toContain(': string')
+      expect(stripped).not.toContain(': number')
+      expect(stripped).not.toContain('): void')
+      expect(stripped).toContain('\'hello\'')
+    })
+
+    it('handles TSX via the TypeScript compiler fallback', async () => {
+      const code = `import { createGazania } from 'gazania'
+const API: string = 'https://api.example.com/graphql'
+const gazania = createGazania(API)
+interface User { id: string }
+function App(): JSX.Element { return <div /> }`
+      const stripped = await stripTypes(code, 'test.tsx')
+      // Type annotations and interface must be gone
+      expect(stripped).not.toContain('interface User')
+      expect(stripped).not.toContain(': string')
+      expect(stripped).not.toContain(': JSX.Element')
+      // Runtime code must remain
+      expect(stripped).toContain('createGazania')
+      expect(stripped).toContain('api.example.com')
+    })
   })
 }

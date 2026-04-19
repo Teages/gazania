@@ -355,6 +355,21 @@ const doc = schema.query('MyQuery')
       expect(parsed.kind).toBe('Document')
     })
 
+    it('resolves createGazania when URL is stored in a string literal variable', async () => {
+      // Regression: const API = 'https://...' must be captured in the VM context
+      // so that createGazania(API) can be evaluated.
+      const code = `import { createGazania } from 'gazania'
+const API = 'https://api.example.com/graphql'
+const schema = createGazania(API)
+const doc = schema.query('ApiQuery').select($ => $.select(['id']))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast)
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.definitions[0].name.value).toBe('ApiQuery')
+    })
+
     it('handles enum values in args', async () => {
       const code = `import { gazania } from 'gazania'
 const doc = gazania.query('FetchAnime')
