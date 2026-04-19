@@ -1,6 +1,6 @@
 import { defineConfig } from 'gazania/codegen'
 
 export default defineConfig({
-  schema: 'https://nitro-graphql-tester.pages.dev/graphql-user',
+  schema: 'https://graphql-test.teages.xyz/graphql-user-apq',
   output: 'src/schema.ts',
 })

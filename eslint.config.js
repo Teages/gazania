@@ -24,5 +24,7 @@ export default antfu({
     files: ['examples/**/*'],
     rules: {
       'eslint-comments/no-unlimited-disable': 'off',
+      'antfu/no-top-level-await': 'off',
+      'no-console': 'off',
     },
   })

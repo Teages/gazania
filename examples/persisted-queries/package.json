@@ -8,7 +8,9 @@
     "extract": "gazania extract --dir src --output gazania-manifest.json"
   },
   "dependencies": {
-    "gazania": "workspace:*"
+    "@teages/oh-my-graphql": "^0.1.4",
+    "gazania": "workspace:*",
+    "ofetch": "^1.5.1"
   },
   "devDependencies": {
     "jiti": "2.6.1"

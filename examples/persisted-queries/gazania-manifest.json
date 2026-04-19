@@ -3,14 +3,6 @@
     "GetUsers": {
       "body": "query GetUsers {\n  users {\n    id\n    name\n  }\n}",
       "hash": "sha256:4d6d63bdb0463cf0c4797a44cf2a7764c9e09b78b518dae5c02a6f3a545fae32"
-    },
-    "GetUser": {
-      "body": "query GetUser($id: ID!) {\n  user(id: $id) {\n    id\n    name\n  }\n}",
-      "hash": "sha256:c37eb4a5d4ab5557043047ba2a12c8d73bd425bb9f8eb76a24f8f226c9278e46"
-    },
-    "Hello": {
-      "body": "query Hello($name: String) {\n  hello(name: $name)\n}",
-      "hash": "sha256:6c97c5fa0199f7dbb5909e01be3e02d6e55476f2ce79620c29f01ea3fda6ddc3"
     }
   },
   "fragments": {}
