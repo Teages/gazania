@@ -202,3 +202,75 @@ function removeModifier(str: string): string {
   }
   return str
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+
+  const SIMPLE_SDL = `
+  type Query {
+    hello: String
+    user(id: ID!): User
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    email: String
+  }
+`
+
+  const SCHEMA_WITH_ENUM = `
+  type Query {
+    media(type: MediaType): Media
+  }
+
+  enum MediaType {
+    ANIME
+    MANGA
+  }
+
+  type Media {
+    id: ID!
+    title: String!
+    type: MediaType!
+  }
+`
+
+  describe('printSchema', async () => {
+    const { parseSchema } = await import('./parse')
+
+    it('generates DefineSchema export', () => {
+      const data = parseSchema(SIMPLE_SDL)
+      const code = printSchema(data)
+      expect(code).toContain('export type Schema = DefineSchema<{')
+    })
+
+    it('generates enum union types', () => {
+      const data = parseSchema(SCHEMA_WITH_ENUM)
+      const code = printSchema(data)
+      expect(code).toContain(`export type MediaType =`)
+      expect(code).toContain(`| 'ANIME'`)
+      expect(code).toContain(`| 'MANGA'`)
+    })
+
+    it('imports from gazania', () => {
+      const data = parseSchema(SIMPLE_SDL)
+      const code = printSchema(data)
+      expect(code).toContain(`from 'gazania'`)
+    })
+
+    it('adds module augmentation for URL source', () => {
+      const data = parseSchema(SIMPLE_SDL)
+      const url = 'https://api.example.com/graphql'
+      const code = printSchema(data, { url })
+      expect(code).toContain(`declare module 'gazania'`)
+      expect(code).toContain(`'${url}': Schema`)
+    })
+
+    it('does not add module augmentation without URL', () => {
+      const data = parseSchema(SIMPLE_SDL)
+      const code = printSchema(data)
+      expect(code).not.toContain(`declare module 'gazania'`)
+    })
+  })
+}

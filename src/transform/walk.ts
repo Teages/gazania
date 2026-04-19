@@ -25,3 +25,26 @@ export function walkAST(node: Node, enter: (node: Node) => void): void {
     }
   }
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+
+  async function parseCode(code: string) {
+    const acorn = await import('acorn')
+    return acorn.parse(code, {
+      sourceType: 'module',
+      ecmaVersion: 'latest',
+    }) as any
+  }
+
+  describe('walkAST', () => {
+    it('visits all nodes in a simple AST', async () => {
+      const ast = await parseCode(`const x = 1`)
+      const types: string[] = []
+      walkAST(ast, node => types.push(node.type))
+      expect(types).toContain('Program')
+      expect(types).toContain('VariableDeclaration')
+      expect(types).toContain('Literal')
+    })
+  })
+}
