@@ -1,13 +1,12 @@
 {
   "compilerOptions": {
     "target": "esnext",
+    "jsx": "react",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": ["vitest/importMeta"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
-  "exclude": ["src/cli", "src/codegen", "src/extract"]
+  "include": ["src"]
 }

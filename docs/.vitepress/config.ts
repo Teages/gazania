@@ -40,6 +40,7 @@ export default defineConfig({
             { text: 'Selections', link: '/guides/selections' },
             { text: 'Fragments & Partials', link: '/guides/fragments-and-partials' },
             { text: 'Multiple Schemas', link: '/guides/multiple-schemas' },
+            { text: 'Persisted Queries', link: '/guides/persisted-queries' },
           ],
         },
         {

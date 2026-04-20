@@ -22,3 +22,57 @@ export async function generate(source: SchemaSource, options?: GenerateOptions &
   const schemaData = parseSchema(sdl, options)
   return printSchema(schemaData, options)
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+
+  const SIMPLE_SDL = `
+  type Query {
+    hello: String
+    user(id: ID!): User
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    email: String
+  }
+`
+
+  const SCHEMA_WITH_ENUM = `
+  type Query {
+    media(type: MediaType): Media
+  }
+
+  enum MediaType {
+    ANIME
+    MANGA
+  }
+
+  type Media {
+    id: ID!
+    title: String!
+    type: MediaType!
+  }
+`
+
+  describe('generate', () => {
+    it('generates TypeScript from getter', async () => {
+      const code = await generate(() => SIMPLE_SDL)
+      expect(code).toContain('export type Schema = DefineSchema<{')
+      expect(code).toContain(`from 'gazania'`)
+    })
+
+    it('generates TypeScript from inline SDL', async () => {
+      const code = await generate({ sdl: SCHEMA_WITH_ENUM })
+      expect(code).toContain(`export type MediaType =`)
+      expect(code).toContain(`export type Schema = DefineSchema<{`)
+    })
+
+    it('adds URL module augmentation', async () => {
+      const url = 'https://api.example.com/graphql'
+      const code = await generate({ sdl: SIMPLE_SDL }, { url })
+      expect(code).toContain(`'${url}': Schema`)
+    })
+  })
+}

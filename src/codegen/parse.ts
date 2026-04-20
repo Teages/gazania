@@ -217,3 +217,151 @@ export function parseSchema(sdl: string, options?: GenerateOptions): SchemaData 
 
   return new SchemaData(doc, options)
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+
+  const SIMPLE_SDL = `
+  type Query {
+    hello: String
+    user(id: ID!): User
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    email: String
+  }
+`
+
+  const SCHEMA_WITH_ENUM = `
+  type Query {
+    media(type: MediaType): Media
+  }
+
+  enum MediaType {
+    ANIME
+    MANGA
+  }
+
+  type Media {
+    id: ID!
+    title: String!
+    type: MediaType!
+  }
+`
+
+  const SCHEMA_WITH_UNION = `
+  type Query {
+    search: SearchResult
+  }
+
+  union SearchResult = Post | Video
+
+  type Post {
+    title: String!
+  }
+
+  type Video {
+    duration: Int!
+  }
+`
+
+  const SCHEMA_WITH_INPUT = `
+  type Query {
+    noop: String
+  }
+
+  type Mutation {
+    createUser(input: CreateUserInput!): User
+  }
+
+  input CreateUserInput {
+    name: String!
+    email: String!
+  }
+
+  type User {
+    id: ID!
+    name: String!
+  }
+`
+
+  const SCHEMA_WITH_INTERFACE = `
+  type Query {
+    node(id: ID!): Node
+  }
+
+  interface Node {
+    id: ID!
+  }
+
+  type User implements Node {
+    id: ID!
+    name: String!
+  }
+
+  type Post implements Node {
+    id: ID!
+    title: String!
+  }
+`
+
+  describe('parseSchema', () => {
+    it('parses simple SDL', () => {
+      const data = parseSchema(SIMPLE_SDL)
+      expect(Object.keys(data.typeObjects)).toContain('Query')
+      expect(Object.keys(data.typeObjects)).toContain('User')
+    })
+
+    it('includes default scalars', () => {
+      const data = parseSchema(SIMPLE_SDL)
+      expect(data.scalarTypes).toHaveProperty('String')
+      expect(data.scalarTypes).toHaveProperty('ID')
+      expect(data.scalarTypes).toHaveProperty('Int')
+    })
+
+    it('parses enum types', () => {
+      const data = parseSchema(SCHEMA_WITH_ENUM)
+      expect(data.enumTypes).toHaveProperty('MediaType')
+      expect(data.enumTypes.MediaType!.values).toEqual(['ANIME', 'MANGA'])
+    })
+
+    it('parses union types', () => {
+      const data = parseSchema(SCHEMA_WITH_UNION)
+      expect(data.unions).toHaveProperty('SearchResult')
+      expect(data.unions.SearchResult!.types).toEqual(['Post', 'Video'])
+    })
+
+    it('parses input object types', () => {
+      const data = parseSchema(SCHEMA_WITH_INPUT)
+      expect(data.inputObjects).toHaveProperty('CreateUserInput')
+      expect(data.inputObjects.CreateUserInput!.args).toHaveProperty('name')
+    })
+
+    it('parses interface types', () => {
+      const data = parseSchema(SCHEMA_WITH_INTERFACE)
+      expect(data.interfaceObjects).toHaveProperty('Node')
+    })
+
+    it('respects custom scalar mappings', () => {
+      const sdl = `scalar DateTime\ntype Query { now: DateTime }`
+      const data = parseSchema(sdl, { scalars: { DateTime: 'string' } })
+      expect(data.scalarTypes.DateTime!.input).toBe('string')
+      expect(data.scalarTypes.DateTime!.output).toBe('string')
+    })
+
+    it('supports distinct input/output scalar types', () => {
+      const sdl = `scalar Upload\ntype Query { file: Upload }`
+      const data = parseSchema(sdl, {
+        scalars: { Upload: { input: 'File', output: 'string' } },
+      })
+      expect(data.scalarTypes.Upload!.input).toBe('File')
+      expect(data.scalarTypes.Upload!.output).toBe('string')
+    })
+
+    it('throws on invalid SDL', () => {
+      expect(() => parseSchema('not valid graphql !!!')).toThrow()
+    })
+  })
+}

@@ -87,3 +87,53 @@ async function generateOne(
 function makeLogger(silent: boolean): (msg: string) => void {
   return silent ? () => {} : (msg: string) => console.log(msg)
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect, beforeEach, afterEach, vi } = import.meta.vitest
+  const { mkdir: mkdirTest, rm, writeFile: writeFileTest } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+
+  describe('runGenerate (multi-config)', () => {
+    let dir: string
+    const mockLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    beforeEach(async () => {
+      dir = join(tmpdir(), `gazania-test-${Date.now()}`)
+      await mkdirTest(dir, { recursive: true })
+    })
+
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true })
+      mockLog.mockClear()
+    })
+
+    it('generates multiple outputs from array config', async () => {
+      await writeFileTest(
+        join(dir, 'gazania.config.js'),
+        `export default [
+        { schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' },
+        { schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' },
+      ]`,
+      )
+      await runGenerate({ cwd: dir })
+
+      const { existsSync } = await import('node:fs')
+      expect(existsSync(join(dir, 'out-a.ts'))).toBe(true)
+      expect(existsSync(join(dir, 'out-b.ts'))).toBe(true)
+    })
+
+    it('throws when --schema or --output is used with multi-config file', async () => {
+      await writeFileTest(
+        join(dir, 'gazania.config.js'),
+        `export default [
+        { schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' },
+        { schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' },
+      ]`,
+      )
+      await expect(
+        runGenerate({ cwd: dir, output: 'override.ts' }),
+      ).rejects.toThrow('Cannot use --schema or --output flags when config file defines multiple schemas.')
+    })
+  })
+}

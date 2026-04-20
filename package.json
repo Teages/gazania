@@ -18,6 +18,10 @@
     "./codegen": {
       "types": "./dist/codegen/index.d.mts",
       "import": "./dist/codegen/index.mjs"
+    },
+    "./extract": {
+      "types": "./dist/extract/index.d.mts",
+      "import": "./dist/extract/index.mjs"
     }
   },
   "module": "./dist/index.mjs",
@@ -28,6 +32,9 @@
       ],
       "codegen": [
         "./dist/codegen/index.d.mts"
+      ],
+      "extract": [
+        "./dist/extract/index.d.mts"
       ]
     }
   },
@@ -38,7 +45,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=20.0.0"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "build": "obuild",
@@ -47,7 +54,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "test": "pnpm run build && vitest run --coverage",
-    "typecheck": "tsc --noEmit --skipLibCheck",
+    "typecheck": "tsc --build --noEmit",
     "play:prepare": "obuild --stub",
     "play": "pnpm -C playground run play",
     "docs:dev": "pnpm -C docs run dev",
@@ -57,17 +64,30 @@
   "publishConfig": {
     "access": "public"
   },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
   "dependencies": {
-    "graphql": "^16.13.2"
+    "graphql": "^16.13.2",
+    "oxc-parser": "^0.126.0",
+    "oxc-transform": "^0.126.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.2.0",
+    "@teages/oh-my-graphql": "^0.1.4",
+    "@types/estree": "^1.0.8",
     "@types/node": "^24.12.0",
     "@vitest/coverage-v8": "^4.1.4",
     "changelogen": "^0.6.2",
     "eslint": "^10.2.1",
     "jiti": "2.6.1",
     "obuild": "^0.4.33",
+    "ofetch": "^1.5.1",
     "tsnapi": "^0.3.2",
     "typescript": "^6.0.3",
     "vitest": "^4.1.4"

@@ -66,3 +66,64 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
 
   return undefined
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect, beforeEach, afterEach } = import.meta.vitest
+  const { mkdir, rm, writeFile } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+
+  const SIMPLE_SDL = `type Query { hello: String }`
+
+  describe('loadConfig', () => {
+    let dir: string
+
+    beforeEach(async () => {
+      dir = join(tmpdir(), `gazania-test-${Date.now()}`)
+      await mkdir(dir, { recursive: true })
+    })
+
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+
+    it('returns undefined when no config file exists', async () => {
+      const result = await loadConfig(dir)
+      expect(result).toBeUndefined()
+    })
+
+    it('loads single config as a one-element array', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { schema: { sdl: '${SIMPLE_SDL}' }, output: './out.ts' }`,
+      )
+      const result = await loadConfig(dir)
+      expect(Array.isArray(result)).toBe(true)
+      expect(result).toHaveLength(1)
+      expect(result![0]!.output).toBe('./out.ts')
+    })
+
+    it('loads array config as-is', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default [
+        { schema: { sdl: 'type Query { a: String }' }, output: './out-a.ts' },
+        { schema: { sdl: 'type Query { b: String }' }, output: './out-b.ts' },
+      ]`,
+      )
+      const result = await loadConfig(dir)
+      expect(Array.isArray(result)).toBe(true)
+      expect(result).toHaveLength(2)
+      expect(result![0]!.output).toBe('./out-a.ts')
+      expect(result![1]!.output).toBe('./out-b.ts')
+    })
+
+    it('throws when array entries are missing required fields', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default [{ output: './out.ts' }]`,
+      )
+      await expect(loadConfig(dir)).rejects.toThrow('invalid config array')
+    })
+  })
+}

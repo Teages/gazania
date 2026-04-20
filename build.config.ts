@@ -23,6 +23,7 @@ export default defineBuildConfig({
         'src/index.ts',
         'src/codegen/index.ts',
         'src/cli/index.ts',
+        'src/extract/index.ts',
       ],
       dts: {
         build: true,

@@ -119,3 +119,36 @@ async function loadSchemaFromUrl(
 
   return printSchema(buildClientSchema(data))
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+
+  const SIMPLE_SDL = `
+  type Query {
+    hello: String
+    user(id: ID!): User
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    email: String
+  }
+`
+
+  describe('loadSchema', () => {
+    it('loads SDL from string getter', async () => {
+      const sdl = await loadSchema(() => SIMPLE_SDL)
+      expect(sdl).toContain('type Query')
+    })
+
+    it('loads from inline SDL source', async () => {
+      const sdl = await loadSchema({ sdl: SIMPLE_SDL })
+      expect(sdl).toBe(SIMPLE_SDL)
+    })
+
+    it('throws for unknown string extension', async () => {
+      await expect(loadSchema('schema.unknown')).rejects.toThrow()
+    })
+  })
+}
