@@ -2,7 +2,7 @@
 
 Demonstrates the full persisted queries workflow with Gazania.
 
-API used: `https://nitro-graphql-tester.pages.dev/graphql-user`
+API used: `https://graphql-test.teages.xyz/graphql-user-apq`
 
 ## Workflow
 

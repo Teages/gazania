@@ -1,8 +1,8 @@
 import type { Program } from 'estree'
 import type { DocumentNode } from 'graphql'
-import { createHash } from 'node:crypto'
+import { createHash, getHashes } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { cwd as getCwd } from 'node:process'
 import { print } from 'graphql'
 import { parseSync } from 'oxc-parser'
@@ -288,6 +288,9 @@ async function extractWithCrossFileResolution(
       }
     }
 
+    // Accumulate second-pass skipped across all blocks before writing to fileSkipped
+    const secondPassSkipped: SkippedExtraction[] = []
+
     for (const block of parsed.blocks) {
       const result = evaluateGazaniaExpressionsExtended(
         block.code,
@@ -307,8 +310,6 @@ async function extractWithCrossFileResolution(
         }
       }
 
-      // Second-pass skipped results overwrite the first-pass entries for this file
-      const secondPassSkipped: SkippedExtraction[] = []
       for (const s of result.skipped) {
         secondPassSkipped.push({
           file,
@@ -316,8 +317,10 @@ async function extractWithCrossFileResolution(
           reason: s.reason,
         })
       }
-      fileSkipped.set(file, secondPassSkipped)
     }
+
+    // Overwrite first-pass entries with the second-pass results for this file
+    fileSkipped.set(file, secondPassSkipped)
   }
 
   const allSkipped = [...fileSkipped.values()].flat()
@@ -361,8 +364,8 @@ async function parseFile(filePath: string): Promise<ParsedFileBlocks | null> {
 
     try {
       if (filePath.endsWith('.ts') || filePath.endsWith('.tsx') || isSFC) {
-        const basename = isSFC ? 'block.ts' : filePath.slice(filePath.lastIndexOf('/') + 1)
-        const transformed = transformSync(basename, code)
+        const tsBasename = isSFC ? 'block.ts' : basename(filePath)
+        const transformed = transformSync(tsBasename, code)
         if (transformed.errors.length > 0) {
           continue
         }
@@ -495,6 +498,12 @@ function addDocumentToManifest(
 }
 
 function computeHash(body: string, algorithm: string): string {
+  if (!getHashes().includes(algorithm)) {
+    throw new Error(
+      `Unsupported hash algorithm: "${algorithm}". `
+      + `Supported algorithms: ${getHashes().join(', ')}`,
+    )
+  }
   const hash = createHash(algorithm).update(body).digest('hex')
   return `${algorithm}:${hash}`
 }

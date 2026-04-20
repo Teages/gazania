@@ -102,6 +102,7 @@ The command scans your source files, finds all Gazania builder chains that produ
 | `--output <path>` | `-o` | `string` | `gazania-manifest.json` | Output manifest file path |
 | `--include <glob>` | | `string` | `**/*.{ts,tsx,js,jsx,vue,svelte}` | File pattern to include |
 | `--algorithm <alg>` | | `string` | `sha256` | Hash algorithm |
+| `--tsconfig <path>` | | `string` | | Path to TypeScript config file for cross-file partial/section resolution |
 | `--silent` | | `boolean` | `false` | Suppress output |
 | `--help` | `-h` | | | Show help |
 
