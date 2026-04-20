@@ -7,7 +7,7 @@
     "schema": "gazania"
   },
   "dependencies": {
-    "@teages/oh-my-graphql": "^0.1.1",
+    "@teages/oh-my-graphql": "^0.1.4",
     "gazania": "workspace:*"
   },
   "devDependencies": {

@@ -1,3 +1,5 @@
+/* eslint-disable antfu/no-top-level-await */
+/* eslint-disable no-console */
 import { createClient } from '@teages/oh-my-graphql'
 import { createGazania } from 'gazania'
 import { ofetch } from 'ofetch'

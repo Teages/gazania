@@ -21,6 +21,9 @@ importers:
       '@antfu/eslint-config':
         specifier: ^8.2.0
         version: 8.2.0(@typescript-eslint/rule-tester@8.58.2(eslint@10.2.1(jiti@2.6.1))(typescript@6.0.3))(@typescript-eslint/typescript-estree@8.58.2(typescript@6.0.3))(@typescript-eslint/utils@8.58.2(eslint@10.2.1(jiti@2.6.1))(typescript@6.0.3))(@vue/compiler-sfc@3.5.32)(eslint@10.2.1(jiti@2.6.1))(typescript@6.0.3)(vitest@4.1.4)
+      '@teages/oh-my-graphql':
+        specifier: ^0.1.4
+        version: 0.1.4(graphql@16.13.2)
       '@types/estree':
         specifier: ^1.0.8
         version: 1.0.8
@@ -42,6 +45,9 @@ importers:
       obuild:
         specifier: ^0.4.33
         version: 0.4.33(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.2.0)(jiti@2.6.1)(magicast@0.5.2)(picomatch@4.0.4)(rollup@4.60.1)(typescript@6.0.3)
+      ofetch:
+        specifier: ^1.5.1
+        version: 1.5.1
       tsnapi:
         specifier: ^0.3.2
         version: 0.3.2(vitest@4.1.4)
@@ -79,8 +85,8 @@ importers:
   playground:
     dependencies:
       '@teages/oh-my-graphql':
-        specifier: ^0.1.1
-        version: 0.1.1(graphql@16.13.2)
+        specifier: ^0.1.4
+        version: 0.1.4(graphql@16.13.2)
       gazania:
         specifier: workspace:*
         version: link:..
@@ -1154,8 +1160,8 @@ packages:
     peerDependencies:
       eslint: ^9.0.0 || ^10.0.0
 
-  '@teages/oh-my-graphql@0.1.1':
-    resolution: {integrity: sha512-x6i2fIDnUDrL3IxQ1t5Fjm2oS/uoa/3NTOKUZAeghFvLowDZN/jIxmnWKv53qt6xdiLrUKApBmP24qvIf349fg==}
+  '@teages/oh-my-graphql@0.1.4':
+    resolution: {integrity: sha512-bfJRCKesqq1kV5+TV4PTa3f7Y3VlCPPlHBkWeNtkhRk5CRkqlLxe/Gf9OWbid/WInHW/VB2+lUCFhayPrM41qg==}
 
   '@tsconfig/recommended@1.0.13':
     resolution: {integrity: sha512-sySRuBfMKyKO/j2ZAhR8kSembhjuPEV4Ra3AHtmWLq51+iGaudr45crPSzNC5b7/Ctrh9dfUpBuTlYrH6rM58Q==}
@@ -3852,7 +3858,7 @@ snapshots:
       estraverse: 5.3.0
       picomatch: 4.0.4
 
-  '@teages/oh-my-graphql@0.1.1(graphql@16.13.2)':
+  '@teages/oh-my-graphql@0.1.4(graphql@16.13.2)':
     dependencies:
       '@0no-co/graphql.web': 1.2.0(graphql@16.13.2)
       defu: 6.1.7
