@@ -1,4 +1,5 @@
 import type { DocumentNode } from 'graphql'
+import type { Program } from 'estree'
 import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -26,16 +27,32 @@ export interface ExtractOptions {
   algorithm?: string
   /** Working directory used to resolve `dir`. Defaults to `process.cwd()`. */
   cwd?: string
+  /**
+   * Path to tsconfig.json for cross-file partial/section resolution.
+   * When provided, TypeScript module resolution is used to trace imports
+   * of partials and sections across files, enabling extraction of operations
+   * that reference partials defined in other files.
+   *
+   * Requires `typescript` to be installed as a dev dependency.
+   */
+  tsconfig?: string
 }
 
 /**
  * Scan source files for Gazania operations and return a persisted-query manifest.
+ *
+ * When `tsconfig` is provided, cross-file partial/section resolution is enabled:
+ * files are processed in dependency order and evaluated partials are passed
+ * between files via the VM context.
  *
  * @example
  * ```ts
  * import { extract } from 'gazania/extract'
  *
  * const manifest = await extract({ dir: 'src' })
+ *
+ * // With cross-file partial support:
+ * const manifest = await extract({ dir: 'src', tsconfig: 'tsconfig.json' })
  * ```
  */
 export async function extract(options: ExtractOptions): Promise<ExtractManifest> {
@@ -44,11 +61,27 @@ export async function extract(options: ExtractOptions): Promise<ExtractManifest>
     include = '**/*.{ts,tsx,js,jsx,vue,svelte}',
     algorithm = 'sha256',
     cwd = getCwd(),
+    tsconfig,
   } = options
 
   const scanDir = join(cwd, dir)
   const files = await findFiles(scanDir, include)
 
+  if (tsconfig) {
+    return extractWithCrossFileResolution(files, algorithm, join(cwd, tsconfig))
+  }
+
+  return extractPerFile(files, algorithm)
+}
+
+/**
+ * Original per-file extraction (no cross-file resolution).
+ * Same-file partials/sections are still supported.
+ */
+async function extractPerFile(
+  files: string[],
+  algorithm: string,
+): Promise<ExtractManifest> {
   const manifest: ExtractManifest = {
     operations: {},
     fragments: {},
@@ -57,26 +90,197 @@ export async function extract(options: ExtractOptions): Promise<ExtractManifest>
   for (const file of files) {
     const documents = await extractFromFile(file)
     for (const doc of documents) {
-      const body = print(doc)
-      const hash = computeHash(body, algorithm)
-      const { name, type } = getOperationName(doc)
-
-      if (!name) {
-        const HASH_PREFIX_LENGTH = 8
-        const hashStart = hash.indexOf(':') + 1
-        const anonKey = `Anonymous_${hash.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
-        manifest.operations[anonKey] = { body, hash }
-      }
-      else if (type === 'fragment') {
-        manifest.fragments[name] = { body, hash }
-      }
-      else {
-        manifest.operations[name] = { body, hash }
-      }
+      addDocumentToManifest(manifest, doc, algorithm)
     }
   }
 
   return manifest
+}
+
+/**
+ * Cross-file extraction using TypeScript module resolution.
+ * Files are processed in dependency order so that partials defined in one file
+ * are available when evaluating operations in other files.
+ */
+async function extractWithCrossFileResolution(
+  files: string[],
+  algorithm: string,
+  tsconfigPath: string,
+): Promise<ExtractManifest> {
+  const { createModuleResolver } = await import('./ts-program')
+  const { getFileImports, topologicalSort } = await import('./dependency-graph')
+  const { evaluateGazaniaExpressionsExtended } = await import('../cli/evaluate')
+
+  const resolver = await createModuleResolver(tsconfigPath)
+
+  // Step 1: Parse all files and collect their ASTs
+  const parsedFiles = new Map<string, ParsedFileBlocks>()
+  for (const file of files) {
+    const parsed = await parseFile(file)
+    if (parsed) {
+      parsedFiles.set(file, parsed)
+    }
+  }
+
+  const knownFiles = new Set(parsedFiles.keys())
+
+  // Step 2: Build dependency graph from imports
+  const deps = new Map<string, Set<string>>()
+  const fileImportsMap = new Map<string, import('./dependency-graph').FileImport[]>()
+
+  for (const [file, parsed] of parsedFiles) {
+    const depSet = new Set<string>()
+
+    for (const block of parsed.blocks) {
+      const imports = getFileImports(block.ast, file, resolver, knownFiles)
+      const existing = fileImportsMap.get(file) || []
+      fileImportsMap.set(file, [...existing, ...imports])
+
+      for (const imp of imports) {
+        depSet.add(imp.resolvedPath)
+      }
+    }
+
+    deps.set(file, depSet)
+  }
+
+  // Step 3: Topological sort (dependencies first)
+  const order = topologicalSort(deps, [...parsedFiles.keys()])
+
+  // Step 4: Evaluate in dependency order
+  const manifest: ExtractManifest = {
+    operations: {},
+    fragments: {},
+  }
+
+  // Stores evaluated bindings per file for cross-file injection
+  const fileBindings = new Map<string, {
+    evaluatedBindings: Record<string, unknown>
+    exportMap: Map<string, string>
+  }>()
+
+  for (const file of order) {
+    const parsed = parsedFiles.get(file)
+    if (!parsed) {
+      continue
+    }
+
+    // Build external bindings from resolved imports
+    const externalBindings: Record<string, unknown> = {}
+    const imports = fileImportsMap.get(file) || []
+
+    for (const imp of imports) {
+      const sourceResult = fileBindings.get(imp.resolvedPath)
+      if (!sourceResult) {
+        continue
+      }
+
+      // Find the local variable name in the source file for this export
+      const localName = sourceResult.exportMap.get(imp.importedName) || imp.importedName
+      const value = sourceResult.evaluatedBindings[localName]
+
+      if (value !== undefined) {
+        externalBindings[imp.localName] = value
+      }
+    }
+
+    // Evaluate all blocks in this file
+    const mergedBindings: Record<string, unknown> = {}
+    const mergedExportMap = new Map<string, string>()
+
+    for (const block of parsed.blocks) {
+      const result = evaluateGazaniaExpressionsExtended(
+        block.code,
+        block.ast,
+        { externalBindings },
+      )
+
+      // Collect documents
+      for (const docResult of result.documents) {
+        try {
+          const doc = JSON.parse(docResult.replacement) as DocumentNode
+          if (doc.kind === 'Document') {
+            addDocumentToManifest(manifest, doc, algorithm)
+          }
+        }
+        catch {
+          // Skip invalid results
+        }
+      }
+
+      // Merge bindings for other files to use
+      Object.assign(mergedBindings, result.evaluatedBindings)
+      for (const [k, v] of result.exportMap) {
+        mergedExportMap.set(k, v)
+      }
+    }
+
+    fileBindings.set(file, {
+      evaluatedBindings: mergedBindings,
+      exportMap: mergedExportMap,
+    })
+  }
+
+  return manifest
+}
+
+interface ParsedBlock {
+  code: string
+  ast: Program
+}
+
+interface ParsedFileBlocks {
+  blocks: ParsedBlock[]
+}
+
+/**
+ * Parse a file into one or more code blocks with their ASTs.
+ * Handles Vue/Svelte SFCs and TypeScript stripping.
+ */
+async function parseFile(filePath: string): Promise<ParsedFileBlocks | null> {
+  const rawCode = await readFile(filePath, 'utf-8')
+
+  if (!rawCode.includes('gazania')) {
+    return null
+  }
+
+  const { getScriptBlocks } = await import('../cli/preprocess')
+
+  const scriptBlocks = getScriptBlocks(rawCode, filePath)
+  const blocks: ParsedBlock[] = []
+
+  for (const code of scriptBlocks) {
+    if (!code.includes('gazania')) {
+      continue
+    }
+
+    let evalCode = code
+    const isSFC = filePath.endsWith('.vue') || filePath.endsWith('.svelte')
+
+    try {
+      if (filePath.endsWith('.ts') || filePath.endsWith('.tsx') || isSFC) {
+        const basename = isSFC ? 'block.ts' : filePath.slice(filePath.lastIndexOf('/') + 1)
+        const transformed = transformSync(basename, code)
+        if (transformed.errors.length > 0) {
+          continue
+        }
+        evalCode = transformed.code
+      }
+
+      const parseFilename = filePath.endsWith('.jsx') ? 'eval.jsx' : 'eval.js'
+      const parseResult = parseSync(parseFilename, evalCode)
+      if (parseResult.errors.length > 0) {
+        continue
+      }
+
+      blocks.push({ code: evalCode, ast: parseResult.program as unknown as Program })
+    }
+    catch {
+      continue
+    }
+  }
+
+  return blocks.length > 0 ? { blocks } : null
 }
 
 async function findFiles(dir: string, pattern: string): Promise<string[]> {
@@ -122,49 +326,16 @@ async function walkDir(dir: string, extensions: Set<string>, results: string[]):
 }
 
 async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
-  const rawCode = await readFile(filePath, 'utf-8')
-
-  if (!rawCode.includes('gazania')) {
+  const parsed = await parseFile(filePath)
+  if (!parsed) {
     return []
   }
 
-  const { getScriptBlocks } = await import('../cli/preprocess')
   const { evaluateGazaniaExpressions } = await import('../cli/evaluate')
-
-  const blocks = getScriptBlocks(rawCode, filePath)
   const documents: DocumentNode[] = []
 
-  for (const code of blocks) {
-    if (!code.includes('gazania')) {
-      continue
-    }
-
-    let evalCode = code
-    let ast: object
-    const isSFC = filePath.endsWith('.vue') || filePath.endsWith('.svelte')
-
-    try {
-      if (filePath.endsWith('.ts') || filePath.endsWith('.tsx') || isSFC) {
-        const basename = isSFC ? 'block.ts' : filePath.slice(filePath.lastIndexOf('/') + 1)
-        const transformed = transformSync(basename, code)
-        if (transformed.errors.length > 0) {
-          continue
-        }
-        evalCode = transformed.code
-      }
-
-      const parseFilename = filePath.endsWith('.jsx') ? 'eval.jsx' : 'eval.js'
-      const parseResult = parseSync(parseFilename, evalCode)
-      if (parseResult.errors.length > 0) {
-        continue
-      }
-      ast = parseResult.program
-    }
-    catch {
-      continue
-    }
-
-    const results = evaluateGazaniaExpressions(evalCode, ast as any)
+  for (const block of parsed.blocks) {
+    const results = evaluateGazaniaExpressions(block.code, block.ast)
 
     for (const result of results) {
       try {
@@ -180,6 +351,29 @@ async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
   }
 
   return documents
+}
+
+function addDocumentToManifest(
+  manifest: ExtractManifest,
+  doc: DocumentNode,
+  algorithm: string,
+): void {
+  const body = print(doc)
+  const hash = computeHash(body, algorithm)
+  const { name, type } = getOperationName(doc)
+
+  if (!name) {
+    const HASH_PREFIX_LENGTH = 8
+    const hashStart = hash.indexOf(':') + 1
+    const anonKey = `Anonymous_${hash.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
+    manifest.operations[anonKey] = { body, hash }
+  }
+  else if (type === 'fragment') {
+    manifest.fragments[name] = { body, hash }
+  }
+  else {
+    manifest.operations[name] = { body, hash }
+  }
 }
 
 function computeHash(body: string, algorithm: string): string {
@@ -357,6 +551,250 @@ function App() { return <div /> }`,
       )
       const manifest = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('TsxQuery')
+    })
+
+    it('extracts a query that uses a same-file partial', async () => {
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+const userPartial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userPartial({}),
+    ]),
+  }]))`,
+      )
+      const manifest = await extract({ dir: 'src', cwd: dir })
+      expect(manifest.operations).toHaveProperty('GetUser')
+      expect(manifest.operations.GetUser.body).toContain('...UserFields')
+      expect(manifest.operations.GetUser.body).toContain('fragment UserFields on User')
+    })
+
+    it('extracts a query that uses a same-file section', async () => {
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+const userSection = gazania.section('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userSection({}),
+    ]),
+  }]))`,
+      )
+      const manifest = await extract({ dir: 'src', cwd: dir })
+      expect(manifest.operations).toHaveProperty('GetUser')
+      expect(manifest.operations.GetUser.body).toContain('...UserFields')
+    })
+
+    it('extracts a query using multiple same-file partials', async () => {
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+const namePartial = gazania.partial('UserName')
+  .on('User')
+  .select($ => $.select(['name']))
+const emailPartial = gazania.partial('UserEmail')
+  .on('User')
+  .select($ => $.select(['email']))
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...namePartial({}),
+      ...emailPartial({}),
+    ]),
+  }]))`,
+      )
+      const manifest = await extract({ dir: 'src', cwd: dir })
+      expect(manifest.operations).toHaveProperty('GetUser')
+      expect(manifest.operations.GetUser.body).toContain('...UserName')
+      expect(manifest.operations.GetUser.body).toContain('...UserEmail')
+    })
+  })
+
+  describe('extract with tsconfig (cross-file)', () => {
+    let dir: string
+
+    beforeEach(async () => {
+      dir = join(tmpdir(), `gazania-crossfile-test-${Date.now()}`)
+      await mkdir(dir, { recursive: true })
+      await mkdir(join(dir, 'src'), { recursive: true })
+      await mkdir(join(dir, 'src', 'fragments'), { recursive: true })
+
+      // Create a minimal tsconfig.json
+      await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: {
+          target: 'esnext',
+          module: 'esnext',
+          moduleResolution: 'bundler',
+          strict: true,
+        },
+        include: ['src'],
+      }))
+    })
+
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+
+    it('extracts a query that uses a cross-file partial', async () => {
+      // Partial defined in a separate file
+      await writeFile(
+        join(dir, 'src', 'fragments', 'user.js'),
+        `import { gazania } from 'gazania'
+export const userPartial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))`,
+      )
+
+      // Query that imports and uses the partial
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+import { userPartial } from './fragments/user'
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userPartial({}),
+    ]),
+  }]))`,
+      )
+
+      const manifest = await extract({
+        dir: 'src',
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+      })
+
+      expect(manifest.operations).toHaveProperty('GetUser')
+      expect(manifest.operations.GetUser.body).toContain('...UserFields')
+      expect(manifest.operations.GetUser.body).toContain('fragment UserFields on User')
+    })
+
+    it('extracts a query that uses a cross-file section', async () => {
+      await writeFile(
+        join(dir, 'src', 'fragments', 'user.js'),
+        `import { gazania } from 'gazania'
+export const userSection = gazania.section('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))`,
+      )
+
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+import { userSection } from './fragments/user'
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userSection({}),
+    ]),
+  }]))`,
+      )
+
+      const manifest = await extract({
+        dir: 'src',
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+      })
+
+      expect(manifest.operations).toHaveProperty('GetUser')
+      expect(manifest.operations.GetUser.body).toContain('...UserFields')
+    })
+
+    it('extracts with multiple cross-file partials from different files', async () => {
+      await writeFile(
+        join(dir, 'src', 'fragments', 'name.js'),
+        `import { gazania } from 'gazania'
+export const namePartial = gazania.partial('UserName')
+  .on('User')
+  .select($ => $.select(['name']))`,
+      )
+
+      await writeFile(
+        join(dir, 'src', 'fragments', 'email.js'),
+        `import { gazania } from 'gazania'
+export const emailPartial = gazania.partial('UserEmail')
+  .on('User')
+  .select($ => $.select(['email']))`,
+      )
+
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+import { namePartial } from './fragments/name'
+import { emailPartial } from './fragments/email'
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...namePartial({}),
+      ...emailPartial({}),
+    ]),
+  }]))`,
+      )
+
+      const manifest = await extract({
+        dir: 'src',
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+      })
+
+      expect(manifest.operations).toHaveProperty('GetUser')
+      expect(manifest.operations.GetUser.body).toContain('...UserName')
+      expect(manifest.operations.GetUser.body).toContain('...UserEmail')
+    })
+
+    it('handles re-exported partials with alias', async () => {
+      await writeFile(
+        join(dir, 'src', 'fragments', 'user.js'),
+        `import { gazania } from 'gazania'
+const _userPartial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))
+export { _userPartial as userPartial }`,
+      )
+
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+import { userPartial } from './fragments/user'
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userPartial({}),
+    ]),
+  }]))`,
+      )
+
+      const manifest = await extract({
+        dir: 'src',
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+      })
+
+      expect(manifest.operations).toHaveProperty('GetUser')
+      expect(manifest.operations.GetUser.body).toContain('...UserFields')
+    })
+
+    it('still extracts simple queries without cross-file dependencies', async () => {
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'
+const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
+      )
+
+      const manifest = await extract({
+        dir: 'src',
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+      })
+
+      expect(manifest.operations).toHaveProperty('SimpleQuery')
     })
   })
 

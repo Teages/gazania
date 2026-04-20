@@ -41,6 +41,7 @@ Options:
   -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
+  --tsconfig <path>      Path to tsconfig.json for cross-file partial/section resolution
   --silent               Suppress output
   -h, --help             Show help
 `
@@ -96,6 +97,7 @@ else if (command === 'extract') {
       output: { type: 'string', short: 'o' },
       include: { type: 'string' },
       algorithm: { type: 'string' },
+      tsconfig: { type: 'string' },
       silent: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -115,6 +117,7 @@ else if (command === 'extract') {
       algorithm: values.algorithm ?? 'sha256',
       silent: values.silent ?? false,
       cwd: getCwd(),
+      tsconfig: values.tsconfig,
     })
   }
   catch (err) {

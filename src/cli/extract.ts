@@ -11,6 +11,7 @@ export interface ExtractCommandOptions {
   algorithm: string
   silent: boolean
   cwd: string
+  tsconfig?: string
 }
 
 /**
@@ -18,13 +19,13 @@ export interface ExtractCommandOptions {
  * Delegates to the core `extract()` function and writes the manifest to disk.
  */
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, include, algorithm, silent, cwd } = options
+  const { dir, output, include, algorithm, silent, cwd, tsconfig } = options
   const log = silent ? () => {} : (msg: string) => console.log(msg)
 
   const scanDir = join(cwd, dir)
   log(`Scanning ${relative(cwd, scanDir) || '.'}...`)
 
-  const manifest = await extract({ dir, include, algorithm, cwd })
+  const manifest = await extract({ dir, include, algorithm, cwd, tsconfig })
 
   const totalFound
     = Object.keys(manifest.operations).length

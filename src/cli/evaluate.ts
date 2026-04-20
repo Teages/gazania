@@ -16,6 +16,20 @@ export interface EvaluateResult {
   replacement: string
 }
 
+export interface EvaluateOptions {
+  /** External bindings to inject into the VM context (e.g., cross-file partials) */
+  externalBindings?: Record<string, unknown>
+}
+
+export interface EvaluateExtendedResult {
+  /** DocumentNode replacements */
+  documents: EvaluateResult[]
+  /** Evaluated gazania bindings keyed by variable name (partials, sections, builders) */
+  evaluatedBindings: Record<string, unknown>
+  /** Export name mapping: exportedName -> localVariableName */
+  exportMap: Map<string, string>
+}
+
 /**
  * Detect gazania imports in the AST and build the sandbox context.
  * Returns the names of imported identifiers that correspond to builder-producing
@@ -140,14 +154,21 @@ function isGazaniaChainRoot(
 
 /**
  * Pre-evaluate variable declarations that store gazania builder results.
- * For example: `const schema = createGazania()` — we evaluate the RHS
- * and add `schema` to the VM context so later expressions can reference it.
+ * Handles:
+ * - Literal values: `const API = 'https://...'`
+ * - Builder creation: `const schema = createGazania()`
+ * - Builder chains: `const partial = gazania.partial('X').on('T').select(...)`
+ *
+ * The last case enables same-file partial/section support by storing evaluated
+ * PartialPackage functions in the VM context for later operation expressions.
  */
 function preEvaluateVariables(
   code: string,
   ast: Program,
   context: Context,
   builderNames: string[],
+  namespace: string | undefined,
+  evaluatedBindings: Record<string, unknown>,
 ): void {
   walkAST(ast, (node: Node) => {
     if (node.type !== 'VariableDeclaration') {
@@ -187,6 +208,26 @@ function preEvaluateVariables(
         catch {
           // Skip if evaluation fails
         }
+        continue
+      }
+
+      // Check if the init is a gazania builder chain ending in .select().
+      // This captures partial/section chains like:
+      //   const userPartial = gazania.partial('UserFields').on('User').select(...)
+      // and pre-evaluates them into the VM context so operations that reference
+      // them (e.g., `...userPartial(vars)`) can resolve successfully.
+      if (isGazaniaSelectCall(decl.init, builderNames, namespace)) {
+        const { start, end } = decl.init as NodeWithPosition
+        try {
+          const value = runInContext(code.slice(start, end), context)
+          if (value != null) {
+            context[decl.id.name] = value
+            evaluatedBindings[decl.id.name] = value
+          }
+        }
+        catch {
+          // Skip if evaluation fails
+        }
       }
     }
   })
@@ -197,23 +238,46 @@ function preEvaluateVariables(
  *
  * @param code - The source code string
  * @param ast - The parsed ESTree AST (with position info)
+ * @param options - Optional evaluation options (e.g., external bindings for cross-file partials)
  * @returns Array of replacements to apply
  */
 export function evaluateGazaniaExpressions(
   code: string,
   ast: Program,
+  options?: EvaluateOptions,
 ): EvaluateResult[] {
+  return evaluateGazaniaExpressionsExtended(code, ast, options).documents
+}
+
+/**
+ * Extended evaluation that returns both DocumentNode replacements and
+ * evaluated bindings (partials, sections, builders) for cross-file resolution.
+ */
+export function evaluateGazaniaExpressionsExtended(
+  code: string,
+  ast: Program,
+  options?: EvaluateOptions,
+): EvaluateExtendedResult {
   const contextMap: Context = {}
   const { builderNames, namespace, hasRelevantImport } = collectImports(ast, contextMap)
 
+  // Inject external bindings (e.g., partials resolved from other files)
+  if (options?.externalBindings) {
+    for (const [name, value] of Object.entries(options.externalBindings)) {
+      contextMap[name] = value
+    }
+  }
+
   if (!hasRelevantImport) {
-    return []
+    return { documents: [], evaluatedBindings: {}, exportMap: new Map() }
   }
 
   const context = createContext(contextMap)
+  const evaluatedBindings: Record<string, unknown> = {}
 
   // Pre-evaluate variable assignments like `const schema = createGazania()`
-  preEvaluateVariables(code, ast, context, builderNames)
+  // and gazania builder chains like `const partial = gazania.partial(...).select(...)`
+  preEvaluateVariables(code, ast, context, builderNames, namespace, evaluatedBindings)
 
   const results: EvaluateResult[] = []
 
@@ -240,7 +304,55 @@ export function evaluateGazaniaExpressions(
     }
   })
 
-  return results
+  const exportMap = collectExports(ast)
+
+  return { documents: results, evaluatedBindings, exportMap }
+}
+
+/**
+ * Collect exported names from the AST.
+ * Maps exportedName -> localVariableName for cross-file resolution.
+ */
+function collectExports(ast: Program): Map<string, string> {
+  const exports = new Map<string, string>()
+
+  for (const node of ast.body) {
+    if (node.type !== 'ExportNamedDeclaration') {
+      continue
+    }
+
+    // export const x = ...
+    if (node.declaration?.type === 'VariableDeclaration') {
+      for (const decl of node.declaration.declarations) {
+        if (decl.id.type === 'Identifier') {
+          exports.set(decl.id.name, decl.id.name)
+        }
+      }
+    }
+    else if (
+      node.declaration?.type === 'FunctionDeclaration'
+      && node.declaration.id
+    ) {
+      exports.set(node.declaration.id.name, node.declaration.id.name)
+    }
+
+    // export { x, y as z }
+    if (node.specifiers) {
+      for (const spec of node.specifiers) {
+        if (spec.type === 'ExportSpecifier') {
+          const localName = spec.local.type === 'Identifier'
+            ? spec.local.name
+            : String(spec.local.value)
+          const exportedName = spec.exported.type === 'Identifier'
+            ? spec.exported.name
+            : String(spec.exported.value)
+          exports.set(exportedName, localName)
+        }
+      }
+    }
+  }
+
+  return exports
 }
 
 if (import.meta.vitest) {
@@ -429,6 +541,162 @@ const doc = gazania.query('Test').select($ => $.select(['id']))`
       const original = code.slice(start, end)
       expect(original).toContain('gazania.query')
       expect(original).toContain('.select(')
+    })
+
+    it('pre-evaluates same-file partial and includes it in operations', async () => {
+      const code = `import { gazania } from 'gazania'
+const userPartial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userPartial({}),
+    ]),
+  }]))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast)
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.kind).toBe('Document')
+      expect(parsed.definitions).toHaveLength(2) // operation + fragment
+      expect(parsed.definitions[0].kind).toBe('OperationDefinition')
+      expect(parsed.definitions[0].name.value).toBe('GetUser')
+    })
+
+    it('pre-evaluates same-file section and includes it in operations', async () => {
+      const code = `import { gazania } from 'gazania'
+const userSection = gazania.section('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userSection({}),
+    ]),
+  }]))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast)
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.kind).toBe('Document')
+      expect(parsed.definitions).toHaveLength(2)
+    })
+
+    it('pre-evaluates partial with variables and uses in operation', async () => {
+      const code = `import { gazania } from 'gazania'
+const userPartial = gazania.partial('UserFields')
+  .on('User')
+  .vars({ id: 'ID!' })
+  .select(($, vars) => $.select([{
+    userId: $ => $.args({ id: vars.id }).select(['id']),
+  }]))
+const doc = gazania.query('GetUser')
+  .vars({ id: 'ID!' })
+  .select(($, vars) => $.select([{
+    user: $ => $.args({ id: vars.id }).select([
+      ...userPartial(vars),
+    ]),
+  }]))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast)
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.kind).toBe('Document')
+      expect(parsed.definitions.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('supports external bindings for cross-file partials', async () => {
+      // Simulate a partial that was evaluated in another file
+      const gazaniaModule = await import('../index') as any
+      const externalPartial = gazaniaModule.gazania.partial('ExternalFields')
+        .on('User')
+        .select(($: any) => $.select(['id', 'email']))
+
+      const code = `import { gazania } from 'gazania'
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...externalPartial({}),
+    ]),
+  }]))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast, {
+        externalBindings: { externalPartial },
+      })
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.kind).toBe('Document')
+      expect(parsed.definitions).toHaveLength(2)
+    })
+  })
+
+  describe('evaluateGazaniaExpressionsExtended', () => {
+    it('returns evaluated bindings for partials', async () => {
+      const code = `import { gazania } from 'gazania'
+const userPartial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.documents).toHaveLength(0)
+      expect(result.evaluatedBindings).toHaveProperty('userPartial')
+      expect(typeof result.evaluatedBindings.userPartial).toBe('function')
+    })
+
+    it('collects export map for exported partial declarations', async () => {
+      const code = `import { gazania } from 'gazania'
+export const userPartial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.exportMap.get('userPartial')).toBe('userPartial')
+      expect(result.evaluatedBindings).toHaveProperty('userPartial')
+    })
+
+    it('collects export map for re-exported bindings', async () => {
+      const code = `import { gazania } from 'gazania'
+const _partial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id']))
+export { _partial as userPartial }`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.exportMap.get('userPartial')).toBe('_partial')
+      expect(result.evaluatedBindings).toHaveProperty('_partial')
+    })
+
+    it('handles multiple partials used in a single query', async () => {
+      const code = `import { gazania } from 'gazania'
+const namePartial = gazania.partial('UserName')
+  .on('User')
+  .select($ => $.select(['name']))
+const emailPartial = gazania.partial('UserEmail')
+  .on('User')
+  .select($ => $.select(['email']))
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...namePartial({}),
+      ...emailPartial({}),
+    ]),
+  }]))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast)
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.kind).toBe('Document')
+      // operation + 2 fragments
+      expect(parsed.definitions).toHaveLength(3)
     })
   })
 }
