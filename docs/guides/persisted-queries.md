@@ -39,6 +39,39 @@ By default this scans `src/` and writes `gazania-manifest.json` in the current d
 
 Operations (queries, mutations, subscriptions) go into `operations`. Named fragments go into `fragments`.
 
+## Partials and sections
+
+The extractor understands `gazania.partial()` and `gazania.section()` builders and includes their generated fragments in the manifest.
+
+**Same-file** partials and sections are resolved automatically with no extra configuration.
+
+**Cross-file** partials and sections — where a partial defined in one file is imported and spread into a query in another file — require TypeScript module resolution to trace the imports. Pass `--tsconfig` pointing to your `tsconfig.json` to enable this:
+
+```sh
+npx gazania extract --tsconfig tsconfig.json
+```
+
+When `--tsconfig` is provided, files are processed in dependency order so that evaluated partials and sections are available when the importer files are evaluated.
+
+::: tip
+If you share partials or sections across multiple files, always pass `--tsconfig`. Without it, cross-file partial/section references are silently skipped and you may end up with incomplete manifests.
+:::
+
+### tsconfig requirements
+
+Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler"
+  },
+  "include": ["src"]
+}
+```
+
+If your project already has a `tsconfig.json`, you can point directly to it.
+
 ## Options
 
 ```
@@ -49,6 +82,7 @@ Options:
   -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
+  --tsconfig <path>      Path to tsconfig.json for cross-file partial/section resolution
   --silent               Suppress output
   -h, --help             Show help
 ```
@@ -77,6 +111,12 @@ npx gazania extract --output dist/persisted-queries.json
 
 ```sh
 npx gazania extract --algorithm sha512
+```
+
+**Enable cross-file partial/section tracking:**
+
+```sh
+npx gazania extract --tsconfig tsconfig.json
 ```
 
 ## Typical workflow
@@ -111,6 +151,7 @@ Each client has a different mechanism for persisted queries. Consult your client
 ## Behavior notes
 
 - **Static analysis only**: The extractor evaluates builder calls in a sandboxed VM. Builder chains that depend on runtime values are silently skipped.
+- **Partials and sections**: Same-file partials and sections are always resolved. Cross-file resolution requires `--tsconfig`.
 - **TypeScript files**: On Node.js 22.6+, TypeScript files are stripped of types before parsing. On older Node.js versions, only plain JavaScript files are scanned. For best results, run `extract` on Node.js 22.6+.
 - **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
