@@ -1,4 +1,4 @@
-# Example: Persisted Queries
+# Feature: Persisted Queries
 
 Demonstrates the full persisted queries workflow with Gazania.
 

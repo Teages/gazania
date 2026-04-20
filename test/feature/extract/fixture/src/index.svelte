@@ -14,7 +14,7 @@
       },
     ]),
   )
-  const _WithFragmentQuery = gazania.query('GetUsersWithFragment')
+  const _WithFragmentQuery = gazania.query('GetUsersWithFragment_Svelte')
     .select($ => $.select([{
       users: $ => $.select([
         ...UserPartial({}),

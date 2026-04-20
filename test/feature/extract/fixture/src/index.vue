@@ -15,7 +15,7 @@ const GetUsersQuery = gazania.query('GetUsers_Vue').select($ =>
   ]),
 )
 
-const _WithFragmentQuery = gazania.query('GetUsersWithFragment')
+const _WithFragmentQuery = gazania.query('GetUsersWithFragment_Vue')
   .select($ => $.select([{
     users: $ => $.select([
       ...UserPartial({}),

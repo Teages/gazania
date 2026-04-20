@@ -159,6 +159,9 @@ async function extractWithCrossFileResolution(
     exportMap: Map<string, string>
   }>()
 
+  // Track files that had unresolved imports during the first pass (circular deps)
+  const filesNeedingSecondPass = new Set<string>()
+
   for (const file of order) {
     const parsed = parsedFiles.get(file)
     if (!parsed) {
@@ -168,10 +171,12 @@ async function extractWithCrossFileResolution(
     // Build external bindings from resolved imports
     const externalBindings: Record<string, unknown> = {}
     const imports = fileImportsMap.get(file) || []
+    let hadMissingImport = false
 
     for (const imp of imports) {
       const sourceResult = fileBindings.get(imp.resolvedPath)
       if (!sourceResult) {
+        hadMissingImport = true
         continue
       }
 
@@ -182,6 +187,10 @@ async function extractWithCrossFileResolution(
       if (value !== undefined) {
         externalBindings[imp.localName] = value
       }
+    }
+
+    if (hadMissingImport) {
+      filesNeedingSecondPass.add(file)
     }
 
     // Evaluate all blocks in this file
@@ -219,6 +228,53 @@ async function extractWithCrossFileResolution(
       evaluatedBindings: mergedBindings,
       exportMap: mergedExportMap,
     })
+  }
+
+  // Second pass: re-evaluate files that had unresolved imports in the first pass
+  // (caused by circular dependencies where the dependency was processed later)
+  for (const file of filesNeedingSecondPass) {
+    const parsed = parsedFiles.get(file)
+    if (!parsed) {
+      continue
+    }
+
+    // Rebuild external bindings — all fileBindings are now complete
+    const externalBindings: Record<string, unknown> = {}
+    const imports = fileImportsMap.get(file) || []
+
+    for (const imp of imports) {
+      const sourceResult = fileBindings.get(imp.resolvedPath)
+      if (!sourceResult) {
+        continue
+      }
+
+      const localName = sourceResult.exportMap.get(imp.importedName) || imp.importedName
+      const value = sourceResult.evaluatedBindings[localName]
+
+      if (value !== undefined) {
+        externalBindings[imp.localName] = value
+      }
+    }
+
+    for (const block of parsed.blocks) {
+      const result = evaluateGazaniaExpressionsExtended(
+        block.code,
+        block.ast,
+        { externalBindings },
+      )
+
+      for (const docResult of result.documents) {
+        try {
+          const doc = JSON.parse(docResult.replacement) as DocumentNode
+          if (doc.kind === 'Document') {
+            addDocumentToManifest(manifest, doc, algorithm)
+          }
+        }
+        catch {
+          // Skip invalid results
+        }
+      }
+    }
   }
 
   return manifest
@@ -795,6 +851,83 @@ const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
       })
 
       expect(manifest.operations).toHaveProperty('SimpleQuery')
+    })
+
+    it('extracts operations that use cross-file partials when a circular dependency exists', async () => {
+      // Regression: index.ts exports the builder AND imports partials from fragments.ts,
+      // while fragments.ts imports the builder from index.ts — a circular dependency.
+      // The topological sort may process index.ts before fragments.ts, leaving partials
+      // unresolved on the first pass. A second pass is required to resolve the query.
+      await writeFile(
+        join(dir, 'src', 'index.ts'),
+        `import { createGazania } from 'gazania'
+import { userPartial } from './fragments'
+export const gazania = createGazania('https://example.com/graphql')
+export const GetUsersWithFragment = gazania.query('GetUsersWithFragment')
+  .select($ => $.select([{
+    users: $ => $.select([...userPartial({})]),
+  }]))`,
+      )
+      await writeFile(
+        join(dir, 'src', 'fragments.ts'),
+        `import { gazania } from './index'
+export const userPartial = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select(['id', 'name']))`,
+      )
+
+      const manifest = await extract({
+        dir: 'src',
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+      })
+
+      expect(manifest.operations).toHaveProperty('GetUsersWithFragment')
+      expect(manifest.operations.GetUsersWithFragment!.body).toContain('...UserFields')
+      expect(manifest.operations.GetUsersWithFragment!.body).toContain('fragment UserFields on User')
+    })
+
+    it('extracts operations from framework files (Vue/Svelte/React) that import gazania from a local module', async () => {
+      // Regression: Vue/Svelte/React files import `gazania` from a local module
+      // (e.g. `import { gazania } from './index'`) rather than from 'gazania'.
+      // Previously these files were skipped because evaluateGazaniaExpressions
+      // returned early when no `import from 'gazania'` was present.
+      await writeFile(
+        join(dir, 'src', 'index.ts'),
+        `import { createGazania } from 'gazania'
+export const gazania = createGazania('https://example.com/graphql')`,
+      )
+      await writeFile(
+        join(dir, 'src', 'App.vue'),
+        `<script setup lang="ts">
+import { gazania } from './index'
+const VueQuery = gazania.query('GetUsers_Vue').select($ => $.select(['id', 'name']))
+</script>
+<template><div /></template>`,
+      )
+      await writeFile(
+        join(dir, 'src', 'App.svelte'),
+        `<script lang="ts">
+import { gazania } from './index'
+const SvelteQuery = gazania.query('GetUsers_Svelte').select($ => $.select(['id', 'name']))
+</script>
+<main />`,
+      )
+      await writeFile(
+        join(dir, 'src', 'react.tsx'),
+        `import { gazania } from './index'
+const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', 'name']))`,
+      )
+
+      const manifest = await extract({
+        dir: 'src',
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+      })
+
+      expect(manifest.operations).toHaveProperty('GetUsers_Vue')
+      expect(manifest.operations).toHaveProperty('GetUsers_Svelte')
+      expect(manifest.operations).toHaveProperty('GetUsers_React')
     })
   })
 

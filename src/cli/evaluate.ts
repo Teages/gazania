@@ -92,6 +92,19 @@ function collectImports(
  *
  * The final method must be `.select(...)`.
  */
+
+/**
+ * Check if a value looks like a gazania builder instance (has query/mutation methods).
+ */
+function isGazaniaBuilderInstance(value: unknown): boolean {
+  return (
+    value != null
+    && typeof value === 'object'
+    && typeof (value as Record<string, unknown>).query === 'function'
+    && typeof (value as Record<string, unknown>).mutation === 'function'
+  )
+}
+
 function isGazaniaSelectCall(
   node: Node,
   builderNames: string[],
@@ -188,6 +201,7 @@ function preEvaluateVariables(
       // when evaluating e.g. `createGazania(API)`.
       if (decl.init.type === 'Literal') {
         context[decl.id.name] = decl.init.value
+        evaluatedBindings[decl.id.name] = decl.init.value
         continue
       }
 
@@ -203,6 +217,7 @@ function preEvaluateVariables(
           if (value) {
             context[decl.id.name] = value
             builderNames.push(decl.id.name)
+            evaluatedBindings[decl.id.name] = value
           }
         }
         catch {
@@ -265,10 +280,16 @@ export function evaluateGazaniaExpressionsExtended(
   if (options?.externalBindings) {
     for (const [name, value] of Object.entries(options.externalBindings)) {
       contextMap[name] = value
+      // Detect gazania builder instances from external bindings
+      // so that files importing gazania from other files (e.g., Vue/Svelte SFCs)
+      // are recognized as containing gazania expressions.
+      if (isGazaniaBuilderInstance(value)) {
+        builderNames.push(name)
+      }
     }
   }
 
-  if (!hasRelevantImport) {
+  if (!hasRelevantImport && builderNames.length === 0) {
     return { documents: [], evaluatedBindings: {}, exportMap: new Map() }
   }
 
@@ -633,6 +654,51 @@ const doc = gazania.query('GetUser')
       expect(parsed.kind).toBe('Document')
       expect(parsed.definitions).toHaveLength(2)
     })
+
+    it('recognizes gazania builder from externalBindings without a direct gazania import', async () => {
+      // Simulates Vue/Svelte/React files that import `gazania` from a local module
+      // (e.g. `import { gazania } from './index'`) rather than from 'gazania' package.
+      // The builder is injected via externalBindings; no `import from 'gazania'` present.
+      const gazaniaModule = await import('../index') as any
+      const builder = gazaniaModule.createGazania('https://example.com/graphql')
+
+      // No import from 'gazania' — only a local-variable reference to the injected builder
+      const code = `const doc = gazania.query('FrameworkQuery').select($ => $.select(['id', 'name']))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast, {
+        externalBindings: { gazania: builder },
+      })
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.kind).toBe('Document')
+      expect(parsed.definitions[0].name.value).toBe('FrameworkQuery')
+    })
+
+    it('uses cross-file partial when builder is injected via externalBindings', async () => {
+      // Simulates a Vue/Svelte/React file that:
+      // - imports `gazania` builder from index.ts (via externalBindings)
+      // - imports a partial from fragments.ts (via externalBindings)
+      const gazaniaModule = await import('../index') as any
+      const builder = gazaniaModule.createGazania('https://example.com/graphql')
+      const externalPartial = builder.partial('UserFields')
+        .on('User')
+        .select(($: any) => $.select(['id', 'name']))
+
+      const code = `const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([...userPartial({})]),
+  }]))`
+      const ast = await parseCode(code)
+      const results = evaluateGazaniaExpressions(code, ast, {
+        externalBindings: { gazania: builder, userPartial: externalPartial },
+      })
+
+      expect(results).toHaveLength(1)
+      const parsed = JSON.parse(results[0]!.replacement)
+      expect(parsed.kind).toBe('Document')
+      expect(parsed.definitions).toHaveLength(2) // operation + fragment
+    })
   })
 
   describe('evaluateGazaniaExpressionsExtended', () => {
@@ -697,6 +763,59 @@ const doc = gazania.query('GetUser')
       expect(parsed.kind).toBe('Document')
       // operation + 2 fragments
       expect(parsed.definitions).toHaveLength(3)
+    })
+
+    it('stores createGazania() result in evaluatedBindings for cross-file propagation', async () => {
+      // Regression: files that export a gazania builder via createGazania() need to expose
+      // it through evaluatedBindings so that other files (Vue/Svelte/React) that import it
+      // can have it injected via externalBindings.
+      const code = `import { createGazania } from 'gazania'
+export const gazania = createGazania('https://api.example.com/graphql')`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.evaluatedBindings).toHaveProperty('gazania')
+      expect(typeof (result.evaluatedBindings.gazania as any).query).toBe('function')
+      expect(typeof (result.evaluatedBindings.gazania as any).mutation).toBe('function')
+      expect(result.exportMap.get('gazania')).toBe('gazania')
+    })
+
+    it('stores literal values in evaluatedBindings for cross-file propagation', async () => {
+      // Regression: const API = 'https://...' should be available in evaluatedBindings
+      // so that downstream files can reference it (and createGazania(API) evaluates correctly).
+      const code = `import { createGazania } from 'gazania'
+export const API = 'https://api.example.com/graphql'
+export const gazania = createGazania(API)`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.evaluatedBindings).toHaveProperty('API', 'https://api.example.com/graphql')
+      expect(result.evaluatedBindings).toHaveProperty('gazania')
+    })
+
+    it('returns empty result when no gazania import and no externalBindings builder', async () => {
+      const code = `import { something } from './other'\nconst x = something.doThing()`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.documents).toHaveLength(0)
+      expect(result.evaluatedBindings).toEqual({})
+    })
+
+    it('proceeds when no direct gazania import but externalBindings contains a builder', async () => {
+      // This is the key scenario for Vue/Svelte/React files that import gazania from './index'
+      const gazaniaModule = await import('../index') as any
+      const builder = gazaniaModule.createGazania('https://api.example.com/graphql')
+
+      const code = `const doc = gazania.query('NoImportQuery').select($ => $.select(['id']))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast, {
+        externalBindings: { gazania: builder },
+      })
+
+      expect(result.documents).toHaveLength(1)
+      const parsed = JSON.parse(result.documents[0]!.replacement)
+      expect(parsed.definitions[0].name.value).toBe('NoImportQuery')
     })
   })
 }
