@@ -126,7 +126,7 @@ async function extractWithCrossFileResolution(
 ): Promise<ExtractResult> {
   const { createModuleResolver } = await import('./ts-program')
   const { getFileImports, topologicalSort } = await import('./dependency-graph')
-  const { evaluateGazaniaExpressionsExtended } = await import('../cli/evaluate')
+  const { evaluateGazaniaExpressionsExtended } = await import('./evaluate')
 
   const resolver = await createModuleResolver(tsconfigPath)
 
@@ -346,7 +346,7 @@ async function parseFile(filePath: string): Promise<ParsedFileBlocks | null> {
     return null
   }
 
-  const { getScriptBlocks } = await import('../cli/preprocess')
+  const { getScriptBlocks } = await import('./preprocess')
 
   const scriptBlocks = getScriptBlocks(rawCode, filePath)
   const blocks: ParsedBlock[] = []
@@ -440,7 +440,7 @@ async function extractFromFile(filePath: string): Promise<{ documents: DocumentN
     return { documents: [], skipped: [] }
   }
 
-  const { evaluateGazaniaExpressionsExtended } = await import('../cli/evaluate')
+  const { evaluateGazaniaExpressionsExtended } = await import('./evaluate')
   const documents: DocumentNode[] = []
   const skipped: SkippedExtraction[] = []
 

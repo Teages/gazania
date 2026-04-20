@@ -1,6 +1,6 @@
 import type { Node, Program } from 'estree'
 import type { ModuleResolver } from './ts-program'
-import { walkAST } from '../cli/walk'
+import { walkAST } from './walk'
 
 const GAZANIA_SPECIFIERS = new Set(['gazania'])
 
