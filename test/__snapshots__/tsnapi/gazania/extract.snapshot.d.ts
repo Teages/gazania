@@ -13,12 +13,21 @@ export interface ExtractOptions {
   cwd?: string;
   tsconfig?: string;
 }
+export interface ExtractResult {
+  manifest: ExtractManifest;
+  skipped: SkippedExtraction[];
+}
 export interface ManifestEntry {
   body: string;
   hash: string;
 }
+export interface SkippedExtraction {
+  file: string;
+  line: number;
+  reason: string;
+}
 // #endregion
 
 // #region Functions
-export declare function extract(_: ExtractOptions): Promise<ExtractManifest>;
+export declare function extract(_: ExtractOptions): Promise<ExtractResult>;
 // #endregion

@@ -18,6 +18,21 @@ export interface ExtractManifest {
   fragments: Record<string, ManifestEntry>
 }
 
+export interface SkippedExtraction {
+  /** Absolute path of the file containing the skipped call */
+  file: string
+  /** 1-based line number in the original source file */
+  line: number
+  /** Error message from the failed evaluation */
+  reason: string
+}
+
+export interface ExtractResult {
+  manifest: ExtractManifest
+  /** Gazania calls that were detected but could not be statically evaluated */
+  skipped: SkippedExtraction[]
+}
+
 export interface ExtractOptions {
   /** Directory to scan for source files. */
   dir: string
@@ -49,13 +64,13 @@ export interface ExtractOptions {
  * ```ts
  * import { extract } from 'gazania/extract'
  *
- * const manifest = await extract({ dir: 'src' })
+ * const { manifest } = await extract({ dir: 'src' })
  *
  * // With cross-file partial support:
- * const manifest = await extract({ dir: 'src', tsconfig: 'tsconfig.json' })
+ * const { manifest } = await extract({ dir: 'src', tsconfig: 'tsconfig.json' })
  * ```
  */
-export async function extract(options: ExtractOptions): Promise<ExtractManifest> {
+export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const {
     dir,
     include = '**/*.{ts,tsx,js,jsx,vue,svelte}',
@@ -81,20 +96,22 @@ export async function extract(options: ExtractOptions): Promise<ExtractManifest>
 async function extractPerFile(
   files: string[],
   algorithm: string,
-): Promise<ExtractManifest> {
+): Promise<ExtractResult> {
   const manifest: ExtractManifest = {
     operations: {},
     fragments: {},
   }
+  const allSkipped: SkippedExtraction[] = []
 
   for (const file of files) {
-    const documents = await extractFromFile(file)
+    const { documents, skipped } = await extractFromFile(file)
     for (const doc of documents) {
       addDocumentToManifest(manifest, doc, algorithm)
     }
+    allSkipped.push(...skipped)
   }
 
-  return manifest
+  return { manifest, skipped: allSkipped }
 }
 
 /**
@@ -106,7 +123,7 @@ async function extractWithCrossFileResolution(
   files: string[],
   algorithm: string,
   tsconfigPath: string,
-): Promise<ExtractManifest> {
+): Promise<ExtractResult> {
   const { createModuleResolver } = await import('./ts-program')
   const { getFileImports, topologicalSort } = await import('./dependency-graph')
   const { evaluateGazaniaExpressionsExtended } = await import('../cli/evaluate')
@@ -159,6 +176,10 @@ async function extractWithCrossFileResolution(
     exportMap: Map<string, string>
   }>()
 
+  // Stores skipped calls per file (keyed by file path); second-pass results
+  // overwrite first-pass results for files that had unresolved imports.
+  const fileSkipped = new Map<string, SkippedExtraction[]>()
+
   // Track files that had unresolved imports during the first pass (circular deps)
   const filesNeedingSecondPass = new Set<string>()
 
@@ -196,6 +217,7 @@ async function extractWithCrossFileResolution(
     // Evaluate all blocks in this file
     const mergedBindings: Record<string, unknown> = {}
     const mergedExportMap = new Map<string, string>()
+    const mergedSkipped: SkippedExtraction[] = []
 
     for (const block of parsed.blocks) {
       const result = evaluateGazaniaExpressionsExtended(
@@ -217,6 +239,15 @@ async function extractWithCrossFileResolution(
         }
       }
 
+      // Collect skipped calls with file + line info
+      for (const s of result.skipped) {
+        mergedSkipped.push({
+          file,
+          line: offsetToLine(block.code, s.start) + block.lineOffset,
+          reason: s.reason,
+        })
+      }
+
       // Merge bindings for other files to use
       Object.assign(mergedBindings, result.evaluatedBindings)
       for (const [k, v] of result.exportMap) {
@@ -224,6 +255,7 @@ async function extractWithCrossFileResolution(
       }
     }
 
+    fileSkipped.set(file, mergedSkipped)
     fileBindings.set(file, {
       evaluatedBindings: mergedBindings,
       exportMap: mergedExportMap,
@@ -274,15 +306,29 @@ async function extractWithCrossFileResolution(
           // Skip invalid results
         }
       }
+
+      // Second-pass skipped results overwrite the first-pass entries for this file
+      const secondPassSkipped: SkippedExtraction[] = []
+      for (const s of result.skipped) {
+        secondPassSkipped.push({
+          file,
+          line: offsetToLine(block.code, s.start) + block.lineOffset,
+          reason: s.reason,
+        })
+      }
+      fileSkipped.set(file, secondPassSkipped)
     }
   }
 
-  return manifest
+  const allSkipped = [...fileSkipped.values()].flat()
+  return { manifest, skipped: allSkipped }
 }
 
 interface ParsedBlock {
   code: string
   ast: Program
+  /** Line offset of this block within the original source file (see ScriptBlock.lineOffset) */
+  lineOffset: number
 }
 
 interface ParsedFileBlocks {
@@ -305,7 +351,7 @@ async function parseFile(filePath: string): Promise<ParsedFileBlocks | null> {
   const scriptBlocks = getScriptBlocks(rawCode, filePath)
   const blocks: ParsedBlock[] = []
 
-  for (const code of scriptBlocks) {
+  for (const { code, lineOffset } of scriptBlocks) {
     if (!code.includes('gazania')) {
       continue
     }
@@ -329,7 +375,7 @@ async function parseFile(filePath: string): Promise<ParsedFileBlocks | null> {
         continue
       }
 
-      blocks.push({ code: evalCode, ast: parseResult.program as unknown as Program })
+      blocks.push({ code: evalCode, ast: parseResult.program as unknown as Program, lineOffset })
     }
     catch {
       continue
@@ -381,21 +427,29 @@ async function walkDir(dir: string, extensions: Set<string>, results: string[]):
   }
 }
 
-async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
+/**
+ * Convert a character offset within a code string to a 1-based line number.
+ */
+function offsetToLine(code: string, offset: number): number {
+  return code.slice(0, offset).split('\n').length
+}
+
+async function extractFromFile(filePath: string): Promise<{ documents: DocumentNode[], skipped: SkippedExtraction[] }> {
   const parsed = await parseFile(filePath)
   if (!parsed) {
-    return []
+    return { documents: [], skipped: [] }
   }
 
-  const { evaluateGazaniaExpressions } = await import('../cli/evaluate')
+  const { evaluateGazaniaExpressionsExtended } = await import('../cli/evaluate')
   const documents: DocumentNode[] = []
+  const skipped: SkippedExtraction[] = []
 
   for (const block of parsed.blocks) {
-    const results = evaluateGazaniaExpressions(block.code, block.ast)
+    const result = evaluateGazaniaExpressionsExtended(block.code, block.ast)
 
-    for (const result of results) {
+    for (const docResult of result.documents) {
       try {
-        const doc = JSON.parse(result.replacement) as DocumentNode
+        const doc = JSON.parse(docResult.replacement) as DocumentNode
         if (doc.kind === 'Document') {
           documents.push(doc)
         }
@@ -404,9 +458,17 @@ async function extractFromFile(filePath: string): Promise<DocumentNode[]> {
         // Skip invalid results
       }
     }
+
+    for (const s of result.skipped) {
+      skipped.push({
+        file: filePath,
+        line: offsetToLine(block.code, s.start) + block.lineOffset,
+        reason: s.reason,
+      })
+    }
   }
 
-  return documents
+  return { documents, skipped }
 }
 
 function addDocumentToManifest(
@@ -475,7 +537,7 @@ if (import.meta.vitest) {
 
     it('returns an empty manifest when no gazania files found', async () => {
       await writeFile(join(dir, 'src', 'index.js'), `const x = 1`)
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toEqual({})
       expect(manifest.fragments).toEqual({})
     })
@@ -486,7 +548,7 @@ if (import.meta.vitest) {
         `import { gazania } from 'gazania'
 const doc = gazania.query('TestQuery').select($ => $.select(['id', 'name']))`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('TestQuery')
       expect(manifest.operations.TestQuery.body).toContain('query TestQuery')
       expect(manifest.operations.TestQuery.hash).toMatch(/^sha256:/)
@@ -500,7 +562,7 @@ const doc = gazania.mutation('CreateUser')
   .vars({ input: 'CreateUserInput!' })
   .select(($, vars) => $.select([{ createUser: $ => $.args({ input: vars.input }).select(['id']) }]))`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('CreateUser')
       expect(manifest.operations.CreateUser.body).toContain('mutation CreateUser')
     })
@@ -511,7 +573,7 @@ const doc = gazania.mutation('CreateUser')
         `import { gazania } from 'gazania'
 const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id', 'name']))`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.fragments).toHaveProperty('UserFields')
       expect(manifest.fragments.UserFields.body).toContain('fragment UserFields on User')
     })
@@ -519,14 +581,14 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
     it('extracts multiple queries from multiple files', async () => {
       await writeFile(join(dir, 'src', 'a.js'), `import { gazania } from 'gazania'\nconst doc = gazania.query('QueryA').select($ => $.select(['fieldA']))`)
       await writeFile(join(dir, 'src', 'b.js'), `import { gazania } from 'gazania'\nconst doc = gazania.query('QueryB').select($ => $.select(['fieldB']))`)
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('QueryA')
       expect(manifest.operations).toHaveProperty('QueryB')
     })
 
     it('handles files that cannot be parsed', async () => {
       await writeFile(join(dir, 'src', 'broken.js'), `this is not valid javascript {{{`)
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toEqual({})
     })
 
@@ -535,7 +597,7 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
         join(dir, 'src', 'query.js'),
         `import { gazania } from 'gazania'\nconst doc = gazania.query('TestQuery').select($ => $.select(['id']))`,
       )
-      const manifest = await extract({ dir: 'src', algorithm: 'md5', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', algorithm: 'md5', cwd: dir })
       expect(manifest.operations.TestQuery.hash).toMatch(/^md5:/)
     })
 
@@ -548,7 +610,7 @@ import { gazania } from 'gazania'
 const VueQuery = gazania.query('VueQuery').select($ => $.select(['id']))
 </script>`,
       )
-      const manifest = await extract({ dir: 'src', include: '**/*.{vue}', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', include: '**/*.{vue}', cwd: dir })
       expect(manifest.operations).toHaveProperty('VueQuery')
     })
 
@@ -565,7 +627,7 @@ import { gazania } from 'gazania'
 const VueSetupQuery = gazania.query('VueSetupQuery').select($ => $.select(['name']))
 </script>`,
       )
-      const manifest = await extract({ dir: 'src', include: '**/*.{vue}', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', include: '**/*.{vue}', cwd: dir })
       expect(manifest.fragments).toHaveProperty('VueFrag')
       expect(manifest.operations).toHaveProperty('VueSetupQuery')
     })
@@ -579,7 +641,7 @@ const SvelteQuery = gazania.query('SvelteQuery').select($ => $.select(['id']))
 </script>
 <main />`,
       )
-      const manifest = await extract({ dir: 'src', include: '**/*.{svelte}', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', include: '**/*.{svelte}', cwd: dir })
       expect(manifest.operations).toHaveProperty('SvelteQuery')
     })
 
@@ -591,7 +653,7 @@ const API: string = 'https://api.example.com/graphql'
 const gazania = createGazania(API)
 const TypedQuery = gazania.query('TypedQuery').select($ => $.select(['id']))`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('TypedQuery')
     })
 
@@ -605,7 +667,7 @@ const TsxQuery = gazania.query('TsxQuery').select($ => $.select(['id']))
 interface User { id: string }
 function App() { return <div /> }`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('TsxQuery')
     })
 
@@ -623,7 +685,7 @@ const doc = gazania.query('GetUser')
     ]),
   }]))`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('GetUser')
       expect(manifest.operations.GetUser.body).toContain('...UserFields')
       expect(manifest.operations.GetUser.body).toContain('fragment UserFields on User')
@@ -643,7 +705,7 @@ const doc = gazania.query('GetUser')
     ]),
   }]))`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('GetUser')
       expect(manifest.operations.GetUser.body).toContain('...UserFields')
     })
@@ -666,7 +728,7 @@ const doc = gazania.query('GetUser')
     ]),
   }]))`,
       )
-      const manifest = await extract({ dir: 'src', cwd: dir })
+      const { manifest } = await extract({ dir: 'src', cwd: dir })
       expect(manifest.operations).toHaveProperty('GetUser')
       expect(manifest.operations.GetUser.body).toContain('...UserName')
       expect(manifest.operations.GetUser.body).toContain('...UserEmail')
@@ -721,7 +783,7 @@ const doc = gazania.query('GetUser')
   }]))`,
       )
 
-      const manifest = await extract({
+      const { manifest } = await extract({
         dir: 'src',
         cwd: dir,
         tsconfig: 'tsconfig.json',
@@ -753,7 +815,7 @@ const doc = gazania.query('GetUser')
   }]))`,
       )
 
-      const manifest = await extract({
+      const { manifest } = await extract({
         dir: 'src',
         cwd: dir,
         tsconfig: 'tsconfig.json',
@@ -794,7 +856,7 @@ const doc = gazania.query('GetUser')
   }]))`,
       )
 
-      const manifest = await extract({
+      const { manifest } = await extract({
         dir: 'src',
         cwd: dir,
         tsconfig: 'tsconfig.json',
@@ -827,7 +889,7 @@ const doc = gazania.query('GetUser')
   }]))`,
       )
 
-      const manifest = await extract({
+      const { manifest } = await extract({
         dir: 'src',
         cwd: dir,
         tsconfig: 'tsconfig.json',
@@ -844,7 +906,7 @@ const doc = gazania.query('GetUser')
 const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
       )
 
-      const manifest = await extract({
+      const { manifest } = await extract({
         dir: 'src',
         cwd: dir,
         tsconfig: 'tsconfig.json',
@@ -876,7 +938,7 @@ export const userPartial = gazania.partial('UserFields')
   .select($ => $.select(['id', 'name']))`,
       )
 
-      const manifest = await extract({
+      const { manifest } = await extract({
         dir: 'src',
         cwd: dir,
         tsconfig: 'tsconfig.json',
@@ -919,7 +981,7 @@ const SvelteQuery = gazania.query('GetUsers_Svelte').select($ => $.select(['id',
 const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', 'name']))`,
       )
 
-      const manifest = await extract({
+      const { manifest } = await extract({
         dir: 'src',
         cwd: dir,
         tsconfig: 'tsconfig.json',
@@ -928,6 +990,118 @@ const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', '
       expect(manifest.operations).toHaveProperty('GetUsers_Vue')
       expect(manifest.operations).toHaveProperty('GetUsers_Svelte')
       expect(manifest.operations).toHaveProperty('GetUsers_React')
+    })
+  })
+
+  describe('extract: skipped calls', () => {
+    let dir: string
+
+    beforeEach(async () => {
+      dir = join(tmpdir(), `gazania-skipped-test-${Date.now()}`)
+      await mkdir(dir, { recursive: true })
+      await mkdir(join(dir, 'src'), { recursive: true })
+    })
+
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+
+    it('returns empty skipped array when all calls succeed', async () => {
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'\nconst doc = gazania.query('OkQuery').select($ => $.select(['id']))`,
+      )
+      const { skipped } = await extract({ dir: 'src', cwd: dir })
+      expect(skipped).toHaveLength(0)
+    })
+
+    it('returns a skipped entry when a call references an undefined variable', async () => {
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
+      )
+      const { manifest, skipped } = await extract({ dir: 'src', cwd: dir })
+      expect(manifest.operations).not.toHaveProperty('FailQuery')
+      expect(skipped).toHaveLength(1)
+      expect(skipped[0]!.reason).toMatch(/missingPartial is not defined/)
+    })
+
+    it('skipped entry includes the absolute file path', async () => {
+      const { join: pathJoin } = await import('node:path')
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'\nconst doc = gazania.query('X').select($ => $.select([...gone({})]))`,
+      )
+      const { skipped } = await extract({ dir: 'src', cwd: dir })
+      expect(skipped).toHaveLength(1)
+      expect(skipped[0]!.file).toBe(pathJoin(dir, 'src', 'query.js'))
+    })
+
+    it('skipped entry has a 1-based line number pointing to the failing call', async () => {
+      // Line 1: import
+      // Line 2: blank
+      // Line 3: the failing query (line 3)
+      await writeFile(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'\n\nconst doc = gazania.query('LineTest').select($ => $.select([...gone({})]))`,
+      )
+      const { skipped } = await extract({ dir: 'src', cwd: dir })
+      expect(skipped).toHaveLength(1)
+      expect(skipped[0]!.line).toBe(3)
+    })
+
+    it('skipped entry line number accounts for SFC lineOffset in Vue files', async () => {
+      // File layout (0-indexed from line 1):
+      //   Line 1: <template><div/></template>
+      //   Line 2: <script setup>
+      //   Line 3: import { gazania } from 'gazania'
+      //   Line 4: const doc = gazania.query(...)   ← expected line
+      const vue = `<template><div/></template>\n<script setup>\nimport { gazania } from 'gazania'\nconst doc = gazania.query('VueFail').select($ => $.select([...gone({})]))\n</script>`
+      await writeFile(join(dir, 'src', 'Comp.vue'), vue)
+      const { skipped } = await extract({ dir: 'src', cwd: dir })
+      expect(skipped).toHaveLength(1)
+      expect(skipped[0]!.line).toBe(4)
+    })
+
+    it('collects skipped calls from multiple files', async () => {
+      await writeFile(
+        join(dir, 'src', 'a.js'),
+        `import { gazania } from 'gazania'\nconst d = gazania.query('A').select($ => $.select([...x({})]))`,
+      )
+      await writeFile(
+        join(dir, 'src', 'b.js'),
+        `import { gazania } from 'gazania'\nconst d = gazania.query('B').select($ => $.select([...y({})]))`,
+      )
+      const { skipped } = await extract({ dir: 'src', cwd: dir })
+      expect(skipped).toHaveLength(2)
+      const files = skipped.map(s => s.file)
+      expect(files.some(f => f.endsWith('a.js'))).toBe(true)
+      expect(files.some(f => f.endsWith('b.js'))).toBe(true)
+    })
+
+    it('cross-file mode: skipped when imported file is outside the scanned directory', async () => {
+      // The fragments file is outside the `src/` scan root, so it is not
+      // collected by findFiles and therefore not available as a known file.
+      // Because the import cannot be resolved to a known file, the binding
+      // never appears in externalBindings and the query fails to evaluate.
+      await mkdir(join(dir, 'fragments'), { recursive: true })
+      await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: { target: 'esnext', moduleResolution: 'bundler' },
+        include: ['src', 'fragments'],
+      }))
+      await writeFile(
+        join(dir, 'fragments', 'user.ts'),
+        `import { gazania } from 'gazania'\nexport const myPartial = gazania.partial('User').on('User').select($ => $.select(['id']))`,
+      )
+      // query.ts imports from outside the scanned src/ directory
+      await writeFile(
+        join(dir, 'src', 'query.ts'),
+        `import { myPartial } from '../fragments/user'\nimport { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select([...myPartial({})]))`,
+      )
+      const { manifest, skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+      expect(manifest.operations).not.toHaveProperty('GetUser')
+      expect(skipped).toHaveLength(1)
+      expect(skipped[0]!.reason).toMatch(/myPartial is not defined/)
     })
   })
 

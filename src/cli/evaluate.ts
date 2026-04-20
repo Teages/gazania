@@ -21,6 +21,13 @@ export interface EvaluateOptions {
   externalBindings?: Record<string, unknown>
 }
 
+export interface SkippedCall {
+  /** Start character offset in the (transformed) code block */
+  start: number
+  /** Error message explaining why this call could not be evaluated */
+  reason: string
+}
+
 export interface EvaluateExtendedResult {
   /** DocumentNode replacements */
   documents: EvaluateResult[]
@@ -28,6 +35,12 @@ export interface EvaluateExtendedResult {
   evaluatedBindings: Record<string, unknown>
   /** Export name mapping: exportedName -> localVariableName */
   exportMap: Map<string, string>
+  /**
+   * Gazania `.select()` calls that were identified but could not be evaluated.
+   * These are silently skipped during extraction — callers can surface them as
+   * diagnostic warnings.
+   */
+  skipped: SkippedCall[]
 }
 
 /**
@@ -290,7 +303,7 @@ export function evaluateGazaniaExpressionsExtended(
   }
 
   if (!hasRelevantImport && builderNames.length === 0) {
-    return { documents: [], evaluatedBindings: {}, exportMap: new Map() }
+    return { documents: [], evaluatedBindings: {}, exportMap: new Map(), skipped: [] }
   }
 
   const context = createContext(contextMap)
@@ -301,6 +314,7 @@ export function evaluateGazaniaExpressionsExtended(
   preEvaluateVariables(code, ast, context, builderNames, namespace, evaluatedBindings)
 
   const results: EvaluateResult[] = []
+  const skipped: SkippedCall[] = []
 
   walkAST(ast, (node: Node) => {
     if (!isGazaniaSelectCall(node, builderNames, namespace)) {
@@ -319,15 +333,20 @@ export function evaluateGazaniaExpressionsExtended(
           replacement: JSON.stringify(value),
         })
       }
+      // Non-Document results (e.g. PartialPackage functions) are silently
+      // ignored — they are not extraction targets.
     }
-    catch {
-      // Silently skip expressions that rely on external context
+    catch (err) {
+      skipped.push({
+        start,
+        reason: err instanceof Error ? err.message : String(err),
+      })
     }
   })
 
   const exportMap = collectExports(ast)
 
-  return { documents: results, evaluatedBindings, exportMap }
+  return { documents: results, evaluatedBindings, exportMap, skipped }
 }
 
 /**
@@ -800,6 +819,72 @@ export const gazania = createGazania(API)`
 
       expect(result.documents).toHaveLength(0)
       expect(result.evaluatedBindings).toEqual({})
+    })
+
+    it('returns empty skipped array when all calls succeed', async () => {
+      const code = `import { gazania } from 'gazania'
+const doc = gazania.query('OkQuery').select($ => $.select(['id']))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.documents).toHaveLength(1)
+      expect(result.skipped).toHaveLength(0)
+    })
+
+    it('populates skipped when a call references an undefined variable', async () => {
+      const code = `import { gazania } from 'gazania'
+const doc = gazania.query('FailQuery')
+  .select($ => $.select([...undefinedPartial({})]))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.documents).toHaveLength(0)
+      expect(result.skipped).toHaveLength(1)
+      expect(result.skipped[0]!.reason).toMatch(/undefinedPartial is not defined/)
+    })
+
+    it('skipped entry has correct start offset pointing into the code', async () => {
+      const code = `import { gazania } from 'gazania'
+const doc = gazania.query('FailQuery').select($ => $.select([...missing({})]))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.skipped).toHaveLength(1)
+      const { start } = result.skipped[0]!
+      // The slice at `start` should begin the gazania call expression
+      expect(code.slice(start)).toContain('gazania.query')
+    })
+
+    it('does not add partial chains to skipped (they go to evaluatedBindings)', async () => {
+      // A partial .select() call is successfully evaluated and stored in evaluatedBindings.
+      // It should not appear in skipped even though it is not a DocumentNode.
+      const code = `import { gazania } from 'gazania'
+const myPartial = gazania.partial('MyFields').on('User').select($ => $.select(['id']))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.skipped).toHaveLength(0)
+      expect(result.evaluatedBindings).toHaveProperty('myPartial')
+    })
+
+    it('records multiple skipped entries when multiple calls fail', async () => {
+      const code = `import { gazania } from 'gazania'
+const a = gazania.query('A').select($ => $.select([...missingA({})]))
+const b = gazania.query('B').select($ => $.select([...missingB({})]))`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.skipped).toHaveLength(2)
+      expect(result.skipped[0]!.reason).toMatch(/missingA is not defined/)
+      expect(result.skipped[1]!.reason).toMatch(/missingB is not defined/)
+    })
+
+    it('returns empty skipped array when gazania is not imported', async () => {
+      const code = `const x = 1`
+      const ast = await parseCode(code)
+      const result = evaluateGazaniaExpressionsExtended(code, ast)
+
+      expect(result.skipped).toHaveLength(0)
     })
 
     it('proceeds when no direct gazania import but externalBindings contains a builder', async () => {
