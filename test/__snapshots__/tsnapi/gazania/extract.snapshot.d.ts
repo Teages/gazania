@@ -11,6 +11,7 @@ export interface ExtractOptions {
   include?: string;
   algorithm?: string;
   cwd?: string;
+  tsconfig?: string;
 }
 export interface ManifestEntry {
   body: string;

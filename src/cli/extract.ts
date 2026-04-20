@@ -29,7 +29,7 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
   const totalFound
     = Object.keys(manifest.operations).length
-    + Object.keys(manifest.fragments).length
+      + Object.keys(manifest.fragments).length
 
   log(`Extracted ${totalFound} GraphQL document(s).`)
 

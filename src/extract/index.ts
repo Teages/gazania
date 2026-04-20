@@ -1,5 +1,5 @@
-import type { DocumentNode } from 'graphql'
 import type { Program } from 'estree'
+import type { DocumentNode } from 'graphql'
 import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'

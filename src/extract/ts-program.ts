@@ -5,7 +5,7 @@ export interface ModuleResolver {
    * Resolve an import specifier to an absolute file path.
    * Returns `undefined` if the module cannot be resolved.
    */
-  resolve(modulePath: string, fromFile: string): string | undefined
+  resolve: (modulePath: string, fromFile: string) => string | undefined
 }
 
 /**
@@ -54,8 +54,11 @@ export async function createModuleResolver(tsconfigPath: string): Promise<Module
 
 if (import.meta.vitest) {
   const { describe, it, expect, beforeEach, afterEach } = import.meta.vitest
+  // eslint-disable-next-line antfu/no-top-level-await
   const { mkdir, rm, writeFile } = await import('node:fs/promises')
+  // eslint-disable-next-line antfu/no-top-level-await
   const { tmpdir } = await import('node:os')
+  // eslint-disable-next-line antfu/no-top-level-await
   const { join } = await import('node:path')
 
   describe('createModuleResolver', () => {
