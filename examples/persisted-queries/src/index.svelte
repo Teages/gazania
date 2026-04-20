@@ -1,11 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { createClient } from '@teages/oh-my-graphql'
-  import { createGazania } from 'gazania'
-
-  const API = 'https://graphql-test.teages.xyz/graphql-user-apq'
-  const client = createClient(API, { persistedQueries: { autoRetry: true } })
-  const gazania = createGazania(API)
+  import { UserPartial, UserSection } from './fragments'
+  import { client, gazania } from './index'
 
   let users: Array<{ id: string; name: string }> = []
   let loading = true
@@ -18,6 +14,13 @@
       },
     ]),
   )
+  const _WithFragmentQuery = gazania.query('GetUsersWithFragment')
+    .select($ => $.select([{
+      users: $ => $.select([
+        ...UserPartial({}),
+        ...UserSection({}),
+      ]),
+    }]))
 
   onMount(async () => {
     try {

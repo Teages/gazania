@@ -1,11 +1,7 @@
-import { createClient } from '@teages/oh-my-graphql'
-import { createGazania } from 'gazania'
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
-
-const API = 'https://graphql-test.teages.xyz/graphql-user-apq'
-const client = createClient(API, { persistedQueries: { autoRetry: true } })
-const gazania = createGazania(API)
+import { UserPartial, UserSection } from './fragments'
+import { client, gazania } from './index'
 
 const GetUsersQuery = gazania.query('GetUsers_React').select($ =>
   $.select([
@@ -14,6 +10,14 @@ const GetUsersQuery = gazania.query('GetUsers_React').select($ =>
     },
   ]),
 )
+
+const _WithFragmentQuery = gazania.query('GetUsersWithFragment')
+  .select($ => $.select([{
+    users: $ => $.select([
+      ...UserPartial({}),
+      ...UserSection({}),
+    ]),
+  }]))
 
 interface User {
   id: string
