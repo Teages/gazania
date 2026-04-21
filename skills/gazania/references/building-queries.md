@@ -56,10 +56,12 @@ Variables with a default value or without `!` are optional in the resulting Type
 
 ## Selection syntax
 
-`.select()` takes an array. Each element is either:
+`.select()` takes an array with this exact structure:
 
-- **A string** — selects a scalar field by name (`'id'`, `'name'`)
-- **An object** — maps field names to callbacks for nested selections or arguments
+- **Leading elements**: scalar field strings only (`'id'`, `'name'`, `'__typename'`)
+- **Final element (optional)**: one object that maps field names to callbacks for nested selections or arguments
+
+When you need multiple nested fields, put all of them in that single final object.
 
 The `$` in a field callback is a **field dollar** with `.args()`, `.select()`, `.directives()`, and `.enum()`:
 
@@ -67,6 +69,11 @@ The `$` in a field callback is a **field dollar** with `.args()`, `.select()`, `
 $.select(['id', 'name', {
   address: a => a.select(['city', 'country']), // nested object
   hello: $ => $.args({ name: 'world' }), // scalar with args (no .select() needed)
+}])
+
+$.select(['id', 'name', '__typename', {
+  profile: p => p.select(['avatarUrl']),
+  stats: s => s.select(['followers', 'following']),
 }])
 ```
 

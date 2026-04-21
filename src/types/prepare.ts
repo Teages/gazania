@@ -1,5 +1,5 @@
 import type { PrepareSelectionArgument } from './argument'
-import type { BaseObject, BaseScalar, BaseType, Field } from './define'
+import type { BaseObject, BaseScalar, BaseType, Field, Input } from './define'
 import type { ObjectFieldDollar, ScalarFieldDollar, TypedScalarSelection, TypedSelectionSet } from './dollar'
 import type { PartialSpreadSelection } from './masking'
 import type { TypenameField } from './utils'
@@ -45,7 +45,7 @@ export type ObjectSelectionOnFields<
     (string extends keyof Fields
       // eslint-disable-next-line ts/no-empty-object-type
       ? {}
-      : { [K in keyof Fields as WithAlias<K>]?: SelectionOnField<Fields[K]> })
+      : { [K in keyof Fields as WithAlias<K>]?: Fields[K] extends Field<any, any> ? SelectionOnField<Fields[K]> : never })
     & { [K in '__typename' as WithAlias<K>]?: SelectionOnField<TypenameField<Name>> })
   : never
 
@@ -62,11 +62,14 @@ export type ObjectSelectionOnInlineFragments<
     & { '...'?: SelectionFnOnInlineFragment<T> })
   : never
 
-export type SelectionOnField<T extends Field<any, any, any>>
-  = T extends Field<any, infer Type, infer Arguments>
-    ? | SelectionSimplyOnField<Type, PrepareSelectionArgument<Arguments>>
-    | SelectionFnOnField<Type, PrepareSelectionArgument<Arguments>>
+export type SelectionOnField<T extends Field<any, any>>
+  = T extends Field<infer FieldType, infer Arguments>
+    ? | SelectionSimplyOnField<BaseOf<FieldType>, PrepareSelectionArgument<Arguments>>
+    | SelectionFnOnField<BaseOf<FieldType>, PrepareSelectionArgument<Arguments>>
     : never
+
+// Extract the base BaseType by unwrapping Array and null
+type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable<T>
 
 // Simple (true) is only allowed for scalar fields with no required args
 export type SelectionSimplyOnField<

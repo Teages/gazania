@@ -52,3 +52,7 @@ The manifest maps each operation name to its printed query body and SHA-256 hash
 ```
 
 This file can be uploaded to your GraphQL server's trusted document allowlist.
+
+## Useful Commands
+
+- update schema: `gazania generate --schema https://graphql-test.teages.xyz/graphql-user-apq --output test/feature/extract/fixture/src/schema.ts`

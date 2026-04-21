@@ -47,6 +47,15 @@ Then run without arguments:
 npx gazania generate
 ```
 
+> **Important:** Add the generated schema file to `.gitignore`. Do **not** commit it to version control.
+> The format of generated schema files is not considered stable — it may change across Gazania releases
+> without a semver major bump for the package. Regenerate the file as part of your build or CI pipeline instead.
+>
+> ```
+> # .gitignore
+> src/schema.ts
+> ```
+
 #### Authenticated endpoints
 
 ```ts
