@@ -1,6 +1,38 @@
 # Changelog
 
 
+## v0.9.0
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.8.0...v0.9.0)
+
+### 🚀 Enhancements
+
+- Extract querys with static analysic ([#1](https://github.com/Teages/gazania/pull/1))
+
+### 🩹 Fixes
+
+- **types:** Unwrap enum input type for variables in `RequireInput` ([9e6a39b](https://github.com/Teages/gazania/commit/9e6a39b))
+
+### 💅 Refactors
+
+- ⚠️  Replace string-based modifiers with native ts types ([#4](https://github.com/Teages/gazania/pull/4))
+
+### 📖 Documentation
+
+- Add persisted queries reference skill and link it from Gazania skill docs ([4c23d05](https://github.com/Teages/gazania/commit/4c23d05))
+
+### 🏡 Chore
+
+- **lint:** Clean up type imports and reuse `BaseOf` type ([efb6ed7](https://github.com/Teages/gazania/commit/efb6ed7))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Replace string-based modifiers with native ts types ([#4](https://github.com/Teages/gazania/pull/4))
+
+### ❤️ Contributors
+
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.8.0
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.0.2...v0.8.0)
