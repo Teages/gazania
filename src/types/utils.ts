@@ -10,7 +10,7 @@ import type { AcceptVariable } from './variable'
  * Extract the base BaseType from a field/input type (unwrap Array and null).
  * e.g. (Type_User | null)[] | null  →  Type_User
  */
-type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable<T>
+export type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable<T>
 
 /**
  * Apply the null/array wrapper of FieldType onto result U.

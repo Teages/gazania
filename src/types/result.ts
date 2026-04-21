@@ -1,7 +1,7 @@
 import type { BaseObject, BaseScalar, BaseType, Field } from './define'
 import type { ExtractPartialSpreadFragmentRefs, ExtractSectionSpreadResults, OmitPartialSpreadKeys, OmitSectionSpreadKeys } from './masking'
 import type { TypedScalarSelection, TypedSelectionSet } from './selection'
-import type { Expand, FlatRecord, IntersectionAvoidEmpty, MayBePartial, Trim, Typename, UnionToIntersection, Values, WrapFieldResult } from './utils'
+import type { BaseOf, Expand, FlatRecord, IntersectionAvoidEmpty, MayBePartial, Trim, Typename, UnionToIntersection, Values, WrapFieldResult } from './utils'
 
 export type ParseSelection<
   T extends BaseType<any, any> | undefined,
@@ -67,9 +67,6 @@ export type ParseObjectSelectionContextFields<
         : ParseObjectSelectionContextField<Fields[ParseSelectionName<K & string>['Field']], SelectionObject[K]>
     }
   : never
-
-// Extract the base BaseType by unwrapping Array and null/undefined wrappers
-type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable<T>
 
 export type ParseObjectSelectionContextField<
   T extends Field<any, any>,

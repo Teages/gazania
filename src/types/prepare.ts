@@ -1,8 +1,8 @@
 import type { PrepareSelectionArgument } from './argument'
-import type { BaseObject, BaseScalar, BaseType, Field, Input } from './define'
+import type { BaseObject, BaseScalar, BaseType, Field } from './define'
 import type { ObjectFieldDollar, ScalarFieldDollar, TypedScalarSelection, TypedSelectionSet } from './dollar'
 import type { PartialSpreadSelection } from './masking'
-import type { TypenameField } from './utils'
+import type { BaseOf, TypenameField } from './utils'
 
 /**
  * Produces the selection shape for a given schema type.
@@ -67,9 +67,6 @@ export type SelectionOnField<T extends Field<any, any>>
     ? | SelectionSimplyOnField<BaseOf<FieldType>, PrepareSelectionArgument<Arguments>>
     | SelectionFnOnField<BaseOf<FieldType>, PrepareSelectionArgument<Arguments>>
     : never
-
-// Extract the base BaseType by unwrapping Array and null
-type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable<T>
 
 // Simple (true) is only allowed for scalar fields with no required args
 export type SelectionSimplyOnField<
