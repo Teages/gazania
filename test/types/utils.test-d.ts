@@ -12,6 +12,7 @@ import type {
   Scalar_Float,
   Scalar_ID,
   Scalar_Int,
+  Scalar_MaybeInt,
   Scalar_String,
   Schema,
   Type_Mutation,
@@ -81,6 +82,13 @@ describe('types/utils', () => {
         | { category: 'funny' | 'jokes' | 'serious', content: string }[]
         | { category: 'funny' | 'jokes' | 'serious', content: string }
     >()
+    // Scalar whose own Input type includes null:
+    // MaybeInt! → scalar's own null is preserved (not a nullable field wrapper)
+    expectTypeOf<RequireInput<Input<Scalar_MaybeInt>>>()
+      .toEqualTypeOf<number | null>()
+    // MaybeInt  → nullable field adds | undefined on top of scalar's own null
+    expectTypeOf<RequireInput<Input<Scalar_MaybeInt | null>>>()
+      .toEqualTypeOf<number | null | undefined>()
   })
 
   test('RequireInputOrVariable', () => {
@@ -152,6 +160,14 @@ describe('types/utils', () => {
     // invalid (never base) stays never
     expectTypeOf<WrapFieldResult<never, string>>()
       .toEqualTypeOf<never>()
+    // Scalar with nullable Output (e.g. ScalarType<'MaybeInt', number | null, ...>):
+    // The field wrapper null is separate from the scalar's own null.
+    // MaybeInt! field: U = number | null, no | undefined added (non-null field)
+    expectTypeOf<WrapFieldResult<Scalar_MaybeInt, number | null>>()
+      .toEqualTypeOf<number | null>()
+    // MaybeInt field: U = number | null, plus | undefined (nullable field → absent)
+    expectTypeOf<WrapFieldResult<Scalar_MaybeInt | null, number | null>>()
+      .toEqualTypeOf<number | null | undefined>()
   })
 
   test('SchemaRequire', () => {
@@ -175,5 +191,11 @@ describe('types/utils', () => {
 
     expectTypeOf<SchemaRequire<TypedGazania<Schema>, 'SayingDataInput!'>>()
       .toEqualTypeOf<{ category: 'funny' | 'jokes' | 'serious', content: string }>()
+    // Nullable-output scalar: MaybeInt! field → scalar's own null comes through
+    expectTypeOf<SchemaRequire<TypedGazania<Schema>, 'MaybeInt!'>>()
+      .toEqualTypeOf<number | null>()
+    // Nullable field + nullable-output scalar: MaybeInt → also | undefined
+    expectTypeOf<SchemaRequire<TypedGazania<Schema>, 'MaybeInt'>>()
+      .toEqualTypeOf<number | null | undefined>()
   })
 })

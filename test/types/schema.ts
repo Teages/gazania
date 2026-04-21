@@ -11,6 +11,7 @@ export type Scalar_String = ScalarType<'String', string, string>
 export type Scalar_Boolean = ScalarType<'Boolean', boolean, boolean>
 export type Scalar_ID = ScalarType<'ID', string | number, string | number>
 export type Scalar_Date = ScalarType<'Date', string, string>
+export type Scalar_MaybeInt = ScalarType<'MaybeInt', number | null, number | null>
 
 export type Enum_CategoryEnum = EnumType<'CategoryEnum', CategoryEnum>
 
@@ -88,6 +89,7 @@ export type Schema = DefineSchema<{
   Boolean: Scalar_Boolean
   ID: Scalar_ID
   Date: Scalar_Date
+  MaybeInt: Scalar_MaybeInt
 
   CategoryEnum: Enum_CategoryEnum
 
