@@ -160,6 +160,15 @@ const code = printSchema(schemaData)
 
 4. **Regenerate on schema changes**: re-run the generate command when the schema changes.
 
+::: warning Do not commit the generated schema file
+Add the generated file to `.gitignore` and regenerate it automatically in your build or CI pipeline. The format of generated schema files is **not** a stability guarantee — it may change in any Gazania release. Only the runtime API (`gazania.query()`, `QueryResult`, `createGazania`, etc.) follows semver.
+
+```
+# .gitignore
+src/schema.ts
+```
+:::
+
 ::: tip
 Add `npx gazania generate` to your build scripts or CI pipeline to ensure types stay in sync with the schema.
 :::

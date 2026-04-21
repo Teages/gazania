@@ -43,6 +43,15 @@ npx gazania generate --schema schema.graphql --output src/schema.ts
 
 This writes a TypeScript file with all the type definitions from your schema. See [Workflows](/get-started/workflows) for more on schema generation and configuration.
 
+::: warning Do not commit the generated schema file
+Add the output file to `.gitignore`. The format of generated schema files is **not** a stability guarantee — it may change in any Gazania release without a major version bump. Regenerate as part of your build or CI pipeline.
+
+```
+# .gitignore
+src/schema.ts
+```
+:::
+
 ## Basic setup
 
 Import the generated types and pass them to `createGazania`:

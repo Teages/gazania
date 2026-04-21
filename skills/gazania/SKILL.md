@@ -138,3 +138,4 @@ Always follow these rules when writing Gazania code:
 - For fragment masking: type props with `FragmentOf<typeof partial>` and access data via `readFragment()`
 - Config file should be named `gazania.config.ts` (Node.js >= 22.6) or `gazania.config.js`
 - **NEVER** use external variables or functions inside selection builders, the query **MUST BE** standalone and statically analyzable
+- **NEVER** commit the generated schema file to git — add it to `.gitignore` and regenerate in CI/build. The generated format is not a stability guarantee and may change in any Gazania release
