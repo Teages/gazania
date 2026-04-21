@@ -55,7 +55,7 @@ export function printSchema(schemaData: SchemaData, options: GenerateOptions & {
     push(
       `type ${nameMap.get(name)} = InputObjectType<'${name}', {`,
       ...Object.entries(args).map(
-        ([key, val]) => `  ${key}: Input<'${val}', ${nameMap.get(removeModifier(val))}>`,
+        ([key, val]) => `  ${key}: Input<${modifierToTypeStr(val, nameMap)}>`,
       ),
       `}>`,
       '',
@@ -72,16 +72,16 @@ export function printSchema(schemaData: SchemaData, options: GenerateOptions & {
     for (const { name: fieldName, res, args } of fields) {
       if (Object.keys(args).length > 0) {
         push(
-          `  ${fieldName}: Field<'${res}', ${nameMap.get(removeModifier(res))}, {`,
+          `  ${fieldName}: Field<${modifierToTypeStr(res, nameMap)}, {`,
           ...Object.entries(args).map(
-            ([key, val]) => `    ${key}: Input<'${val}', ${nameMap.get(removeModifier(val))}>`,
+            ([key, val]) => `    ${key}: Input<${modifierToTypeStr(val, nameMap)}>`,
           ),
           `  }>`,
         )
         helpers.add('Input')
       }
       else {
-        push(`  ${fieldName}: Field<'${res}', ${nameMap.get(removeModifier(res))}>`)
+        push(`  ${fieldName}: Field<${modifierToTypeStr(res, nameMap)}>`)
       }
       helpers.add('Field')
     }
@@ -115,7 +115,7 @@ export function printSchema(schemaData: SchemaData, options: GenerateOptions & {
 
     push(
       `type ${nameMap.get(name)} = InterfaceType<'${name}', {`,
-      ...fields.map(({ name: fn, res }) => `  ${fn}: Field<'${res}', ${nameMap.get(removeModifier(res))}>`),
+      ...fields.map(({ name: fn, res }) => `  ${fn}: Field<${modifierToTypeStr(res, nameMap)}>`),
       `}, {`,
       ...Array.from(entities).map(k => `  ${k}: ${nameMap.get(k)}`),
       `}>`,
@@ -193,14 +193,29 @@ export function printSchema(schemaData: SchemaData, options: GenerateOptions & {
   return lines.join('\n')
 }
 
-function removeModifier(str: string): string {
-  if (str.endsWith('!')) {
-    return removeModifier(str.slice(0, -1))
+/**
+ * Convert a GraphQL modifier string to a TypeScript type string using the name map.
+ * e.g. '[User!]!' → 'Type_User[]'
+ *      '[User]!'  → '(Type_User | null)[]'
+ *      'User'     → 'Type_User | null'
+ *      'String!'  → 'Scalar_String'
+ */
+function modifierToTypeStr(modifier: string, nameMap: Map<string, string>): string {
+  return _modifierToTypeHelper(modifier, false, nameMap)
+}
+
+function _modifierToTypeHelper(modifier: string, nonNull: boolean, nameMap: Map<string, string>): string {
+  if (modifier.endsWith('!')) {
+    return _modifierToTypeHelper(modifier.slice(0, -1), true, nameMap)
   }
-  if (str.startsWith('[') && str.endsWith(']')) {
-    return removeModifier(str.slice(1, -1))
+  if (modifier.startsWith('[') && modifier.endsWith(']')) {
+    const inner = _modifierToTypeHelper(modifier.slice(1, -1), false, nameMap)
+    const elementType = inner.includes(' | ') ? `(${inner})` : inner
+    return nonNull ? `${elementType}[]` : `${elementType}[] | null`
   }
-  return str
+  // Base type
+  const tsName = nameMap.get(modifier) ?? modifier
+  return nonNull ? tsName : `${tsName} | null`
 }
 
 if (import.meta.vitest) {

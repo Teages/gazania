@@ -1,5 +1,5 @@
 import type { Input } from './define'
-import type { FindType, ModifiedName, RelaxedOptional, RequireInput } from './utils'
+import type { ModifierToType, RelaxedOptional, RequireInput } from './utils'
 
 declare const VariableIdentitySymbol: unique symbol
 
@@ -77,4 +77,4 @@ export type RequireVariables<Schema, T extends VariablesDefinition<string>> = Re
 }>
 
 type RequireVariable<Schema, Modifier extends string>
-  = RequireInput<Input<Modifier, FindType<Schema, ModifiedName<Modifier>>>>
+  = RequireInput<Input<ModifierToType<Schema, Modifier>>>

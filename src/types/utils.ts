@@ -2,6 +2,57 @@ import type { TypedGazania } from './builder'
 import type { BaseObject, BaseScalar, BaseType, DefineSchema, Field, Input, InputObjectType, ScalarType } from './define'
 import type { AcceptVariable } from './variable'
 
+// ---------------------------------------------------------------------------
+// Internal helpers for structural field-type analysis
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the base BaseType from a field/input type (unwrap Array and null).
+ * e.g. (Type_User | null)[] | null  →  Type_User
+ */
+type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable<T>
+
+/**
+ * Apply the null/array wrapper of FieldType onto result U.
+ * e.g. WrapFieldResult<(Type_User | null)[] | null, {name: string}>
+ *      → ({ name: string } | null)[] | null
+ */
+export type WrapFieldResult<FieldType, U>
+  = [FieldType] extends [never]
+    ? never
+    : null extends FieldType
+      ? WrapFieldResult<NonNullable<FieldType>, U> | null
+      : FieldType extends Array<infer Item>
+        ? Array<WrapFieldResult<Item, U>>
+        : U // base type → substitute with result
+
+/**
+ * Convert a TypeScript field type back to a GraphQL modifier string.
+ * Used to verify variable compatibility.
+ * e.g. Scalar_String[]  →  '[String!]!'
+ *      Scalar_String | null  →  'String'
+ */
+type TypeToModifier<T>
+  = [T] extends [never]
+    ? never
+    : null extends T
+      ? _TypeToModifierNullable<NonNullable<T>>
+      : _TypeToModifierNonNull<T>
+
+type _TypeToModifierNullable<T>
+  = T extends Array<infer U>
+    ? `[${TypeToModifier<U>}]`
+    : T extends BaseType<any, infer Name>
+      ? Name
+      : never
+
+type _TypeToModifierNonNull<T>
+  = T extends Array<infer U>
+    ? `[${TypeToModifier<U>}]!`
+    : T extends BaseType<any, infer Name>
+      ? `${Name}!`
+      : never
+
 /**
  * Flatten an intersection of record types into a single record.
  */
@@ -91,7 +142,7 @@ export type IntersectionAvoidEmpty<T, U>
       : T & U
 
 export type TypenameField<Name extends string>
-  = Field<'String!', ScalarType<'String', Name, Name>>
+  = Field<ScalarType<'String', Name, Name>>
 
 export type Typename<T extends BaseType<any, any>>
   = T extends BaseObject<infer Name, any, infer Implements>
@@ -100,6 +151,11 @@ export type Typename<T extends BaseType<any, any>>
       : keyof Implements
     : never
 
+/**
+ * Extract the base type name from a GraphQL modifier string.
+ * Still needed by the variable declaration system (.vars({ a: 'String!' })).
+ * e.g. '[String!]!' → 'String'
+ */
 export type ModifiedName<Modifier extends string>
   = Modifier extends `${string}!!`
     ? never
@@ -116,75 +172,98 @@ export type FindType<Schema, Name extends string>
       : never
     : never
 
+/**
+ * Convert a GraphQL modifier string + schema into a native TypeScript type.
+ * Used by the variable declaration system to convert '.vars({ a: "Int!" })'
+ * into a concrete TypeScript type.
+ * e.g. 'Int!'         → Scalar_Int
+ *      'Int'          → Scalar_Int | null
+ *      '[Int!]!'      → Scalar_Int[]
+ *      '[Int]!'       → (Scalar_Int | null)[]
+ *      '[Int!]'       → Scalar_Int[] | null
+ *      '[Int]'        → (Scalar_Int | null)[] | null
+ */
+export type ModifierToType<Schema, Modifier extends string>
+  = _ModifierToTypeHelper<Schema, Modifier, false>
+
+type _ModifierToTypeHelper<Schema, Modifier extends string, NonNull extends boolean>
+  = Modifier extends `${string}!!`
+    ? never
+    : Modifier extends `${infer F}!`
+      ? _ModifierToTypeHelper<Schema, F, true>
+      : Modifier extends `[${infer F}]`
+        ? _ListModifierToType<Schema, F, NonNull>
+        : _BaseModifierToType<Schema, Modifier, NonNull>
+
+type _ListModifierToType<Schema, ItemModifier extends string, NonNull extends boolean>
+  = _ModifierToTypeHelper<Schema, ItemModifier, false> extends never
+    ? never
+    : NonNull extends true
+      ? Array<_ModifierToTypeHelper<Schema, ItemModifier, false>>
+      : Array<_ModifierToTypeHelper<Schema, ItemModifier, false>> | null
+
+type _BaseModifierToType<Schema, Name extends string, NonNull extends boolean>
+  = FindType<Schema, Name> extends never
+    ? never
+    : NonNull extends true
+      ? FindType<Schema, Name>
+      : FindType<Schema, Name> | null
+
 // Unwrap EnumPackage<T> → T for use in variable types (plain strings, not builders)
 type UnpackEnumInput<T> = T extends (() => infer U extends string) ? U : T
 
-export type RequireInput<T extends Input<any, any>>
-  = T extends Input<infer Modifier, infer Type>
-    ? Type extends BaseScalar<any, any, infer InputType>
-      ? ParseInputModifier<Modifier, Type, UnpackEnumInput<InputType>>
-      : Type extends InputObjectType<any, infer Fields>
-        ? ParseInputModifier<Modifier, Type, { [K in keyof Fields]: RequireInput<Fields[K]> }>
-        : never
+/**
+ * Compute the required TypeScript type for a field Input<T>.
+ * Handles null propagation, array coercion (single item accepted for lists),
+ * and enum unpacking.
+ */
+export type RequireInput<T extends Input<any>>
+  = T extends Input<infer FieldType>
+    ? _RequireInputFromType<FieldType>
     : never
 
-export type RequireInputOrVariable<T extends Input<any, any>>
-  = T extends Input<infer Modifier, infer Type>
-    ? Type extends BaseScalar<any, any, infer InputType>
-      ? ParseInputModifier<Modifier, Type, InputType> | AcceptVariable<Modifier>
-      : Type extends InputObjectType<any, infer Fields>
-        ? ParseInputModifier<Modifier, Type, { [K in keyof Fields]: RequireInputOrVariable<Fields[K]> }> | AcceptVariable<Modifier>
-        : never
+type _RequireInputFromType<T>
+  = null extends T
+    ? _RequireInputFromType<NonNullable<T>> | null | undefined
+    : T extends Array<infer Item>
+      ? _RequireInputFromType<Item> extends never
+        ? never
+        : Array<_RequireInputFromType<Item>> | _RequireInputBaseValue<NonNullable<Item>>
+      : _RequireInputBaseValue<T>
+
+// Resolve the scalar/input-object direct value (no array, no null wrapper)
+type _RequireInputBaseValue<T>
+  = T extends BaseScalar<any, any, infer InputType>
+    ? UnpackEnumInput<InputType>
+    : T extends InputObjectType<any, infer Fields>
+      ? { [K in keyof Fields]: RequireInput<Fields[K]> }
+      : never
+
+export type RequireInputOrVariable<T extends Input<any>>
+  = T extends Input<infer FieldType>
+    ? _RequireInputOrVariableFromType<FieldType> | AcceptVariable<TypeToModifier<FieldType>>
     : never
 
-export type ParseOutputModifier<
-  Modifier extends string,
-  T extends BaseType<any, any>,
-  U,
->
-  = Modifier extends `${string}!!`
-    ? never
-    : Modifier extends `${infer F}!`
-      ? ParseOutputModifier<F, T, U> & {}
-      : Modifier extends `[${infer F}]`
-        ? ParseOutputModifier<F, T, U> extends never
-          ? never
-          : Array<ParseOutputModifier<F, T, U>> | null | undefined
-        : T extends BaseType<any, Modifier>
-          ? U | null | undefined
-          : never
+// Separate recursion path for RequireInputOrVariable:
+// - Keeps packed enum types (functions) instead of unpacking to plain strings
+// - Nested InputObject fields also use RequireInputOrVariable (adds AcceptVariable at each level)
+type _RequireInputOrVariableFromType<T>
+  = null extends T
+    ? _RequireInputOrVariableFromType<NonNullable<T>> | null | undefined
+    : T extends Array<infer Item>
+      ? _RequireInputOrVariableFromType<Item> extends never
+        ? never
+        : Array<_RequireInputOrVariableFromType<Item>> | _RequireInputOrVariableBaseValue<NonNullable<Item>>
+      : _RequireInputOrVariableBaseValue<T>
 
-export type ParseInputModifier<
-  Modifier extends string,
-  T extends BaseType<any, any>,
-  U,
-> = RelaxInputArray<_ParseInputModifier<Modifier, T, U>, U>
-
-type _ParseInputModifier<
-  Modifier extends string,
-  T extends BaseType<any, any>,
-  U,
->
-  = Modifier extends `${string}!!`
-    ? never
-    : Modifier extends `${infer F}!`
-      ? _ParseInputModifier<F, T, U> & {}
-      : Modifier extends `[${infer F}]`
-        ? _ParseInputModifier<F, T, U> extends never
-          ? never
-          : Array<_ParseInputModifier<F, T, U>> | null | undefined
-        : T extends BaseType<any, Modifier>
-          ? U | null | undefined
-          : never
-
-type RelaxInputArray<T, U>
-  = [T] extends [never]
-    ? never
-    : T extends Array<any>
-      ? T | U
-      : T
+type _RequireInputOrVariableBaseValue<T>
+  = T extends BaseScalar<any, any, infer InputType>
+    ? InputType // keep packed enums as-is (callers can pass factory functions or variables)
+    : T extends InputObjectType<any, infer Fields>
+      ? { [K in keyof Fields]: RequireInputOrVariable<Fields[K]> }
+      : never
 
 export type SchemaRequire<Gazania extends TypedGazania<any>, Modifier extends string>
   = Gazania extends TypedGazania<infer Schema>
-    ? RequireInput<Input<Modifier, FindType<Schema, ModifiedName<Modifier>>>>
+    ? RequireInput<Input<ModifierToType<Schema, Modifier>>>
     : never

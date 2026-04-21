@@ -72,7 +72,7 @@ describe('types/prepare', () => {
 
   test('ObjectSelectionOnFields', () => {
     type Type = ObjectType<'Saying', {
-      id: Field<'Int!', Scalar_Int>
+      id: Field<Scalar_Int>
     }>
 
     expectTypeOf<ObjectSelectionOnFields<Type>>()

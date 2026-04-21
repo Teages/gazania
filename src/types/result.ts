@@ -1,7 +1,7 @@
 import type { BaseObject, BaseScalar, BaseType, Field } from './define'
 import type { ExtractPartialSpreadFragmentRefs, ExtractSectionSpreadResults, OmitPartialSpreadKeys, OmitSectionSpreadKeys } from './masking'
 import type { TypedScalarSelection, TypedSelectionSet } from './selection'
-import type { Expand, FlatRecord, IntersectionAvoidEmpty, MayBePartial, ParseOutputModifier, Trim, Typename, UnionToIntersection, Values } from './utils'
+import type { Expand, FlatRecord, IntersectionAvoidEmpty, MayBePartial, Trim, Typename, UnionToIntersection, Values, WrapFieldResult } from './utils'
 
 export type ParseSelection<
   T extends BaseType<any, any> | undefined,
@@ -68,19 +68,22 @@ export type ParseObjectSelectionContextFields<
     }
   : never
 
+// Extract the base BaseType by unwrapping Array and null/undefined wrappers
+type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable<T>
+
 export type ParseObjectSelectionContextField<
-  T extends Field<any, any, any>,
+  T extends Field<any, any>,
   Selection,
-> = T extends Field<infer Modifier, infer Type, any>
+> = T extends Field<infer FieldType, any>
   ? Selection extends (...args: any) => TypedSelectionSet<infer Result, infer IsOptional>
     ? true extends IsOptional
-      ? ParseOutputModifier<Modifier, Type, Result> | null | undefined
-      : ParseOutputModifier<Modifier, Type, Result>
+      ? WrapFieldResult<FieldType, Result> | null
+      : WrapFieldResult<FieldType, Result>
     : Selection extends (...args: any) => TypedScalarSelection<infer IsOptional>
       ? true extends IsOptional
-        ? ParseOutputModifier<Modifier, Type, ParseSelection<Type, true>> | null | undefined
-        : ParseOutputModifier<Modifier, Type, ParseSelection<Type, true>>
-      : ParseOutputModifier<Modifier, Type, ParseSelection<Type, Selection>>
+        ? WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, true>> | null
+        : WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, true>>
+      : WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, Selection>>
   : never
 
 export type ParseSelectionName<T extends string>

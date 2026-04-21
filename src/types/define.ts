@@ -15,7 +15,7 @@ export interface BaseScalar<
 
 export interface BaseObject<
   Name extends string,
-  Fields extends Record<string, Field<any, any, any>>,
+  Fields extends Record<string, Field<any, any>>,
   Implements extends Record<string, BaseObject<string, any, any>>,
 > extends BaseType<'BaseObject', Name> {
   __define__?: (Implements: Implements) => Fields
@@ -28,18 +28,16 @@ export interface DefineSchema<
 }
 
 export interface Input<
-  Modifier extends string,
-  Type extends BaseType<string, string>,
+  T,
 > {
-  __define__?: (modifier: Modifier, type: Type) => void
+  __define__?: () => T
 }
 
 export interface Field<
-  Modifier extends string,
-  Type extends BaseType<any, any>,
-  Args extends Record<string, Input<any, any>> = Record<string, never>,
+  T,
+  Args extends Record<string, Input<any>> = Record<string, never>,
 > {
-  __define__?: (args: Args) => [Modifier, Type]
+  __define__?: (args: Args) => T
 }
 
 export interface ScalarType<
@@ -59,7 +57,7 @@ export interface EnumType<
 
 export interface ObjectType<
   Name extends string,
-  Fields extends Record<string, Field<any, any, any>>,
+  Fields extends Record<string, Field<any, any>>,
 > extends BaseObject<Name, Fields, Record<string, never>> {
   __type__?: () => 'Type'
 }
@@ -73,7 +71,7 @@ export interface UnionType<
 
 export interface InterfaceType<
   Name extends string,
-  Fields extends Record<string, Field<any, any, any>>,
+  Fields extends Record<string, Field<any, any>>,
   Implements extends Record<string, BaseObject<any, any, any>>,
 > extends BaseObject<Name, Fields, Implements> {
   __type__?: () => 'Interface'
@@ -81,7 +79,7 @@ export interface InterfaceType<
 
 export interface InputObjectType<
   Name extends string,
-  Fields extends Record<string, Input<any, any>>,
+  Fields extends Record<string, Input<any>>,
 > extends BaseType<'InputObject', Name> {
   __define__?: (fields: Fields) => void
 }

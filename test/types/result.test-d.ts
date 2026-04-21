@@ -31,22 +31,22 @@ describe('types/result', () => {
 
   test('ParseObjectSelectionContextField', () => {
     expectTypeOf<ParseObjectSelectionContextField<
-      Field<'String!', Scalar_String, any>,
+      Field<Scalar_String>,
       true
     >>().toEqualTypeOf<string>()
 
     expectTypeOf<ParseObjectSelectionContextField<
-      Field<'User', Type_User, any>,
+      Field<Type_User | null>,
       ['__typename', 'name', 'email']
-    >>().toEqualTypeOf<{ __typename: 'User', name: string, email: string } | null | undefined>()
+    >>().toEqualTypeOf<{ __typename: 'User', name: string, email: string } | null>()
 
     expectTypeOf<ParseObjectSelectionContextField<
-      Field<'User!', Type_User, any>,
+      Field<Type_User>,
       ['__typename', 'name', 'email']
     >>().toEqualTypeOf<{ __typename: 'User', name: string, email: string }>()
 
     expectTypeOf<ParseObjectSelectionContextField<
-      Field<'[User!]!', Type_User, any>,
+      Field<Type_User[]>,
       ['__typename', 'name', 'email']
     >>().toEqualTypeOf<{ __typename: 'User', name: string, email: string }[]>()
   })
