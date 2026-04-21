@@ -1,7 +1,7 @@
 import { bench, describe } from 'vitest'
 import { gazania } from '../src/runtime'
-import { createOperationBuilder } from '../src/runtime/builder/operation'
 import { createFragmentBuilder } from '../src/runtime/builder/fragment'
+import { createOperationBuilder } from '../src/runtime/builder/operation'
 import { createPartialBuilder } from '../src/runtime/builder/partial'
 
 // ─── Operation builder ────────────────────────────────────────────────────────

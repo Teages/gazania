@@ -10,9 +10,9 @@
  * baselines before and after changes to the type definitions.
  */
 
-import ts from 'typescript'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { bench, describe, expect } from 'vitest'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -65,11 +65,15 @@ function typeCheck(code: string): TypeCheckResult {
       return defaultHost.getSourceFile(fileName, languageVersion, ...rest)
     },
     fileExists(fileName) {
-      if (fileName === VIRTUAL_FILE) return true
+      if (fileName === VIRTUAL_FILE) {
+        return true
+      }
       return defaultHost.fileExists(fileName)
     },
     readFile(fileName) {
-      if (fileName === VIRTUAL_FILE) return code
+      if (fileName === VIRTUAL_FILE) {
+        return code
+      }
       return defaultHost.readFile(fileName)
     },
   }
@@ -219,4 +223,3 @@ describe('type check', () => {
     )
   }
 })
-
