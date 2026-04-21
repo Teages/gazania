@@ -125,6 +125,7 @@ Consult these files for detailed patterns before generating code:
 - [Building queries](references/building-queries.md) — selections, variables, arguments, aliases, directives, mutations, subscriptions
 - [Fragments & partials](references/fragments-and-partials.md) — named fragments, reusable partials, fragment masking
 - [Typed documents](references/typed-documents.md) — `ResultOf`, `VariablesOf`, `TypedDocumentNode`, client integration
+- [Persisted queries](references/persisted-queries.md) — `gazania extract`, manifest generation, persisted query workflows
 
 ## Rules
 
