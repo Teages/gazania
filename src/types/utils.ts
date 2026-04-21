@@ -14,14 +14,22 @@ type BaseOf<T> = NonNullable<T> extends Array<infer U> ? BaseOf<U> : NonNullable
 
 /**
  * Apply the null/array wrapper of FieldType onto result U.
+ *
+ * Design note: `| null` in the field type represents GraphQL nullability.
+ * In TypeScript query results, a nullable GraphQL field maps to `| null | undefined`:
+ *   - `null`      = the server explicitly returned null
+ *   - `undefined` = the field is absent (partial result / not requested)
+ * So `null` in the schema type is automatically expanded to `null | undefined`
+ * in the output type, keeping schema definitions clean while output types correct.
+ *
  * e.g. WrapFieldResult<(Type_User | null)[] | null, {name: string}>
- *      → ({ name: string } | null)[] | null
+ *      → ({ name: string } | null | undefined)[] | null | undefined
  */
 export type WrapFieldResult<FieldType, U>
   = [FieldType] extends [never]
     ? never
     : null extends FieldType
-      ? WrapFieldResult<NonNullable<FieldType>, U> | null
+      ? WrapFieldResult<NonNullable<FieldType>, U> | null | undefined
       : FieldType extends Array<infer Item>
         ? Array<WrapFieldResult<Item, U>>
         : U // base type → substitute with result

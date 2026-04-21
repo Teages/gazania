@@ -134,12 +134,19 @@ describe('types/utils', () => {
   })
 
   test('WrapFieldResult', () => {
+    // null in field type → null | undefined in output (nullable = absent or explicit null)
     expectTypeOf<WrapFieldResult<Scalar_String | null, string>>()
-      .toEqualTypeOf<string | null>()
+      .toEqualTypeOf<string | null | undefined>()
     expectTypeOf<WrapFieldResult<Scalar_String, string>>()
       .toEqualTypeOf<string>()
     expectTypeOf<WrapFieldResult<Scalar_String[], string>>()
       .toEqualTypeOf<string[]>()
+    // nullable array items also get | undefined
+    expectTypeOf<WrapFieldResult<(Scalar_String | null)[], string>>()
+      .toEqualTypeOf<(string | null | undefined)[]>()
+    // nullable outer + nullable items
+    expectTypeOf<WrapFieldResult<(Scalar_String | null)[] | null, string>>()
+      .toEqualTypeOf<(string | null | undefined)[] | null | undefined>()
     expectTypeOf<WrapFieldResult<Scalar_String[][], string>>()
       .toEqualTypeOf<string[][]>()
     // invalid (never base) stays never

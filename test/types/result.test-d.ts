@@ -38,7 +38,7 @@ describe('types/result', () => {
     expectTypeOf<ParseObjectSelectionContextField<
       Field<Type_User | null>,
       ['__typename', 'name', 'email']
-    >>().toEqualTypeOf<{ __typename: 'User', name: string, email: string } | null>()
+    >>().toEqualTypeOf<{ __typename: 'User', name: string, email: string } | null | undefined>()
 
     expectTypeOf<ParseObjectSelectionContextField<
       Field<Type_User>,

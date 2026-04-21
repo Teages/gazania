@@ -77,11 +77,11 @@ export type ParseObjectSelectionContextField<
 > = T extends Field<infer FieldType, any>
   ? Selection extends (...args: any) => TypedSelectionSet<infer Result, infer IsOptional>
     ? true extends IsOptional
-      ? WrapFieldResult<FieldType, Result> | null
+      ? WrapFieldResult<FieldType, Result> | null | undefined
       : WrapFieldResult<FieldType, Result>
     : Selection extends (...args: any) => TypedScalarSelection<infer IsOptional>
       ? true extends IsOptional
-        ? WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, true>> | null
+        ? WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, true>> | null | undefined
         : WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, true>>
       : WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, Selection>>
   : never
