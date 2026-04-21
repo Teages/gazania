@@ -131,6 +131,9 @@ Consult these files for detailed patterns before generating code:
 
 Always follow these rules when writing Gazania code:
 
+- In `.select([...])`, use this shape only: zero or more literal field strings, then at most one object as the final element
+- Non-final elements in `.select([...])` must be literal selections (for example `'id'`, `'name'`, `'__typename'`)
+- Put all nested field callbacks in the single final object when object-style selection is needed
 - Initialize with `createGazania({} as Schema)` — never pass a real runtime object
 - Variable types use GraphQL type strings (e.g. `'Int!'`), not TypeScript types
 - Add `!` for non-nullable fields (e.g. `'String!'`), otherwise the result type includes `null | undefined`
