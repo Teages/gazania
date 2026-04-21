@@ -71,5 +71,11 @@ describe('types/variable', () => {
 
     expectTypeOf<RequireVariables<Schema, { a: 'String! = "default"' }>>()
       .toEqualTypeOf<{ a?: string | undefined }>()
+
+    expectTypeOf<RequireVariables<Schema, { a: 'CategoryEnum!' }>>()
+      .toEqualTypeOf<{ a: 'funny' | 'jokes' | 'serious' }>()
+
+    expectTypeOf<RequireVariables<Schema, { a: 'CategoryEnum' }>>()
+      .toEqualTypeOf<{ a?: 'funny' | 'jokes' | 'serious' | null | undefined }>()
   })
 })

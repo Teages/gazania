@@ -116,10 +116,13 @@ export type FindType<Schema, Name extends string>
       : never
     : never
 
+// Unwrap EnumPackage<T> → T for use in variable types (plain strings, not builders)
+type UnpackEnumInput<T> = T extends (() => infer U extends string) ? U : T
+
 export type RequireInput<T extends Input<any, any>>
   = T extends Input<infer Modifier, infer Type>
     ? Type extends BaseScalar<any, any, infer InputType>
-      ? ParseInputModifier<Modifier, Type, InputType>
+      ? ParseInputModifier<Modifier, Type, UnpackEnumInput<InputType>>
       : Type extends InputObjectType<any, infer Fields>
         ? ParseInputModifier<Modifier, Type, { [K in keyof Fields]: RequireInput<Fields[K]> }>
         : never
