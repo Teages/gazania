@@ -9,5 +9,5 @@
     "skipLibCheck": true
   },
   "include": ["src/cli", "src/codegen", "src/extract", "test"],
-  "exclude": ["test/feature/*/fixture"]
+  "exclude": ["test/**/fixture"]
 }

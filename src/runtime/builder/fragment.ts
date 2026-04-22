@@ -10,6 +10,7 @@ import { createEnumFunction } from '../enum'
 import { parseSelectionSet } from '../selection'
 import { createVariableProxy } from '../variable'
 import { createRootDollar } from './root'
+import { makeLazyDoc } from './utils'
 
 export interface FragmentBuilder {
   on: (typeName: string) => FragmentBuilderOnType
@@ -62,10 +63,12 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
           return builderOnTypeWithVar
         },
         select(callback: SelectCallback<Record<string, Variable>>): DocumentNode {
-          const root = createRootDollar(enumFn)
-          const vars = createVariableProxy()
-          const result = callback(root, vars)
-          return buildDocument(result._selection!)
+          return makeLazyDoc(() => {
+            const root = createRootDollar(enumFn)
+            const vars = createVariableProxy()
+            const result = callback(root, vars)
+            return buildDocument(result._selection!)
+          })
         },
       }
 
@@ -79,10 +82,12 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
           return builderOnType
         },
         select(callback: SelectCallback): DocumentNode {
-          const root = createRootDollar(enumFn)
-          const vars = createVariableProxy()
-          const result = callback(root, vars)
-          return buildDocument(result._selection!)
+          return makeLazyDoc(() => {
+            const root = createRootDollar(enumFn)
+            const vars = createVariableProxy()
+            const result = callback(root, vars)
+            return buildDocument(result._selection!)
+          })
         },
       }
 
@@ -92,7 +97,7 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
 }
 
 if (import.meta.vitest) {
-  const { describe, it, expect } = import.meta.vitest
+  const { describe, it, expect, vi } = import.meta.vitest
 
   describe('fragment builder', async () => {
     const { print } = await import('graphql')
@@ -136,6 +141,37 @@ if (import.meta.vitest) {
           id: $ => $.directives(['@include', { if: vars.skip }]),
         }]))
       expect(print(doc)).toContain('fragment UserFields on User @skip(if: $skip)')
+    })
+
+    describe('lazy definitions', () => {
+      it('does not call select callback before definitions are accessed', () => {
+        const callback = vi.fn($ => $.select(['id']))
+        const doc = createFragmentBuilder('LazyFrag').on('User').select(callback)
+        expect(doc.kind).toBe('Document')
+        expect(callback).not.toHaveBeenCalled()
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
+
+      it('caches: callback called only once across multiple accesses', () => {
+        const callback = vi.fn($ => $.select(['id']))
+        const doc = createFragmentBuilder('CachedFrag').on('User').select(callback)
+        void doc.definitions
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
+
+      it('does not call select callback with vars before definitions are accessed', () => {
+        const callback = vi.fn(($, _vars) => $.select(['id']))
+        const doc = createFragmentBuilder('LazyFragVars')
+          .on('User')
+          .vars({ include: 'Boolean!' })
+          .select(callback)
+        expect(doc.kind).toBe('Document')
+        expect(callback).not.toHaveBeenCalled()
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
     })
   })
 }

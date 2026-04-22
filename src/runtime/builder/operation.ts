@@ -10,6 +10,7 @@ import { createEnumFunction } from '../enum'
 import { parseSelectionSet } from '../selection'
 import { createVariableProxy, parseVariableDefinitions } from '../variable'
 import { createRootDollar } from './root'
+import { makeLazyDoc } from './utils'
 
 type OperationType = 'query' | 'mutation' | 'subscription'
 
@@ -66,10 +67,12 @@ export function createOperationBuilder(
       return withVarsBuilder
     },
     select(callback: SelectCallback<Record<string, Variable>>): DocumentNode {
-      const root = createRootDollar(enumFn)
-      const vars = createVariableProxy()
-      const result = callback(root, vars)
-      return buildDocument(result._selection!)
+      return makeLazyDoc(() => {
+        const root = createRootDollar(enumFn)
+        const vars = createVariableProxy()
+        const result = callback(root, vars)
+        return buildDocument(result._selection!)
+      })
     },
   }
 
@@ -83,10 +86,12 @@ export function createOperationBuilder(
       return builder
     },
     select(callback: SelectCallback): DocumentNode {
-      const root = createRootDollar(enumFn)
-      const vars = createVariableProxy()
-      const result = callback(root, vars)
-      return buildDocument(result._selection!)
+      return makeLazyDoc(() => {
+        const root = createRootDollar(enumFn)
+        const vars = createVariableProxy()
+        const result = callback(root, vars)
+        return buildDocument(result._selection!)
+      })
     },
   }
 
@@ -94,7 +99,7 @@ export function createOperationBuilder(
 }
 
 if (import.meta.vitest) {
-  const { describe, it, expect } = import.meta.vitest
+  const { describe, it, expect, vi } = import.meta.vitest
 
   describe('operation builder', async () => {
     const { print } = await import('graphql')
@@ -139,6 +144,36 @@ if (import.meta.vitest) {
         .directives(() => [['@cached', { ttl: 60 }]])
         .select($ => $.select(['data']))
       expect(print(doc)).toContain('@cached(ttl: 60)')
+    })
+
+    describe('lazy definitions', () => {
+      it('does not call select callback before definitions are accessed', () => {
+        const callback = vi.fn($ => $.select(['id']))
+        const doc = createOperationBuilder('query', 'LazyQ').select(callback)
+        expect(doc.kind).toBe('Document')
+        expect(callback).not.toHaveBeenCalled()
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
+
+      it('caches: callback called only once across multiple accesses', () => {
+        const callback = vi.fn($ => $.select(['id']))
+        const doc = createOperationBuilder('query', 'CachedQ').select(callback)
+        void doc.definitions
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
+
+      it('does not call select callback with vars before definitions are accessed', () => {
+        const callback = vi.fn(($, _vars) => $.select(['id']))
+        const doc = createOperationBuilder('query', 'LazyVarsQ')
+          .vars({ id: 'Int!' })
+          .select(callback)
+        expect(doc.kind).toBe('Document')
+        expect(callback).not.toHaveBeenCalled()
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
     })
   })
 }

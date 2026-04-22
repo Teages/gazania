@@ -10,7 +10,7 @@ async function getManifest() {
   return manifest
 }
 
-describe('feature: extract operations', () => {
+describe('cli: extract operations', () => {
   it('extracts all 8 expected operations', async () => {
     const manifest = await getManifest()
 
