@@ -9,4 +9,7 @@ export default defineConfig({
       tsconfig: 'tsconfig.json',
     },
   },
+  benchmark: {
+    include: ['bench/**/*.bench.ts'],
+  },
 })
