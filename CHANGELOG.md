@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.10.0
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.9.0...v0.10.0)
+
+### 🚀 Enhancements
+
+- ⚠️  Lazy document construction for operation/fragment builders ([#5](https://github.com/Teages/gazania/pull/5))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Lazy document construction for operation/fragment builders ([#5](https://github.com/Teages/gazania/pull/5))
+
+### ❤️ Contributors
+
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.9.0
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.8.0...v0.9.0)
