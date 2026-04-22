@@ -19,11 +19,13 @@ export interface FragmentBuilderOnType {
   vars: (defs: VariableDefinitions) => FragmentBuilderOnTypeWithVar
   directives: (fn: () => DirectiveInput[]) => FragmentBuilderOnType
   select: (callback: SelectCallback) => DocumentNode
+  selectLazy: (callback: SelectCallback) => () => Promise<DocumentNode>
 }
 
 export interface FragmentBuilderOnTypeWithVar {
   directives: (fn: (vars: Record<string, Variable>) => DirectiveInput[]) => FragmentBuilderOnTypeWithVar
   select: (callback: SelectCallback<Record<string, Variable>>) => DocumentNode
+  selectLazy: (callback: SelectCallback<Record<string, Variable>>) => () => Promise<DocumentNode>
 }
 
 export function createFragmentBuilder(name: string): FragmentBuilder {
@@ -56,16 +58,33 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
         }
       }
 
+      const makeLazyDoc = (build: () => DocumentNode): DocumentNode => {
+        let cached: DocumentNode | undefined
+        return {
+          kind: Kind.DOCUMENT,
+          get definitions() {
+            cached ??= build()
+            return cached.definitions
+          },
+        } as DocumentNode
+      }
+
       const builderOnTypeWithVar: FragmentBuilderOnTypeWithVar = {
         directives(fn: (vars: Record<string, Variable>) => DirectiveInput[]): FragmentBuilderOnTypeWithVar {
           directivesFn = fn as (vars?: Record<string, Variable>) => DirectiveInput[]
           return builderOnTypeWithVar
         },
         select(callback: SelectCallback<Record<string, Variable>>): DocumentNode {
-          const root = createRootDollar(enumFn)
-          const vars = createVariableProxy()
-          const result = callback(root, vars)
-          return buildDocument(result._selection!)
+          return makeLazyDoc(() => {
+            const root = createRootDollar(enumFn)
+            const vars = createVariableProxy()
+            const result = callback(root, vars)
+            return buildDocument(result._selection!)
+          })
+        },
+        selectLazy(callback: SelectCallback<Record<string, Variable>>): () => Promise<DocumentNode> {
+          const doc = builderOnTypeWithVar.select(callback)
+          return () => Promise.resolve(doc)
         },
       }
 
@@ -79,10 +98,16 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
           return builderOnType
         },
         select(callback: SelectCallback): DocumentNode {
-          const root = createRootDollar(enumFn)
-          const vars = createVariableProxy()
-          const result = callback(root, vars)
-          return buildDocument(result._selection!)
+          return makeLazyDoc(() => {
+            const root = createRootDollar(enumFn)
+            const vars = createVariableProxy()
+            const result = callback(root, vars)
+            return buildDocument(result._selection!)
+          })
+        },
+        selectLazy(callback: SelectCallback): () => Promise<DocumentNode> {
+          const doc = builderOnType.select(callback)
+          return () => Promise.resolve(doc)
         },
       }
 
@@ -92,7 +117,7 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
 }
 
 if (import.meta.vitest) {
-  const { describe, it, expect } = import.meta.vitest
+  const { describe, it, expect, vi } = import.meta.vitest
 
   describe('fragment builder', async () => {
     const { print } = await import('graphql')
@@ -136,6 +161,73 @@ if (import.meta.vitest) {
           id: $ => $.directives(['@include', { if: vars.skip }]),
         }]))
       expect(print(doc)).toContain('fragment UserFields on User @skip(if: $skip)')
+    })
+
+    describe('lazy definitions', () => {
+      it('does not call select callback before definitions are accessed', () => {
+        const callback = vi.fn($ => $.select(['id']))
+        const doc = createFragmentBuilder('LazyFrag').on('User').select(callback)
+        expect(doc.kind).toBe('Document')
+        expect(callback).not.toHaveBeenCalled()
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
+
+      it('caches: callback called only once across multiple accesses', () => {
+        const callback = vi.fn($ => $.select(['id']))
+        const doc = createFragmentBuilder('CachedFrag').on('User').select(callback)
+        void doc.definitions
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
+
+      it('does not call select callback with vars before definitions are accessed', () => {
+        const callback = vi.fn(($, _vars) => $.select(['id']))
+        const doc = createFragmentBuilder('LazyFragVars')
+          .on('User')
+          .vars({ include: 'Boolean!' })
+          .select(callback)
+        expect(doc.kind).toBe('Document')
+        expect(callback).not.toHaveBeenCalled()
+        void doc.definitions
+        expect(callback).toHaveBeenCalledOnce()
+      })
+    })
+
+    describe('selectLazy', () => {
+      it('returns a function, not a DocumentNode', () => {
+        const lazyFn = createFragmentBuilder('SLFrag').on('User').selectLazy($ => $.select(['id']))
+        expect(typeof lazyFn).toBe('function')
+      })
+
+      it('awaiting yields a correct fragment DocumentNode', async () => {
+        const lazyFn = createFragmentBuilder('SLUserFrag').on('User').selectLazy($ => $.select(['id', 'name']))
+        const doc = await lazyFn()
+        expect(print(doc)).toMatchInlineSnapshot(`
+          "fragment SLUserFrag on User {
+            id
+            name
+          }"
+        `)
+      })
+
+      it('works with vars', async () => {
+        const lazyFn = createFragmentBuilder('SLFragVars')
+          .on('User')
+          .vars({ include: 'Boolean!' })
+          .selectLazy(($, vars) => $.select([{
+            email: $ => $.directives(['@include', { if: vars.include }]),
+          }]))
+        const doc = await lazyFn()
+        expect(print(doc)).toContain('@include(if: $include)')
+      })
+
+      it('calling factory multiple times returns same document', async () => {
+        const lazyFn = createFragmentBuilder('SLFragCached').on('User').selectLazy($ => $.select(['id']))
+        const doc1 = await lazyFn()
+        const doc2 = await lazyFn()
+        expect(doc1).toBe(doc2)
+      })
     })
   })
 }
