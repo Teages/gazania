@@ -15,8 +15,8 @@ import { describe, expect, it } from 'vitest'
  * initialized, so the spread `...ResearcherContactInfoPage_ResearcherPartial(vars)`
  * inside .select() throws TypeError, and ContactInfoQuery is never created.
  */
-describe('runtime: circular import causes fragment to be undefined', () => {
-  it('should contain the ResearcherContactInfoPage_Researcher fragment in ContactInfoQuery', async () => {
+describe('runtime: regression test for circular imports that no longer break fragment and query construction', () => {
+  it('ensures circular import order preserves the fragment definition in ContactInfoQuery', async () => {
     // Import contact-info.ts first to replicate the real-world entry-point order
     // (the Vue component / page is what triggers the circular dependency chain):
     //
@@ -29,9 +29,8 @@ describe('runtime: circular import causes fragment to be undefined', () => {
       .then(() => import('./fixtures/use-researcher'))
 
     // ContactInfoQuery should be a valid DocumentNode containing the fragment spread.
-    // This assertion is never reached because the module load above throws,
-    // but if the circular-import bug is ever somehow silent, this assertion
-    // would catch the missing fragment definition.
+    // The regression is fixed if both modules import successfully and
+    // the constructed query still includes the expected fragment.
     expect(print(ContactInfoQuery)).toContain('ResearcherContactInfoPage_Researcher')
   })
 })

@@ -10,6 +10,7 @@ import { createEnumFunction } from '../enum'
 import { parseSelectionSet } from '../selection'
 import { createVariableProxy } from '../variable'
 import { createRootDollar } from './root'
+import { makeLazyDoc } from './utils'
 
 export interface FragmentBuilder {
   on: (typeName: string) => FragmentBuilderOnType
@@ -54,17 +55,6 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
           kind: Kind.DOCUMENT,
           definitions: ctx.definitions.reverse(),
         }
-      }
-
-      const makeLazyDoc = (build: () => DocumentNode): DocumentNode => {
-        let cached: DocumentNode | undefined
-        return {
-          kind: Kind.DOCUMENT,
-          get definitions() {
-            cached ??= build()
-            return cached.definitions
-          },
-        } as DocumentNode
       }
 
       const builderOnTypeWithVar: FragmentBuilderOnTypeWithVar = {

@@ -7,8 +7,10 @@ import { ResearcherContactInfoPage_ResearcherPartial } from './contact-info'
 
 // When contact-info.ts is the first module to be loaded (e.g. the page component),
 // it imports this file while still evaluating itself.
-// At that point ResearcherContactInfoPage_ResearcherPartial is not yet initialized,
-// so calling it inside .select() throws: "ResearcherContactInfoPage_ResearcherPartial is not a function".
+// This fixture documents the historical failure mode: before lazy document construction,
+// ResearcherContactInfoPage_ResearcherPartial could still be uninitialized when
+// use-researcher.ts evaluated inside the cycle, so the spread inside .select()
+// would throw.
 export const ContactInfoQuery = gazania.query('ContactInfo')
   .select(($, vars) => $.select([{
     researcher: $ => $.select([

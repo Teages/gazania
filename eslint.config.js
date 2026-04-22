@@ -19,9 +19,9 @@ export default antfu({
     ignores: ['playground/gazania/**/*.ts'],
   })
 
-  // examples
+  // fixtures
   .append({
-    files: ['examples/**/*'],
+    files: ['test/**/fixtures/**/*'],
     rules: {
       'eslint-comments/no-unlimited-disable': 'off',
       'antfu/no-top-level-await': 'off',

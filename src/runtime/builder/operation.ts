@@ -10,6 +10,7 @@ import { createEnumFunction } from '../enum'
 import { parseSelectionSet } from '../selection'
 import { createVariableProxy, parseVariableDefinitions } from '../variable'
 import { createRootDollar } from './root'
+import { makeLazyDoc } from './utils'
 
 type OperationType = 'query' | 'mutation' | 'subscription'
 
@@ -58,17 +59,6 @@ export function createOperationBuilder(
       kind: Kind.DOCUMENT,
       definitions: ctx.definitions.reverse(),
     }
-  }
-
-  const makeLazyDoc = (build: () => DocumentNode): DocumentNode => {
-    let cached: DocumentNode | undefined
-    return {
-      kind: Kind.DOCUMENT,
-      get definitions() {
-        cached ??= build()
-        return cached.definitions
-      },
-    } as DocumentNode
   }
 
   const withVarsBuilder: OperationBuilderWithVars = {
