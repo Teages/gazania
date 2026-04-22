@@ -34,13 +34,6 @@ export interface TypedOperationBuilderWithoutVars<
     Expand<Result>,
     Record<string, never>
   >
-
-  selectLazy: <Result>(
-    callback: ($: RootDollar<OpType>) => TypedSelectionSet<Result>,
-  ) => () => Promise<TypedDocumentNode<
-    Expand<Result>,
-    Record<string, never>
-  >>
 }
 
 export interface TypedOperationBuilderWithVars<
@@ -61,16 +54,6 @@ export interface TypedOperationBuilderWithVars<
     Expand<Result>,
     RequireVariables<Schema, V>
   >
-
-  selectLazy: <Result>(
-    callback: (
-      $: RootDollar<OpType>,
-      vars: PrepareVariables<V>,
-    ) => TypedSelectionSet<Result>,
-  ) => () => Promise<TypedDocumentNode<
-    Expand<Result>,
-    RequireVariables<Schema, V>
-  >>
 }
 
 export type FragmentBase<Schema extends DefineSchema<any>>
@@ -102,13 +85,6 @@ export interface TypedFragmentBuilderOnType<
     Expand<Result>,
     Record<string, any>
   >
-
-  selectLazy: <Result>(
-    callback: ($: RootDollar<T>) => TypedSelectionSet<Result>,
-  ) => () => Promise<TypedDocumentNode<
-    Expand<Result>,
-    Record<string, any>
-  >>
 }
 
 export interface TypedFragmentBuilderOnTypeWithVar<
@@ -129,16 +105,6 @@ export interface TypedFragmentBuilderOnTypeWithVar<
     Expand<Result>,
     RequireVariables<Schema, V>
   >
-
-  selectLazy: <Result>(
-    callback: (
-      $: RootDollar<T>,
-      vars: PrepareVariables<V>,
-    ) => TypedSelectionSet<Result>,
-  ) => () => Promise<TypedDocumentNode<
-    Expand<Result>,
-    RequireVariables<Schema, V>
-  >>
 }
 
 export interface TypedPartialBuilder<

@@ -76,27 +76,5 @@ if (import.meta.vitest) {
       expect(gazania.enum).toBeDefined()
       expect(gazania.enum).toBeTypeOf('function')
     })
-
-    describe('selectLazy on query/mutation/subscription', async () => {
-      const { print } = await import('graphql')
-
-      it('gazania.query().selectLazy returns a function', () => {
-        const gazania = initGazania()
-        const lazyFn = gazania.query('GazaniaLazy').selectLazy($ => $.select(['id']))
-        expect(typeof lazyFn).toBe('function')
-      })
-
-      it('gazania.mutation().selectLazy works', async () => {
-        const gazania = initGazania()
-        const doc = await gazania.mutation('LazyMutation').selectLazy($ => $.select(['ok']))()
-        expect(print(doc)).toContain('mutation LazyMutation')
-      })
-
-      it('gazania.subscription().selectLazy works', async () => {
-        const gazania = initGazania()
-        const doc = await gazania.subscription('LazySub').selectLazy($ => $.select(['event']))()
-        expect(print(doc)).toContain('subscription LazySub')
-      })
-    })
   })
 }

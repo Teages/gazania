@@ -17,13 +17,11 @@ export interface OperationBuilderWithoutVars {
   vars: (defs: VariableDefinitions) => OperationBuilderWithVars
   directives: (fn: () => DirectiveInput[]) => OperationBuilderWithoutVars
   select: (callback: SelectCallback) => DocumentNode
-  selectLazy: (callback: SelectCallback) => () => Promise<DocumentNode>
 }
 
 export interface OperationBuilderWithVars {
   directives: (fn: (vars: Record<string, Variable>) => DirectiveInput[]) => OperationBuilderWithVars
   select: (callback: SelectCallback<Record<string, Variable>>) => DocumentNode
-  selectLazy: (callback: SelectCallback<Record<string, Variable>>) => () => Promise<DocumentNode>
 }
 
 export function createOperationBuilder(
@@ -86,10 +84,6 @@ export function createOperationBuilder(
         return buildDocument(result._selection!)
       })
     },
-    selectLazy(callback: SelectCallback<Record<string, Variable>>): () => Promise<DocumentNode> {
-      const doc = withVarsBuilder.select(callback)
-      return () => Promise.resolve(doc)
-    },
   }
 
   const builder: OperationBuilderWithoutVars = {
@@ -108,10 +102,6 @@ export function createOperationBuilder(
         const result = callback(root, vars)
         return buildDocument(result._selection!)
       })
-    },
-    selectLazy(callback: SelectCallback): () => Promise<DocumentNode> {
-      const doc = builder.select(callback)
-      return () => Promise.resolve(doc)
     },
   }
 
@@ -193,47 +183,6 @@ if (import.meta.vitest) {
         expect(callback).not.toHaveBeenCalled()
         void doc.definitions
         expect(callback).toHaveBeenCalledOnce()
-      })
-    })
-
-    describe('selectLazy', () => {
-      it('returns a function, not a DocumentNode', () => {
-        const lazyFn = createOperationBuilder('query', 'SLQ').selectLazy($ => $.select(['id']))
-        expect(typeof lazyFn).toBe('function')
-      })
-
-      it('calling the factory returns a Promise', async () => {
-        const lazyFn = createOperationBuilder('query', 'SLQ2').selectLazy($ => $.select(['id']))
-        expect(lazyFn()).toBeInstanceOf(Promise)
-      })
-
-      it('awaiting yields a correct DocumentNode', async () => {
-        const lazyFn = createOperationBuilder('query', 'SLQ3').selectLazy($ => $.select(['id', 'name']))
-        const doc = await lazyFn()
-        expect(print(doc)).toMatchInlineSnapshot(`
-          "query SLQ3 {
-            id
-            name
-          }"
-        `)
-      })
-
-      it('works with vars', async () => {
-        const lazyFn = createOperationBuilder('query', 'SLVars')
-          .vars({ id: 'Int!' })
-          .selectLazy(($, vars) => $.select([{
-            user: $ => $.args({ id: vars.id }).select(['id']),
-          }]))
-        const doc = await lazyFn()
-        expect(print(doc)).toContain('$id: Int!')
-        expect(print(doc)).toContain('user(id: $id)')
-      })
-
-      it('calling factory multiple times returns same document', async () => {
-        const lazyFn = createOperationBuilder('query', 'SLCached').selectLazy($ => $.select(['id']))
-        const doc1 = await lazyFn()
-        const doc2 = await lazyFn()
-        expect(doc1).toBe(doc2)
       })
     })
   })

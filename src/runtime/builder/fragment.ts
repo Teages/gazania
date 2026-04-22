@@ -19,13 +19,11 @@ export interface FragmentBuilderOnType {
   vars: (defs: VariableDefinitions) => FragmentBuilderOnTypeWithVar
   directives: (fn: () => DirectiveInput[]) => FragmentBuilderOnType
   select: (callback: SelectCallback) => DocumentNode
-  selectLazy: (callback: SelectCallback) => () => Promise<DocumentNode>
 }
 
 export interface FragmentBuilderOnTypeWithVar {
   directives: (fn: (vars: Record<string, Variable>) => DirectiveInput[]) => FragmentBuilderOnTypeWithVar
   select: (callback: SelectCallback<Record<string, Variable>>) => DocumentNode
-  selectLazy: (callback: SelectCallback<Record<string, Variable>>) => () => Promise<DocumentNode>
 }
 
 export function createFragmentBuilder(name: string): FragmentBuilder {
@@ -82,10 +80,6 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
             return buildDocument(result._selection!)
           })
         },
-        selectLazy(callback: SelectCallback<Record<string, Variable>>): () => Promise<DocumentNode> {
-          const doc = builderOnTypeWithVar.select(callback)
-          return () => Promise.resolve(doc)
-        },
       }
 
       const builderOnType: FragmentBuilderOnType = {
@@ -104,10 +98,6 @@ export function createFragmentBuilder(name: string): FragmentBuilder {
             const result = callback(root, vars)
             return buildDocument(result._selection!)
           })
-        },
-        selectLazy(callback: SelectCallback): () => Promise<DocumentNode> {
-          const doc = builderOnType.select(callback)
-          return () => Promise.resolve(doc)
         },
       }
 
@@ -191,42 +181,6 @@ if (import.meta.vitest) {
         expect(callback).not.toHaveBeenCalled()
         void doc.definitions
         expect(callback).toHaveBeenCalledOnce()
-      })
-    })
-
-    describe('selectLazy', () => {
-      it('returns a function, not a DocumentNode', () => {
-        const lazyFn = createFragmentBuilder('SLFrag').on('User').selectLazy($ => $.select(['id']))
-        expect(typeof lazyFn).toBe('function')
-      })
-
-      it('awaiting yields a correct fragment DocumentNode', async () => {
-        const lazyFn = createFragmentBuilder('SLUserFrag').on('User').selectLazy($ => $.select(['id', 'name']))
-        const doc = await lazyFn()
-        expect(print(doc)).toMatchInlineSnapshot(`
-          "fragment SLUserFrag on User {
-            id
-            name
-          }"
-        `)
-      })
-
-      it('works with vars', async () => {
-        const lazyFn = createFragmentBuilder('SLFragVars')
-          .on('User')
-          .vars({ include: 'Boolean!' })
-          .selectLazy(($, vars) => $.select([{
-            email: $ => $.directives(['@include', { if: vars.include }]),
-          }]))
-        const doc = await lazyFn()
-        expect(print(doc)).toContain('@include(if: $include)')
-      })
-
-      it('calling factory multiple times returns same document', async () => {
-        const lazyFn = createFragmentBuilder('SLFragCached').on('User').selectLazy($ => $.select(['id']))
-        const doc1 = await lazyFn()
-        const doc2 = await lazyFn()
-        expect(doc1).toBe(doc2)
       })
     })
   })
