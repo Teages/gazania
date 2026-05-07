@@ -1,6 +1,6 @@
-import type { OperationTypeObject, TypedFragmentBuilder, TypedFragmentBuilderOnType, TypedFragmentBuilderOnTypeWithVar, TypedGazania, TypedOperationBuilderWithoutVars, TypedPartialBuilder, TypedPartialBuilderOnType, TypedPartialBuilderOnTypeWithVar, TypedSectionBuilder, TypedSectionBuilderOnType, TypedSectionBuilderOnTypeWithVar } from '../../src/types/builder'
+import type { OperationTypeObject, ResultOfSection, TypedFragmentBuilder, TypedFragmentBuilderOnType, TypedFragmentBuilderOnTypeWithVar, TypedGazania, TypedOperationBuilderWithoutVars, TypedPartialBuilder, TypedPartialBuilderOnType, TypedPartialBuilderOnTypeWithVar, TypedSectionBuilder, TypedSectionBuilderOnType, TypedSectionBuilderOnTypeWithVar, VariablesOfSection } from '../../src/types/builder'
 import type { ResultOf, VariablesOf } from '../../src/types/document'
-import type { RequireVariables } from '../../src/types/variable'
+import type { RequireVariables, Variable } from '../../src/types/variable'
 import type { Schema, Type_Mutation, Type_Query, Type_Subscription } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
 
@@ -151,5 +151,32 @@ describe('types/builder', () => {
     type PB = TypedPartialBuilderOnTypeWithVar<Schema, Type_Query, { skip: 'Boolean!' }>
     type Result = ReturnType<PB['directives']>
     expectTypeOf<Result>().toEqualTypeOf<PB>()
+  })
+
+  test('ResultOfSection extracts result type from TypedSectionPackage', () => {
+    const g = null as unknown as TypedGazania<Schema>
+    const _section = g.section('UserBasic').on('User').select($ => $.select(['id', 'name']))
+    type Result = ResultOfSection<typeof _section>
+    expectTypeOf<Result>().toEqualTypeOf<{ id: number, name: string }>()
+  })
+
+  test('ResultOfSection returns never for non-section types', () => {
+    expectTypeOf<ResultOfSection<string>>().toBeNever()
+    expectTypeOf<ResultOfSection<unknown>>().toBeNever()
+  })
+
+  test('VariablesOfSection extracts variables type from TypedSectionPackage', () => {
+    const g = null as unknown as TypedGazania<Schema>
+    const _section = g.section('UserBasic')
+      .on('User')
+      .vars({ id: 'Int!' })
+      .select(($, _vars) => $.select(['id', 'name']))
+    type Vars = VariablesOfSection<typeof _section>
+    expectTypeOf<Vars>().toEqualTypeOf<{ id: Variable<'Int!'> }>()
+  })
+
+  test('VariablesOfSection returns never for non-section types', () => {
+    expectTypeOf<VariablesOfSection<string>>().toBeNever()
+    expectTypeOf<VariablesOfSection<unknown>>().toBeNever()
   })
 })

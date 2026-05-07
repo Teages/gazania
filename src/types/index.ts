@@ -2,6 +2,7 @@ export type { Argument, PrepareSelectionArgument } from './argument'
 export type {
   ReadFragmentFn,
   RequireOperationPartialData,
+  ResultOfSection,
   TypedFragmentBuilder,
   TypedGazania,
   TypedOperationBuilderWithoutVars,
@@ -10,6 +11,7 @@ export type {
   TypedPartialPackage,
   TypedSectionBuilder,
   TypedSectionPackage,
+  VariablesOfSection,
 } from './builder'
 export type * from './define'
 export type { DirectiveInput } from './directive'

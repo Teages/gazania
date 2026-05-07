@@ -36,7 +36,9 @@ export type {
 } from './runtime'
 
 export type {
+  ResultOfSection,
   TypedGazania,
+  VariablesOfSection,
 } from './types/builder'
 
 export type {
