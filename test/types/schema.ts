@@ -20,6 +20,17 @@ export type Input_SayingDataInput = InputObjectType<'SayingDataInput', {
   content: Input<Scalar_String>
 }>
 
+export type Input_SayingWithSloganInput = InputObjectType<'SayingWithSloganInput', {
+  category: Input<Enum_CategoryEnum>
+  content: Input<Scalar_String>
+  slogan: Input<Scalar_String | null>
+}>
+
+export type Input_NestedInput = InputObjectType<'NestedInput', {
+  required: Input<Input_SayingWithSloganInput>
+  optional: Input<Input_SayingWithSloganInput | null>
+}>
+
 export type Interface_ItemWithId = InterfaceType<'ItemWithId', {
   id: Field<Scalar_Int>
 }, {
@@ -94,6 +105,8 @@ export type Schema = DefineSchema<{
   CategoryEnum: Enum_CategoryEnum
 
   SayingDataInput: Input_SayingDataInput
+  SayingWithSloganInput: Input_SayingWithSloganInput
+  NestedInput: Input_NestedInput
 
   ItemWithId: Interface_ItemWithId
 
