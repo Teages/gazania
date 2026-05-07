@@ -2,6 +2,7 @@ export type { Argument, PrepareSelectionArgument } from './argument'
 export type {
   ReadFragmentFn,
   RequireOperationPartialData,
+  ResultOfSection,
   TypedFragmentBuilder,
   TypedGazania,
   TypedOperationBuilderWithoutVars,

@@ -8,5 +8,9 @@ export default defineConfig({
       enabled: true,
       tsconfig: 'tsconfig.json',
     },
+    coverage: {
+      include: ['src/**/*.ts'],
+      exclude: ['src/types/**/*.ts'],
+    },
   },
 })

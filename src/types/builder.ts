@@ -223,6 +223,10 @@ export type RequireOperationPartialData<
   ? Expand<Result>
   : never
 
+export type ResultOfSection<T> = T extends TypedSectionPackage<any, infer Result, any, any>
+  ? Expand<Result>
+  : never
+
 /**
  * Typed signature for `readFragment`.
  * Narrows the opaque `FragmentRef` from a partial spread back to the concrete result type.

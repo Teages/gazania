@@ -73,6 +73,7 @@ export type FragmentOf<T> = T extends {
   readonly ' $fragmentOf'?: infer Ref;
 } ? Ref : never;
 export type ResultOf<T> = T extends TypedDocumentNode<infer Result, any> ? Result : unknown;
+export type ResultOfSection<T> = T extends TypedSectionPackage<any, infer Result, any, any> ? Expand<Result> : never;
 export type VariablesOf<T> = T extends TypedDocumentNode<any, infer Variables> ? Variables : unknown;
 // #endregion
 
