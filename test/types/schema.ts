@@ -26,6 +26,11 @@ export type Input_SayingWithSloganInput = InputObjectType<'SayingWithSloganInput
   slogan: Input<Scalar_String | null>
 }>
 
+export type Input_NestedInput = InputObjectType<'NestedInput', {
+  required: Input<Input_SayingDataInput>
+  optional: Input<Input_SayingDataInput | null>
+}>
+
 export type Interface_ItemWithId = InterfaceType<'ItemWithId', {
   id: Field<Scalar_Int>
 }, {
@@ -101,6 +106,7 @@ export type Schema = DefineSchema<{
 
   SayingDataInput: Input_SayingDataInput
   SayingWithSloganInput: Input_SayingWithSloganInput
+  NestedInput: Input_NestedInput
 
   ItemWithId: Interface_ItemWithId
 

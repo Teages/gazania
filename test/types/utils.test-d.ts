@@ -5,6 +5,7 @@ import type { FindType, ModifiedName, RequireInput, RequireInputOrVariable, Sche
 import type { Variable } from '../../src/types/variable'
 import type {
   Enum_CategoryEnum,
+  Input_NestedInput,
   Input_SayingDataInput,
   Input_SayingWithSloganInput,
   Interface_ItemWithId,
@@ -86,6 +87,12 @@ describe('types/utils', () => {
     // Nullable input object field becomes an optional key
     expectTypeOf<RequireInput<Input<Input_SayingWithSloganInput>>>()
       .toEqualTypeOf<{ category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined }>()
+    // Nested input object: nullable nested input becomes an optional key
+    expectTypeOf<RequireInput<Input<Input_NestedInput>>>()
+      .toEqualTypeOf<{
+        required: { category: 'funny' | 'jokes' | 'serious', content: string }
+        optional?: { category: 'funny' | 'jokes' | 'serious', content: string } | null | undefined
+      }>()
     // Scalar whose own Input type includes null:
     // MaybeInt! → scalar's own null is preserved (not a nullable field wrapper)
     expectTypeOf<RequireInput<Input<Scalar_MaybeInt>>>()
@@ -152,6 +159,20 @@ describe('types/utils', () => {
           slogan?: string | Variable<'String!'> | Variable<'String'> | null | undefined
         }
         | Variable<'SayingWithSloganInput!'>
+    >()
+    // Nested input object: nullable nested input becomes an optional key
+    expectTypeOf<RequireInputOrVariable<Input<Input_NestedInput>>>()
+      .toEqualTypeOf<
+        | {
+          required:
+            | { category: (() => 'funny') | (() => 'jokes') | (() => 'serious') | Variable<'CategoryEnum!'>, content: string | Variable<'String!'> }
+            | Variable<'SayingDataInput!'>
+          optional?:
+            | { category: (() => 'funny') | (() => 'jokes') | (() => 'serious') | Variable<'CategoryEnum!'>, content: string | Variable<'String!'> }
+            | Variable<'SayingDataInput!'> | Variable<'SayingDataInput'>
+            | null | undefined
+        }
+        | Variable<'NestedInput!'>
     >()
   })
 
