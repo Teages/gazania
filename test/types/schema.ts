@@ -27,8 +27,8 @@ export type Input_SayingWithSloganInput = InputObjectType<'SayingWithSloganInput
 }>
 
 export type Input_NestedInput = InputObjectType<'NestedInput', {
-  required: Input<Input_SayingDataInput>
-  optional: Input<Input_SayingDataInput | null>
+  required: Input<Input_SayingWithSloganInput>
+  optional: Input<Input_SayingWithSloganInput | null>
 }>
 
 export type Interface_ItemWithId = InterfaceType<'ItemWithId', {

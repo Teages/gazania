@@ -87,11 +87,12 @@ describe('types/utils', () => {
     // Nullable input object field becomes an optional key
     expectTypeOf<RequireInput<Input<Input_SayingWithSloganInput>>>()
       .toEqualTypeOf<{ category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined }>()
-    // Nested input object: nullable nested input becomes an optional key
+    // Nested input object: nullable nested input becomes an optional key,
+    // and optional keys within the inner input are preserved
     expectTypeOf<RequireInput<Input<Input_NestedInput>>>()
       .toEqualTypeOf<{
-        required: { category: 'funny' | 'jokes' | 'serious', content: string }
-        optional?: { category: 'funny' | 'jokes' | 'serious', content: string } | null | undefined
+        required: { category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined }
+        optional?: { category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined } | null | undefined
       }>()
     // Scalar whose own Input type includes null:
     // MaybeInt! → scalar's own null is preserved (not a nullable field wrapper)
@@ -160,16 +161,17 @@ describe('types/utils', () => {
         }
         | Variable<'SayingWithSloganInput!'>
     >()
-    // Nested input object: nullable nested input becomes an optional key
+    // Nested input object: nullable nested input becomes an optional key,
+    // and optional keys within the inner input are preserved
     expectTypeOf<RequireInputOrVariable<Input<Input_NestedInput>>>()
       .toEqualTypeOf<
         | {
           required:
-            | { category: (() => 'funny') | (() => 'jokes') | (() => 'serious') | Variable<'CategoryEnum!'>, content: string | Variable<'String!'> }
-            | Variable<'SayingDataInput!'>
+            | { category: (() => 'funny') | (() => 'jokes') | (() => 'serious') | Variable<'CategoryEnum!'>, content: string | Variable<'String!'>, slogan?: string | Variable<'String!'> | Variable<'String'> | null | undefined }
+            | Variable<'SayingWithSloganInput!'>
           optional?:
-            | { category: (() => 'funny') | (() => 'jokes') | (() => 'serious') | Variable<'CategoryEnum!'>, content: string | Variable<'String!'> }
-            | Variable<'SayingDataInput!'> | Variable<'SayingDataInput'>
+            | { category: (() => 'funny') | (() => 'jokes') | (() => 'serious') | Variable<'CategoryEnum!'>, content: string | Variable<'String!'>, slogan?: string | Variable<'String!'> | Variable<'String'> | null | undefined }
+            | Variable<'SayingWithSloganInput!'> | Variable<'SayingWithSloganInput'>
             | null | undefined
         }
         | Variable<'NestedInput!'>
