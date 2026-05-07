@@ -1,6 +1,33 @@
 # Changelog
 
 
+## v0.11.0
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.9.0...v0.11.0)
+
+### 🚀 Enhancements
+
+- ⚠️  Lazy document construction for operation/fragment builders ([#5](https://github.com/Teages/gazania/pull/5))
+- Add `ResultOfSection` type utilities ([#9](https://github.com/Teages/gazania/pull/9))
+
+### 🩹 Fixes
+
+- Make nullable input object fields optional TypeScript keys ([#8](https://github.com/Teages/gazania/pull/8))
+
+### 🏡 Chore
+
+- **release:** V0.10.0 ([1e22495](https://github.com/Teages/gazania/commit/1e22495))
+- Add nightly release workflow ([#10](https://github.com/Teages/gazania/pull/10))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Lazy document construction for operation/fragment builders ([#5](https://github.com/Teages/gazania/pull/5))
+
+### ❤️ Contributors
+
+- Copilot ([@MicrosoftCopilot](https://github.com/MicrosoftCopilot))
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.10.0
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.9.0...v0.10.0)
