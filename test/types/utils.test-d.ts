@@ -6,6 +6,7 @@ import type { Variable } from '../../src/types/variable'
 import type {
   Enum_CategoryEnum,
   Input_SayingDataInput,
+  Input_SayingWithSloganInput,
   Interface_ItemWithId,
   Scalar_Boolean,
   Scalar_Date,
@@ -82,6 +83,9 @@ describe('types/utils', () => {
         | { category: 'funny' | 'jokes' | 'serious', content: string }[]
         | { category: 'funny' | 'jokes' | 'serious', content: string }
     >()
+    // Nullable input object field becomes an optional key
+    expectTypeOf<RequireInput<Input<Input_SayingWithSloganInput>>>()
+      .toEqualTypeOf<{ category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined }>()
     // Scalar whose own Input type includes null:
     // MaybeInt! → scalar's own null is preserved (not a nullable field wrapper)
     expectTypeOf<RequireInput<Input<Scalar_MaybeInt>>>()
@@ -138,6 +142,16 @@ describe('types/utils', () => {
         }
         | Variable<'[SayingDataInput!]!'>
         | Variable<'SayingDataInput!'>
+    >()
+    // Nullable input object field becomes an optional key
+    expectTypeOf<RequireInputOrVariable<Input<Input_SayingWithSloganInput>>>()
+      .toEqualTypeOf<
+        | {
+          category: (() => 'funny') | (() => 'jokes') | (() => 'serious') | Variable<'CategoryEnum!'>
+          content: string | Variable<'String!'>
+          slogan?: string | Variable<'String!'> | Variable<'String'> | null | undefined
+        }
+        | Variable<'SayingWithSloganInput!'>
     >()
   })
 

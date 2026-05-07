@@ -244,7 +244,7 @@ type _RequireInputBaseValue<T>
   = T extends BaseScalar<any, any, infer InputType>
     ? UnpackEnumInput<InputType>
     : T extends InputObjectType<any, infer Fields>
-      ? { [K in keyof Fields]: RequireInput<Fields[K]> }
+      ? RelaxedOptional<{ [K in keyof Fields]: RequireInput<Fields[K]> }>
       : never
 
 export type RequireInputOrVariable<T extends Input<any>>
@@ -268,7 +268,7 @@ type _RequireInputOrVariableBaseValue<T>
   = T extends BaseScalar<any, any, infer InputType>
     ? InputType // keep packed enums as-is (callers can pass factory functions or variables)
     : T extends InputObjectType<any, infer Fields>
-      ? { [K in keyof Fields]: RequireInputOrVariable<Fields[K]> }
+      ? RelaxedOptional<{ [K in keyof Fields]: RequireInputOrVariable<Fields[K]> }>
       : never
 
 export type SchemaRequire<Gazania extends TypedGazania<any>, Modifier extends string>
