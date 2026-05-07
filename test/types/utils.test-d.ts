@@ -91,9 +91,9 @@ describe('types/utils', () => {
     // and optional keys within the inner input are preserved
     expectTypeOf<RequireInput<Input<Input_NestedInput>>>()
       .toEqualTypeOf<{
-        required: { category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined }
-        optional?: { category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined } | null | undefined
-      }>()
+      required: { category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined }
+      optional?: { category: 'funny' | 'jokes' | 'serious', content: string, slogan?: string | null | undefined } | null | undefined
+    }>()
     // Scalar whose own Input type includes null:
     // MaybeInt! → scalar's own null is preserved (not a nullable field wrapper)
     expectTypeOf<RequireInput<Input<Scalar_MaybeInt>>>()
