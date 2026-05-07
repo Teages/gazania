@@ -6,3 +6,4 @@ dist
 *.log*
 *.env*
 *.tsbuildinfo
+package-lock.json
