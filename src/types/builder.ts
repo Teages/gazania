@@ -227,10 +227,6 @@ export type ResultOfSection<T> = T extends TypedSectionPackage<any, infer Result
   ? Expand<Result>
   : never
 
-export type VariablesOfSection<T> = T extends TypedSectionPackage<any, any, infer Variables, any>
-  ? Variables
-  : never
-
 /**
  * Typed signature for `readFragment`.
  * Narrows the opaque `FragmentRef` from a partial spread back to the concrete result type.

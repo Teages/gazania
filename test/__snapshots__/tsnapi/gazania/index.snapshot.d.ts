@@ -75,7 +75,6 @@ export type FragmentOf<T> = T extends {
 export type ResultOf<T> = T extends TypedDocumentNode<infer Result, any> ? Result : unknown;
 export type ResultOfSection<T> = T extends TypedSectionPackage<any, infer Result, any, any> ? Expand<Result> : never;
 export type VariablesOf<T> = T extends TypedDocumentNode<any, infer Variables> ? Variables : unknown;
-export type VariablesOfSection<T> = T extends TypedSectionPackage<any, any, infer Variables, any> ? Variables : never;
 // #endregion
 
 // #region Functions

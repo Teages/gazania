@@ -38,7 +38,6 @@ export type {
 export type {
   ResultOfSection,
   TypedGazania,
-  VariablesOfSection,
 } from './types/builder'
 
 export type {
