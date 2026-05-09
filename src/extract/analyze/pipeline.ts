@@ -138,18 +138,16 @@ export function processFileStatic(
         documents.push(doc)
       }
       catch (err) {
-        const line = staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset
         if (err instanceof CircularPartialError) {
-          skipped.push({ file, line, reason: err.message })
+          continue
         }
-        else {
-          const errMsg = err instanceof Error ? err.message : String(err)
-          skipped.push({
-            file,
-            line,
-            reason: `Failed to statically analyze ${chain.type} "${chain.name}": ${errMsg}`,
-          })
-        }
+        const line = staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset
+        const errMsg = err instanceof Error ? err.message : String(err)
+        skipped.push({
+          file,
+          line,
+          reason: `Failed to statically analyze ${chain.type} "${chain.name}": ${errMsg}`,
+        })
       }
     }
   }
@@ -278,22 +276,20 @@ export async function staticExtractCrossFile(
     return { builderNames: mergedBuilderNames, namespace }
   }
 
-  for (const file of order) {
+  function processFileInPipeline(file: string): void {
     const blocks = parsedFiles.get(file)
     if (!blocks) {
-      continue
+      return
     }
 
     const imports = fileImportsMap.get(file) || []
 
     const crossFilePartials = new Map<string, StaticPartialDef>()
     const crossFileBuilderNames: string[] = []
-    let hadMissingImport = false
 
     for (const imp of imports) {
       const sourceBindings = fileBindings.get(imp.resolvedPath)
       if (!sourceBindings) {
-        hadMissingImport = true
         continue
       }
 
@@ -306,10 +302,6 @@ export async function staticExtractCrossFile(
       if (partialDef) {
         crossFilePartials.set(imp.localName, partialDef)
       }
-    }
-
-    if (hadMissingImport) {
-      filesNeedingSecondPass.add(file)
     }
 
     const { builderNames, namespace } = getBuilderInfoForFile(file, blocks)
@@ -332,49 +324,37 @@ export async function staticExtractCrossFile(
     }
   }
 
-  const secondPassOrder = order.filter(f => filesNeedingSecondPass.has(f))
-  for (const file of secondPassOrder) {
-    const blocks = parsedFiles.get(file)
-    if (!blocks) {
-      continue
-    }
+  const MAX_PASSES = 10
 
+  for (const file of order) {
     const imports = fileImportsMap.get(file) || []
+    const hadMissingImport = imports.some(
+      imp => !fileBindings.has(imp.resolvedPath),
+    )
 
-    const crossFilePartials = new Map<string, StaticPartialDef>()
-    const crossFileBuilderNames: string[] = []
+    processFileInPipeline(file)
 
-    for (const imp of imports) {
-      const sourceBindings = fileBindings.get(imp.resolvedPath)
-      if (!sourceBindings) {
-        continue
-      }
+    if (hadMissingImport) {
+      filesNeedingSecondPass.add(file)
+    }
+  }
 
-      if (sourceBindings.builderExports.includes(imp.importedName)) {
-        crossFileBuilderNames.push(imp.localName)
-      }
+  for (let pass = 0; pass < MAX_PASSES && filesNeedingSecondPass.size > 0; pass++) {
+    const reprocessSet = new Set(filesNeedingSecondPass)
+    filesNeedingSecondPass.clear()
 
-      const localName = sourceBindings.exportMap.get(imp.importedName) || imp.importedName
-      const partialDef = sourceBindings.partialDefs.get(localName)
-      if (partialDef) {
-        crossFilePartials.set(imp.localName, partialDef)
+    for (const f of order) {
+      if (reprocessSet.has(f)) continue
+      const imports = fileImportsMap.get(f) || []
+      if (imports.some(imp => reprocessSet.has(imp.resolvedPath))) {
+        reprocessSet.add(f)
       }
     }
 
-    const { builderNames, namespace } = getBuilderInfoForFile(file, blocks)
-    const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
-    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace)
-
-    for (const doc of result.documents) {
-      addDocumentToManifest(manifest, doc, algorithm)
+    const reprocessOrder = order.filter(f => reprocessSet.has(f))
+    for (const file of reprocessOrder) {
+      processFileInPipeline(file)
     }
-
-    fileSkipped.set(file, result.skipped)
-    fileBindings.set(file, {
-      partialDefs: result.partialDefs,
-      exportMap: result.exportMap,
-      builderExports: result.builderExports,
-    })
   }
 
   const allPartialDefs = new Map<string, StaticPartialDef>()
