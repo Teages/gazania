@@ -244,43 +244,6 @@ export function buildFragmentDef(
   return [mainFragDef, ...(fragCtx.definitions as FragmentDefinitionNode[])]
 }
 
-export function collectAllFragmentDefs(
-  refs: StaticPartialRef[],
-  partialDefs: Map<string, StaticPartialDef>,
-  literalScope?: Map<string, unknown>,
-): FragmentDefinitionNode[] {
-  const fragmentDefs: FragmentDefinitionNode[] = []
-  const seen = new Set<string>()
-
-  function visit(refs: StaticPartialRef[]): void {
-    for (const ref of refs) {
-      const partialDef = partialDefs.get(ref.localName)
-      if (!partialDef) {
-        continue
-      }
-
-      const fragDefs = buildFragmentDef(partialDef, partialDefs, literalScope, seen)
-      if (fragDefs) {
-        fragmentDefs.push(...fragDefs)
-      }
-
-      const nestedResult = interpretSelectCallback(
-        partialDef.selectCallback,
-        partialDef.callbackParams.dollar,
-        partialDef.callbackParams.vars,
-        partialDefs,
-        literalScope,
-      )
-      if (nestedResult.partialRefs.length > 0) {
-        visit(nestedResult.partialRefs)
-      }
-    }
-  }
-
-  visit(refs)
-  return fragmentDefs
-}
-
 /**
  * Build a complete DocumentNode (operation or fragment) from a builder chain,
  * resolving partial refs into fragment spreads and pushing the corresponding

@@ -1,10 +1,7 @@
 import type { Program } from 'estree'
-import type { FragmentDefinitionNode } from '../../lib/graphql'
-import type { SelectionInput } from '../../runtime/dollar'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
-import { collectAllFragmentDefs } from './document'
 import { collectNestedPartialRefs, interpretSelectCallback } from './selection'
 
 /** Round 1: Collect all partial/section definitions from the AST. */
@@ -54,25 +51,6 @@ export function collectPartialDefs(
   })
 
   return partialDefs
-}
-
-/** Resolve same-file partial references for a single builder chain. */
-export function resolveSameFilePartials(
-  chain: StaticBuilderChain,
-  partialDefs: Map<string, StaticPartialDef>,
-  literalScope?: Map<string, unknown>,
-): { selection: SelectionInput, fragmentDefs: FragmentDefinitionNode[] } {
-  const { selection, partialRefs } = interpretSelectCallback(
-    chain.selectCallback,
-    chain.callbackParams.dollar,
-    chain.callbackParams.vars,
-    partialDefs,
-    literalScope,
-  )
-
-  const fragmentDefs = collectAllFragmentDefs(partialRefs, partialDefs, literalScope)
-
-  return { selection, fragmentDefs }
 }
 
 /**
@@ -204,40 +182,5 @@ if (import.meta.vitest) {
       expect(partialDefs.get('s')!.typeName).toBe('U')
     })
 
-    it('9. resolveSameFilePartials returns selection and fragmentDefs', async () => {
-      const code = `
-      import { gazania } from 'gazania'
-      const uf = gazania.partial('UF').on('User').select($ => $.select(['id']))
-      const q = gazania.query('Q').select($ => $.select([...uf(), 'name']))
-    `
-      const ast = await parseCode(code)
-      const contextMap: Record<string, unknown> = {}
-      const { builderNames, namespace } = collectImports(ast, contextMap)
-
-      const partialDefs = collectPartialDefs(ast, builderNames, namespace)
-      expect(partialDefs.size).toBe(1)
-
-      const chains: any[] = []
-      walkAST(ast, (node: any) => {
-        if (!isGazaniaSelectCall(node, builderNames, namespace)) {
-          return
-        }
-        const chain = analyzeBuilderChain(node, builderNames, namespace)
-        if (chain) {
-          chains.push(chain)
-        }
-      })
-
-      const queryChain = chains.find(c => c.type === 'query')
-      expect(queryChain).toBeDefined()
-
-      const { selection, fragmentDefs } = resolveSameFilePartials(queryChain, partialDefs)
-
-      expect(selection).toHaveLength(1)
-      expect(selection).toContain('name')
-      expect(fragmentDefs).toHaveLength(1)
-      expect(fragmentDefs[0].name.value).toBe('UF')
-      expect(fragmentDefs[0].typeCondition.name.value).toBe('User')
-    })
   })
 }
