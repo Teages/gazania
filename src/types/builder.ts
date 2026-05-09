@@ -259,6 +259,7 @@ export interface ReadFragmentFn {
 }
 
 export interface TypedGazania<Schema extends DefineSchema<any>> {
+  readonly '~isGazania': true
   query: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>
   mutation: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>
   subscription: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>

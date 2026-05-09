@@ -12,6 +12,7 @@ import { createSectionBuilder } from './section'
 export type { PartialPackage, SectionPackage }
 
 export interface Gazania {
+  readonly '~isGazania': true
   query: (name?: string) => OperationBuilderWithoutVars
   mutation: (name?: string) => OperationBuilderWithoutVars
   subscription: (name?: string) => OperationBuilderWithoutVars
