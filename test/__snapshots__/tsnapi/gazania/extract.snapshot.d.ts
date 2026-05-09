@@ -12,6 +12,7 @@ export interface ExtractOptions {
   algorithm?: string;
   cwd?: string;
   tsconfig: string;
+  ignoreCategories?: SkippedExtractionCategory[];
 }
 export interface ExtractResult {
   manifest: ExtractManifest;
@@ -20,11 +21,13 @@ export interface ExtractResult {
 export interface ManifestEntry {
   body: string;
   hash: string;
+  loc: SourceLoc;
 }
 export interface SkippedExtraction {
   file: string;
   line: number;
   reason: string;
+  category: SkippedExtractionCategory;
 }
 // #endregion
 

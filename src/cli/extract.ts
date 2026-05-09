@@ -1,17 +1,21 @@
+import type { SkippedExtractionCategory } from '../extract/manifest'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, join, relative } from 'node:path'
+import { dirname, isAbsolute, join, relative } from 'node:path'
+import { stderr, stdout } from 'node:process'
 import { extract } from '../extract'
+import { ExtractionError } from '../extract/manifest'
 
 export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction } from '../extract'
 
 export interface ExtractCommandOptions {
   dir: string
-  output: string
+  output: string | null
   include: string
   algorithm: string
   silent: boolean
   cwd: string
   tsconfig?: string
+  ignoreCategories?: SkippedExtractionCategory[]
 }
 
 /**
@@ -19,9 +23,9 @@ export interface ExtractCommandOptions {
  * Delegates to the core `extract()` function and writes the manifest to disk.
  */
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, include, algorithm, silent, cwd, tsconfig } = options
-  const log = silent ? () => {} : (msg: string) => console.log(msg)
-  const warn = silent ? () => {} : (msg: string) => console.warn(msg)
+  const { dir, output, include, algorithm, silent, cwd, tsconfig, ignoreCategories } = options
+  const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
+  const warn = (msg: string) => stderr.write(`${msg}\n`)
 
   if (!tsconfig) {
     throw new Error('--tsconfig is required. Usage: gazania extract --dir src --tsconfig tsconfig.json')
@@ -30,7 +34,37 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
   const scanDir = join(cwd, dir)
   log(`Scanning ${relative(cwd, scanDir) || '.'}...`)
 
-  const { manifest, skipped } = await extract({ dir, include, algorithm, cwd, tsconfig })
+  let manifest
+  try {
+    const result = await extract({ dir, include, algorithm, cwd, tsconfig, ignoreCategories })
+    manifest = result.manifest
+  }
+  catch (err) {
+    if (err instanceof ExtractionError) {
+      const skipped = err.skipped
+      warn(``)
+      warn(`⚠ ${skipped.length} Gazania call(s) were detected but could not be extracted:`)
+      for (const entry of skipped) {
+        const filePath = relative(cwd, entry.file) || entry.file
+        warn(``)
+        warn(`  ${filePath}:${entry.line}`)
+        warn(`    Reason: ${entry.reason}`)
+
+        const isReferenceError = entry.reason.includes('is not defined')
+        if (isReferenceError) {
+          warn(`    Possible cause: the referenced variable is not exported or not included in tsconfig`)
+          warn(`    Fix: ensure the partial/section is exported and its file is covered by tsconfig "include"`)
+        }
+        else {
+          warn(`    Possible cause: builder chain depends on a runtime value`)
+          warn(`    Fix: ensure all values used in the builder chain are compile-time constants`)
+        }
+      }
+      warn(``)
+      throw err
+    }
+    throw err
+  }
 
   const totalFound
     = Object.keys(manifest.operations).length
@@ -38,33 +72,17 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
   log(`Extracted ${totalFound} GraphQL document(s).`)
 
-  if (skipped.length > 0) {
-    warn(``)
-    warn(`⚠ ${skipped.length} Gazania call(s) were detected but could not be extracted:`)
-    for (const entry of skipped) {
-      const filePath = relative(cwd, entry.file) || entry.file
-      warn(``)
-      warn(`  ${filePath}:${entry.line}`)
-      warn(`    Reason: ${entry.reason}`)
+  const outputToStdout = output === null || output === '-'
 
-      const isReferenceError = entry.reason.includes('is not defined')
-      if (isReferenceError) {
-        warn(`    Possible cause: the referenced variable is not exported or not included in tsconfig`)
-        warn(`    Fix: ensure the partial/section is exported and its file is covered by tsconfig "include"`)
-      }
-      else {
-        warn(`    Possible cause: builder chain depends on a runtime value`)
-        warn(`    Fix: ensure all values used in the builder chain are compile-time constants`)
-      }
-    }
-    warn(``)
+  if (outputToStdout) {
+    stdout.write(`${JSON.stringify(manifest, null, 2)}\n`)
   }
-
-  const outputPath = join(cwd, output)
-  await mkdir(dirname(outputPath), { recursive: true })
-  await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
-
-  log(`Manifest written to ${outputPath}`)
+  else {
+    const outputPath = isAbsolute(output) ? output : join(cwd, output)
+    await mkdir(dirname(outputPath), { recursive: true })
+    await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
+    log(`Manifest written to ${relative(cwd, outputPath)}`)
+  }
 }
 
 if (import.meta.vitest) {
@@ -79,7 +97,7 @@ if (import.meta.vitest) {
     const { randomUUID } = await import('node:crypto')
 
     let dir: string
-    const mockLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const mockStderr = vi.spyOn(stderr, 'write').mockImplementation((() => true) as any)
 
     beforeEach(async () => {
       dir = join(tmpdir(), `gazania-cli-extract-test-${randomUUID()}`)
@@ -102,7 +120,7 @@ if (import.meta.vitest) {
 
     afterEach(async () => {
       await rm(dir, { recursive: true, force: true })
-      mockLog.mockClear()
+      mockStderr.mockClear()
     })
 
     it('writes manifest to output file', async () => {
@@ -155,11 +173,11 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         tsconfig: 'tsconfig.json',
       })
 
-      expect(mockLog).toHaveBeenCalled()
+      expect(mockStderr).toHaveBeenCalled()
     })
 
     it('emits no warnings when there are no skipped calls', async () => {
-      const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockStderr.mockClear()
 
       await writeFileTest(
         join(dir, 'src', 'query.js'),
@@ -176,19 +194,19 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         tsconfig: 'tsconfig.json',
       })
 
-      expect(mockWarn).not.toHaveBeenCalled()
-      mockWarn.mockRestore()
+      const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+      expect(stderrCalls.some((msg: string) => msg.includes('⚠'))).toBe(false)
     })
 
-    it('emits warnings to console.warn when calls are skipped', async () => {
-      const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    it('emits warnings to stderr when calls are skipped', async () => {
+      mockStderr.mockClear()
 
       await writeFileTest(
         join(dir, 'src', 'query.js'),
         `import { gazania } from 'gazania'\nconst doc = gazania.query('Fail').select($ => $.select([...missing({})]))`,
       )
 
-      await runExtract({
+      await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
         include: '**/*.{ts,tsx,js,jsx}',
@@ -196,25 +214,24 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         silent: false,
         cwd: dir,
         tsconfig: 'tsconfig.json',
-      })
+      })).rejects.toThrow()
 
-      const warnCalls = mockWarn.mock.calls.map(c => c[0])
-      expect(warnCalls.some((msg: string) => msg.includes('⚠'))).toBe(true)
-      expect(warnCalls.some((msg: string) => msg.includes('1 Gazania call(s)'))).toBe(true)
-      expect(warnCalls.some((msg: string) => msg.includes('src/query.js:2'))).toBe(true)
-      expect(warnCalls.some((msg: string) => msg.includes('missing is not defined'))).toBe(true)
-      mockWarn.mockRestore()
+      const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+      expect(stderrCalls.some((msg: string) => msg.includes('⚠'))).toBe(true)
+      expect(stderrCalls.some((msg: string) => msg.includes('1 Gazania call(s)'))).toBe(true)
+      expect(stderrCalls.some((msg: string) => msg.includes('src/query.js:2'))).toBe(true)
+      expect(stderrCalls.some((msg: string) => msg.includes('missing is not defined'))).toBe(true)
     })
 
-    it('suppresses warnings in silent mode even when calls are skipped', async () => {
-      const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    it('emits warnings in silent mode when calls are skipped', async () => {
+      mockStderr.mockClear()
 
       await writeFileTest(
         join(dir, 'src', 'query.js'),
         `import { gazania } from 'gazania'\nconst doc = gazania.query('Fail').select($ => $.select([...missing({})]))`,
       )
 
-      await runExtract({
+      await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
         include: '**/*.{ts,tsx,js,jsx}',
@@ -222,10 +239,13 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         silent: true,
         cwd: dir,
         tsconfig: 'tsconfig.json',
-      })
+      })).rejects.toThrow()
 
-      expect(mockWarn).not.toHaveBeenCalled()
-      mockWarn.mockRestore()
+      const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+      // silent suppresses progress logs, but warnings are still emitted
+      expect(stderrCalls.some((msg: string) => msg.includes('Scanning'))).toBe(false)
+      expect(stderrCalls.some((msg: string) => msg.includes('Extracted'))).toBe(false)
+      expect(stderrCalls.some((msg: string) => msg.includes('⚠'))).toBe(true)
     })
 
     it('throws when --tsconfig is not provided', async () => {
@@ -244,8 +264,58 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       })).rejects.toThrow('tsconfig is required')
     })
 
+    it('ignoreCategories suppresses ExtractionError at CLI level', async () => {
+      await writeFileTest(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'\nconst doc = gazania.query('Ignored').select($ => $.select([...missing({})]))`,
+      )
+
+      await runExtract({
+        dir: 'src',
+        output: 'manifest.json',
+        include: '**/*.{ts,tsx,js,jsx}',
+        algorithm: 'sha256',
+        silent: true,
+        cwd: dir,
+        tsconfig: 'tsconfig.json',
+        ignoreCategories: ['unresolved'],
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).not.toHaveProperty('Ignored')
+    })
+
+    it('writes manifest JSON to stdout when output is null', async () => {
+      const mockStdout = vi.spyOn(stdout, 'write').mockImplementation((() => true) as any)
+
+      await writeFileTest(
+        join(dir, 'src', 'query.js'),
+        `import { gazania } from 'gazania'\nconst doc = gazania.query('StdoutQuery').select($ => $.select(['id']))`,
+      )
+
+      try {
+        await runExtract({
+          dir: 'src',
+          output: null,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+        })
+
+        const stdoutCalls = mockStdout.mock.calls.map(c => c[0] as string)
+        const jsonOutput = stdoutCalls.join('')
+        const manifest = JSON.parse(jsonOutput)
+        expect(manifest.operations).toHaveProperty('StdoutQuery')
+      }
+      finally {
+        mockStdout.mockRestore()
+      }
+    })
+
     it('shows runtime value fix hint when error is not a ReferenceError', async () => {
-      const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockStderr.mockClear()
 
       await writeFileTest(
         join(dir, 'src', 'query.js'),
@@ -254,7 +324,7 @@ const notAFn = 42
 const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
       )
 
-      await runExtract({
+      await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
         include: '**/*.{ts,tsx,js,jsx}',
@@ -262,11 +332,10 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
         silent: false,
         cwd: dir,
         tsconfig: 'tsconfig.json',
-      })
+      })).rejects.toThrow()
 
-      const warnCalls = mockWarn.mock.calls.map(c => c[0])
-      expect(warnCalls.some((msg: string) => msg.includes('compile-time constants'))).toBe(true)
-      mockWarn.mockRestore()
+      const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+      expect(stderrCalls.some((msg: string) => msg.includes('compile-time constants'))).toBe(true)
     })
   })
 }

@@ -1,8 +1,9 @@
-import type { ExtractResult } from './manifest'
+import type { ExtractResult, SkippedExtractionCategory } from './manifest'
 import { join } from 'node:path'
 import { cwd as getCwd } from 'node:process'
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
+import { ExtractionError } from './manifest'
 
 export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction } from './manifest'
 
@@ -24,6 +25,11 @@ export interface ExtractOptions {
    * Requires `typescript` to be installed as a dev dependency.
    */
   tsconfig: string
+  /**
+   * Categories of skipped extractions to ignore (suppress from throwing).
+   * By default, any skipped extraction causes extract() to throw ExtractionError.
+   */
+  ignoreCategories?: SkippedExtractionCategory[]
 }
 
 /**
@@ -47,6 +53,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     algorithm = 'sha256',
     cwd = getCwd(),
     tsconfig,
+    ignoreCategories = [],
   } = options
 
   if (!tsconfig) {
@@ -56,5 +63,13 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const scanDir = join(cwd, dir)
   const files = await findFiles(scanDir, include)
 
-  return staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), algorithm })
+  const result = await staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), algorithm })
+
+  const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))
+
+  if (unignoredSkipped.length > 0) {
+    throw new ExtractionError(unignoredSkipped)
+  }
+
+  return result
 }

@@ -91,6 +91,7 @@ export const GetUsers = gazania.query('GetUsers')
       dir: 'src',
       cwd: dir,
       tsconfig: 'tsconfig.json',
+      ignoreCategories: ['circular'],
     })
 
     expect(skipped.length).toBe(1)

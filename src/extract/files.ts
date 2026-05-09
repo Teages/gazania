@@ -74,6 +74,14 @@ export function staticOffsetToLine(code: string, offset: number): number {
   return code.slice(0, offset).split('\n').length
 }
 
+export function offsetToLineColumn(code: string, offset: number): { line: number, column: number, offset: number } {
+  const before = code.slice(0, offset)
+  const line = before.split('\n').length
+  const lastNewline = before.lastIndexOf('\n')
+  const column = offset - lastNewline // 1-based since lastNewline is -1 when no newline
+  return { line, column, offset }
+}
+
 function parseExtensions(pattern: string): Set<string> {
   const match = /\.\{([^}]+)\}$/.exec(pattern) || /\.(\w+)$/.exec(pattern)
   if (!match) {

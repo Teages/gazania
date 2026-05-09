@@ -62,8 +62,8 @@ export function findUnresolvedSpreadRef(
   callbackNode: any,
   knownPartials: Map<string, StaticPartialDef>,
   declaredNames?: Set<string>,
-): { name: string, reason: string } | null {
-  let result: { name: string, reason: string } | null = null
+): { name: string, reason: string, category: 'unresolved' } | null {
+  let result: { name: string, reason: string, category: 'unresolved' } | null = null
   walkAST(callbackNode, (node: any) => {
     if (result) {
       return
@@ -78,7 +78,7 @@ export function findUnresolvedSpreadRef(
         const reason = declaredNames?.has(name)
           ? `${name} is not a function`
           : `${name} is not defined`
-        result = { name, reason }
+        result = { name, reason, category: 'unresolved' }
       }
     }
   })

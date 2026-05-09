@@ -2,15 +2,29 @@ import type { DocumentNode } from 'graphql'
 import { createHash, getHashes } from 'node:crypto'
 import { print } from 'graphql'
 
+export interface SourceLocation {
+  line: number
+  column: number
+  offset: number
+}
+
+export interface SourceLoc {
+  start: SourceLocation
+  end: SourceLocation
+}
+
 export interface ManifestEntry {
   body: string
   hash: string
+  loc: SourceLoc
 }
 
 export interface ExtractManifest {
   operations: Record<string, ManifestEntry>
   fragments: Record<string, ManifestEntry>
 }
+
+export type SkippedExtractionCategory = 'unresolved' | 'analysis' | 'circular'
 
 export interface SkippedExtraction {
   /** Absolute path of the file containing the skipped call */
@@ -19,12 +33,22 @@ export interface SkippedExtraction {
   line: number
   /** Error message from the failed evaluation */
   reason: string
+  category: SkippedExtractionCategory
 }
 
 export interface ExtractResult {
   manifest: ExtractManifest
   /** Gazania calls that were detected but could not be statically evaluated */
   skipped: SkippedExtraction[]
+}
+
+export class ExtractionError extends Error {
+  readonly skipped: SkippedExtraction[]
+  constructor(skipped: SkippedExtraction[]) {
+    super(`Extraction failed with ${skipped.length} skipped item(s)`)
+    this.name = 'ExtractionError'
+    this.skipped = skipped
+  }
 }
 
 export function computeHash(body: string, algorithm: string): string {
@@ -56,21 +80,41 @@ export function addDocumentToManifest(
   manifest: ExtractManifest,
   doc: DocumentNode,
   algorithm: string,
+  loc: SourceLoc,
 ): void {
   const body = print(doc)
   const hash = computeHash(body, algorithm)
   const { name, type } = getOperationName(doc)
 
   if (!name) {
+    // TODO: anonymous operation collision detection not implemented
     const HASH_PREFIX_LENGTH = 8
     const hashStart = hash.indexOf(':') + 1
     const anonKey = `Anonymous_${hash.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
-    manifest.operations[anonKey] = { body, hash }
+    manifest.operations[anonKey] = { body, hash, loc }
   }
   else if (type === 'fragment') {
-    manifest.fragments[name] = { body, hash }
+    const existing = manifest.fragments[name]
+    if (existing) {
+      if (existing.body === body) {
+        return
+      }
+      throw new Error(
+        `Duplicate fragment name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
+      )
+    }
+    manifest.fragments[name] = { body, hash, loc }
   }
   else {
-    manifest.operations[name] = { body, hash }
+    const existing = manifest.operations[name]
+    if (existing) {
+      if (existing.body === body) {
+        return
+      }
+      throw new Error(
+        `Duplicate operation name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
+      )
+    }
+    manifest.operations[name] = { body, hash, loc }
   }
 }

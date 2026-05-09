@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import type { SkippedExtractionCategory } from '../extract/manifest'
 import { argv, exit, cwd as getCwd, stderr, stdout } from 'node:process'
 import { parseArgs } from 'node:util'
 import { runExtract } from './extract'
@@ -38,11 +39,15 @@ Extract GraphQL operations and produce a persisted query manifest
 
 Options:
   -d, --dir <path>       Directory to scan (default: src)
-  -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
+  -o, --output <path>    Output manifest file path (default: stdout). Use '-' for explicit stdout.
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
   --tsconfig <path>      (required) Path to tsconfig.json for cross-file partial/section resolution
   --silent               Suppress output
+  --ignore-unresolved    Ignore unresolved reference errors
+  --ignore-analysis      Ignore static analysis failures
+  --ignore-circular      Ignore circular fragment reference errors
+  --ignore-all           Ignore all extraction errors
   -h, --help             Show help
 `
 
@@ -93,13 +98,17 @@ else if (command === 'extract') {
   const { values } = parseArgs({
     args: rest,
     options: {
-      dir: { type: 'string', short: 'd' },
-      output: { type: 'string', short: 'o' },
-      include: { type: 'string' },
-      algorithm: { type: 'string' },
-      tsconfig: { type: 'string' },
-      silent: { type: 'boolean' },
-      help: { type: 'boolean', short: 'h' },
+      'dir': { type: 'string', short: 'd' },
+      'output': { type: 'string', short: 'o' },
+      'include': { type: 'string' },
+      'algorithm': { type: 'string' },
+      'tsconfig': { type: 'string' },
+      'silent': { type: 'boolean' },
+      'ignore-unresolved': { type: 'boolean' },
+      'ignore-analysis': { type: 'boolean' },
+      'ignore-circular': { type: 'boolean' },
+      'ignore-all': { type: 'boolean' },
+      'help': { type: 'boolean', short: 'h' },
     },
     strict: true,
   })
@@ -110,14 +119,26 @@ else if (command === 'extract') {
   }
 
   try {
+    const ignoreCategories: SkippedExtractionCategory[] = []
+    if (values['ignore-unresolved'] || values['ignore-all']) {
+      ignoreCategories.push('unresolved')
+    }
+    if (values['ignore-analysis'] || values['ignore-all']) {
+      ignoreCategories.push('analysis')
+    }
+    if (values['ignore-circular'] || values['ignore-all']) {
+      ignoreCategories.push('circular')
+    }
+
     await runExtract({
       dir: values.dir ?? 'src',
-      output: values.output ?? 'gazania-manifest.json',
+      output: values.output ?? null,
       include: values.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}',
       algorithm: values.algorithm ?? 'sha256',
       silent: values.silent ?? false,
       cwd: getCwd(),
       tsconfig: values.tsconfig,
+      ignoreCategories,
     })
   }
   catch (err) {

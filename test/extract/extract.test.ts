@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { extract } from '../../src/extract'
+import { ExtractionError } from '../../src/extract/manifest'
 
 describe('extract', () => {
   let dir: string
@@ -540,55 +541,69 @@ describe('extract: skipped calls', () => {
     expect(skipped).toHaveLength(0)
   })
 
-  it('returns a skipped entry when a call references an undefined variable', async () => {
+  it('throws ExtractionError when a call references an undefined variable', async () => {
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
     )
-    const { manifest, skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
-    expect(manifest.operations).not.toHaveProperty('FailQuery')
-    expect(skipped).toHaveLength(1)
-    expect(skipped[0]!.reason).toMatch(/missingPartial is not defined/)
+    try {
+      await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+      expect.unreachable('Should have thrown')
+    }
+    catch (err) {
+      expect(err).toBeInstanceOf(ExtractionError)
+      const skipped = (err as ExtractionError).skipped
+      expect(skipped).toHaveLength(1)
+      expect(skipped[0]!.reason).toMatch(/missingPartial is not defined/)
+      expect(skipped[0]!.category).toBe('unresolved')
+    }
   })
 
-  it('skipped entry includes the absolute file path', async () => {
+  it('extractionError.skipped entry includes the absolute file path', async () => {
     const { join: pathJoin } = await import('node:path')
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('X').select($ => $.select([...gone({})]))`,
     )
-    const { skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
-    expect(skipped).toHaveLength(1)
-    expect(skipped[0]!.file).toBe(pathJoin(dir, 'src', 'query.js'))
+    try {
+      await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+      expect.unreachable('Should have thrown')
+    }
+    catch (err) {
+      expect(err).toBeInstanceOf(ExtractionError)
+      expect((err as ExtractionError).skipped[0]!.file).toBe(pathJoin(dir, 'src', 'query.js'))
+    }
   })
 
-  it('skipped entry has a 1-based line number pointing to the failing call', async () => {
-    // Line 1: import
-    // Line 2: blank
-    // Line 3: the failing query (line 3)
+  it('extractionError.skipped entry has a 1-based line number pointing to the failing call', async () => {
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'\n\nconst doc = gazania.query('LineTest').select($ => $.select([...gone({})]))`,
     )
-    const { skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
-    expect(skipped).toHaveLength(1)
-    expect(skipped[0]!.line).toBe(3)
+    try {
+      await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+      expect.unreachable('Should have thrown')
+    }
+    catch (err) {
+      expect(err).toBeInstanceOf(ExtractionError)
+      expect((err as ExtractionError).skipped[0]!.line).toBe(3)
+    }
   })
 
-  it('skipped entry line number accounts for SFC lineOffset in Vue files', async () => {
-    // File layout (0-indexed from line 1):
-    //   Line 1: <template><div/></template>
-    //   Line 2: <script setup>
-    //   Line 3: import { gazania } from 'gazania'
-    //   Line 4: const doc = gazania.query(...)   ← expected line
+  it('extractionError.skipped entry line number accounts for SFC lineOffset in Vue files', async () => {
     const vue = `<template><div/></template>\n<script setup>\nimport { gazania } from 'gazania'\nconst doc = gazania.query('VueFail').select($ => $.select([...gone({})]))\n</script>`
     await writeFile(join(dir, 'src', 'Comp.vue'), vue)
-    const { skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
-    expect(skipped).toHaveLength(1)
-    expect(skipped[0]!.line).toBe(4)
+    try {
+      await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+      expect.unreachable('Should have thrown')
+    }
+    catch (err) {
+      expect(err).toBeInstanceOf(ExtractionError)
+      expect((err as ExtractionError).skipped[0]!.line).toBe(4)
+    }
   })
 
-  it('collects skipped calls from multiple files', async () => {
+  it('collects skipped calls from multiple files in ExtractionError', async () => {
     await writeFile(
       join(dir, 'src', 'a.js'),
       `import { gazania } from 'gazania'\nconst d = gazania.query('A').select($ => $.select([...x({})]))`,
@@ -597,11 +612,61 @@ describe('extract: skipped calls', () => {
       join(dir, 'src', 'b.js'),
       `import { gazania } from 'gazania'\nconst d = gazania.query('B').select($ => $.select([...y({})]))`,
     )
-    const { skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
-    expect(skipped).toHaveLength(2)
-    const files = skipped.map(s => s.file)
-    expect(files.some(f => f.endsWith('a.js'))).toBe(true)
-    expect(files.some(f => f.endsWith('b.js'))).toBe(true)
+    try {
+      await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+      expect.unreachable('Should have thrown')
+    }
+    catch (err) {
+      expect(err).toBeInstanceOf(ExtractionError)
+      const skipped = (err as ExtractionError).skipped
+      expect(skipped).toHaveLength(2)
+      const files = skipped.map(s => s.file)
+      expect(files.some(f => f.endsWith('a.js'))).toBe(true)
+      expect(files.some(f => f.endsWith('b.js'))).toBe(true)
+    }
+  })
+
+  it('ignoreCategories suppresses ExtractionError for matching categories', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.js'),
+      `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
+    )
+    const { manifest, skipped } = await extract({
+      dir: 'src',
+      cwd: dir,
+      tsconfig: 'tsconfig.json',
+      ignoreCategories: ['unresolved'],
+    })
+    expect(manifest.operations).not.toHaveProperty('FailQuery')
+    expect(skipped).toHaveLength(1)
+    expect(skipped[0]!.category).toBe('unresolved')
+  })
+
+  it('ignoreCategories with all categories suppresses all errors', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.js'),
+      `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
+    )
+    const { skipped } = await extract({
+      dir: 'src',
+      cwd: dir,
+      tsconfig: 'tsconfig.json',
+      ignoreCategories: ['unresolved', 'analysis', 'circular'],
+    })
+    expect(skipped).toHaveLength(1)
+  })
+
+  it('ignoreCategories does not suppress non-matching categories', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.js'),
+      `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
+    )
+    await expect(extract({
+      dir: 'src',
+      cwd: dir,
+      tsconfig: 'tsconfig.json',
+      ignoreCategories: ['analysis'],
+    })).rejects.toThrow(ExtractionError)
   })
 
   it('cross-file mode: skipped when imported file is outside the scanned directory', async () => {
@@ -630,10 +695,95 @@ describe('extract: skipped calls', () => {
       join(dir, 'src', 'query.ts'),
       `import { myPartial } from '../fragments/user'\nimport { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select([...myPartial({})]))`,
     )
-    const { manifest, skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+    const { manifest, skipped } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json', ignoreCategories: ['unresolved'] })
     expect(manifest.operations).not.toHaveProperty('GetUser')
     expect(skipped).toHaveLength(1)
     expect(skipped[0]!.reason).toMatch(/myPartial is not defined/)
+  })
+})
+
+describe('extract: integration', () => {
+  let dir: string
+
+  beforeEach(async () => {
+    dir = join(tmpdir(), `gazania-integration-test-${randomUUID()}`)
+    await mkdir(dir, { recursive: true })
+    await mkdir(join(dir, 'src'), { recursive: true })
+
+    await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
+      compilerOptions: {
+        target: 'esnext',
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        strict: true,
+        baseUrl: resolve(process.cwd()),
+        paths: {
+          gazania: ['src/index.ts'],
+        },
+      },
+      include: ['src'],
+    }))
+  })
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('manifest entries contain loc field', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.js'),
+      `import { gazania } from 'gazania'
+const doc = gazania.query('LocQuery').select($ => $.select(['id', 'name']))`,
+    )
+    const { manifest } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+    const entry = manifest.operations.LocQuery
+    expect(entry).toBeDefined()
+    expect(entry!.loc).toBeDefined()
+    expect(entry!.loc.start.line).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.start.column).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.end.line).toBeGreaterThanOrEqual(entry!.loc.start.line)
+    expect(entry!.loc.start.offset).toBeGreaterThanOrEqual(0)
+    expect(entry!.loc.end.offset).toBeGreaterThanOrEqual(entry!.loc.start.offset)
+  })
+
+  it('throws for duplicate operation names with different bodies across files', async () => {
+    await writeFile(
+      join(dir, 'src', 'a.js'),
+      `import { gazania } from 'gazania'
+const doc = gazania.query('DupQuery').select($ => $.select(['id']))`,
+    )
+    await writeFile(
+      join(dir, 'src', 'b.js'),
+      `import { gazania } from 'gazania'
+const doc = gazania.query('DupQuery').select($ => $.select(['name']))`,
+    )
+    await expect(extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' }))
+      .rejects
+      .toThrow(/Duplicate operation name "DupQuery"/)
+  })
+
+  it('silently skips duplicate operations with identical bodies across files', async () => {
+    const queryCode = `import { gazania } from 'gazania'\nconst doc = gazania.query('SameQuery').select($ => $.select(['id']))`
+    await writeFile(join(dir, 'src', 'a.js'), queryCode)
+    await writeFile(join(dir, 'src', 'b.js'), queryCode)
+    const { manifest } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+    expect(Object.keys(manifest.operations)).toHaveLength(1)
+    expect(manifest.operations).toHaveProperty('SameQuery')
+  })
+
+  it('loc field points to the correct source line', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.js'),
+      `// comment line 1
+// comment line 2
+import { gazania } from 'gazania'
+const doc = gazania.query('LineQuery').select($ => $.select(['id']))`,
+    )
+    const { manifest } = await extract({ dir: 'src', cwd: dir, tsconfig: 'tsconfig.json' })
+    const entry = manifest.operations.LineQuery
+    expect(entry).toBeDefined()
+    // The gazania.query call is on line 4
+    expect(entry!.loc.start.line).toBeGreaterThanOrEqual(3)
   })
 })
 

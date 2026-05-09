@@ -1,11 +1,11 @@
 import type { Program } from 'estree'
 import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
-import type { ExtractManifest } from '../manifest'
+import type { ExtractManifest, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { parseSync } from 'oxc-parser'
 import { getFileImports, topologicalSort } from '../dependency-graph'
-import { parseFile, staticOffsetToLine } from '../files'
+import { offsetToLineColumn, parseFile, staticOffsetToLine } from '../files'
 import { addDocumentToManifest } from '../manifest'
 import { createModuleResolver, createTypeCheckerProgram } from '../ts-program'
 import { walkAST } from '../walk'
@@ -32,14 +32,14 @@ export function processFileStatic(
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
   builderExports: string[]
-  documents: DocumentNode[]
-  skipped: Array<{ file: string, line: number, reason: string }>
+  documents: Array<{ doc: DocumentNode, loc: SourceLoc }>
+  skipped: SkippedExtraction[]
 } {
   const mergedPartialDefs = new Map<string, StaticPartialDef>()
   const mergedExportMap = new Map<string, string>()
   const mergedBuilderExports: string[] = []
-  const documents: DocumentNode[] = []
-  const skipped: Array<{ file: string, line: number, reason: string }> = []
+  const documents: Array<{ doc: DocumentNode, loc: SourceLoc }> = []
+  const skipped: SkippedExtraction[] = []
 
   const accumulatedBuilderNames: string[] = []
 
@@ -129,13 +129,20 @@ export function processFileStatic(
           file,
           line: staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset,
           reason: unresolvedRef.reason,
+          category: 'unresolved' as SkippedExtractionCategory,
         })
         continue
       }
 
       try {
         const doc = buildDocumentFromChain(chain, mergedPartialDefs)
-        documents.push(doc)
+        const startPos = offsetToLineColumn(block.code, chain.loc.start)
+        const endPos = offsetToLineColumn(block.code, chain.loc.end)
+        const loc: SourceLoc = {
+          start: { line: startPos.line + block.lineOffset, column: startPos.column, offset: startPos.offset },
+          end: { line: endPos.line + block.lineOffset, column: endPos.column, offset: endPos.offset },
+        }
+        documents.push({ doc, loc })
       }
       catch (err) {
         if (err instanceof CircularPartialError) {
@@ -147,6 +154,7 @@ export function processFileStatic(
           file,
           line,
           reason: `Failed to statically analyze ${chain.type} "${chain.name}": ${errMsg}`,
+          category: 'analysis' as SkippedExtractionCategory,
         })
       }
     }
@@ -171,7 +179,7 @@ export function staticExtractWithPartials(
 
   const { builderNames, namespace } = collectImports(ast, {})
   const result = processFileStatic(blocks, filePath ?? 'test.js', new Map(), builderNames, namespace)
-  return result.documents
+  return result.documents.map(d => d.doc)
 }
 
 export async function staticExtractCrossFile(
@@ -179,7 +187,7 @@ export async function staticExtractCrossFile(
   options: { tsconfigPath: string, algorithm?: string },
 ): Promise<{
   manifest: ExtractManifest
-  skipped: Array<{ file: string, line: number, reason: string }>
+  skipped: SkippedExtraction[]
 }> {
   const algorithm = options.algorithm ?? 'sha256'
   const resolver = await createModuleResolver(options.tsconfigPath)
@@ -243,7 +251,7 @@ export async function staticExtractCrossFile(
   const manifest: ExtractManifest = { operations: {}, fragments: {} }
 
   const fileBindings = new Map<string, FileStaticBindings>()
-  const fileSkipped = new Map<string, Array<{ file: string, line: number, reason: string }>>()
+  const fileSkipped = new Map<string, SkippedExtraction[]>()
   const filesNeedingSecondPass = new Set<string>()
 
   function getBuilderInfoForFile(file: string, blocks: StaticParsedBlock[]): { builderNames: string[], namespace: string | undefined } {
@@ -308,8 +316,8 @@ export async function staticExtractCrossFile(
     const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
     const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace)
 
-    for (const doc of result.documents) {
-      addDocumentToManifest(manifest, doc, algorithm)
+    for (const { doc, loc } of result.documents) {
+      addDocumentToManifest(manifest, doc, algorithm, loc)
     }
 
     fileSkipped.set(file, result.skipped)
@@ -377,6 +385,7 @@ export async function staticExtractCrossFile(
         file: '',
         line: 0,
         reason: `Circular fragment reference detected: ${cyclePath}. Fragment spreads must not form cycles (GraphQL spec 5.5.2.2).`,
+        category: 'circular' as SkippedExtractionCategory,
       })
     }
     return { manifest, skipped: allSkipped }
