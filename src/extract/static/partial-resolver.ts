@@ -3,7 +3,6 @@ import type { DocumentNode, FragmentDefinitionNode, SelectionNode, SelectionSetN
 import type { DirectiveInput } from '../../runtime/directive'
 import type { SelectionInput, SelectionObject } from '../../runtime/dollar'
 import type { StaticBuilderChain, StaticDirectiveDef, StaticPartialDef, StaticPartialRef } from './types'
-import { CircularPartialError } from './types'
 import { createHash, getHashes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
@@ -22,6 +21,7 @@ import { createModuleResolver } from '../ts-program'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, collectExports, collectImports, isGazaniaSelectCall } from './chain'
 import { collectNestedPartialRefs, interpretSelectCallback } from './selection'
+import { CircularPartialError } from './types'
 
 /**
  * Wrap a SelectionInput so that any field callbacks carrying `_partialRefs`
@@ -873,7 +873,7 @@ function detectCircularPartialRefs(
 ): Map<string, string> {
   const cycles = new Map<string, string>()
 
-  for (const [localName, def] of partialDefs) {
+  for (const [_localName, def] of partialDefs) {
     const visited = new Set<string>()
     const path: string[] = []
 

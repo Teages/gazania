@@ -18,7 +18,7 @@ function getExpression(code: string) {
   return ast.body[0].expression
 }
 
-function getLastExpression(code: string) {
+function _getLastExpression(code: string) {
   const ast = parseCode(code)
   const last = ast.body[ast.body.length - 1]
   return last.type === 'ExpressionStatement' ? last.expression : last.declarations?.[0]?.init

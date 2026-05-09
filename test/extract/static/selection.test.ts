@@ -10,7 +10,7 @@ function parseExpr(code: string): any {
   return node.type === 'ParenthesizedExpression' ? node.expression : node
 }
 
-function parseStatement(code: string): any {
+function _parseStatement(code: string): any {
   const ast = parseSync('test.ts', code).program as any
   return ast.body[0]
 }

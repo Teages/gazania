@@ -6,3 +6,7 @@ dist
 *.log*
 *.env*
 *.tsbuildinfo
+
+# opencode
+.opencode
+.sisyphus

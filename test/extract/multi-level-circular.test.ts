@@ -88,10 +88,8 @@ export const GetUsers = gazania.query('GetUsers')
       tsconfig: 'tsconfig.json',
     })
 
-    console.log('\n=== Circular partial reference extraction ===')
-    console.log('Skipped:', JSON.stringify(skipped, null, 2))
-
-    expect(skipped.length).toBeGreaterThanOrEqual(1)
+    expect(skipped.length).toBe(1)
+    expect(skipped[0].reason).toContain('Circular fragment reference detected')
 
     const circularSkip = skipped.find(s =>
       s.reason.includes('Circular fragment reference detected'),
@@ -103,7 +101,23 @@ export const GetUsers = gazania.query('GetUsers')
 
     if (manifest.operations.GetUsers) {
       const body = manifest.operations.GetUsers!.body
-      console.log(`\nGetUsers body:\n${body}`)
+      expect(body).toMatchInlineSnapshot(`
+        "query GetUsers {
+          ...PartialB
+        }
+
+        fragment PartialD on User {
+          id
+        }
+
+        fragment PartialC on User {
+          ...PartialD
+        }
+
+        fragment PartialB on User {
+          ...PartialC
+        }"
+      `)
     }
   })
 })
