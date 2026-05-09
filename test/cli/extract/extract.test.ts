@@ -135,6 +135,7 @@ describe('feature: skipped call diagnostics', () => {
   })
 
   it('throws when tsconfig is not provided', async () => {
+    // @ts-expect-error tsconfig is not provided to test error handling
     await expect(extract({ dir: 'src', cwd: fixtureDir }))
       .rejects
       .toThrow('tsconfig is required')

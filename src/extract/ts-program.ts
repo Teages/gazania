@@ -42,6 +42,14 @@ export async function createModuleResolver(tsconfigPath: string): Promise<Module
     dirname(configPath),
   )
 
+  if (parsed.errors.length > 0) {
+    const fatalErrors = parsed.errors.filter(e => e.code !== 18003)
+    if (fatalErrors.length > 0) {
+      const msg = ts.flattenDiagnosticMessageText(fatalErrors[0].messageText, '\n')
+      throw new Error(`Invalid tsconfig at "${configPath}": ${msg}`)
+    }
+  }
+
   const host = ts.createCompilerHost(parsed.options)
 
   return {
@@ -83,6 +91,14 @@ export async function createTypeCheckerProgram(tsconfigPath: string): Promise<Ty
     ts.sys,
     dirname(configPath),
   )
+
+  if (parsed.errors.length > 0) {
+    const fatalErrors = parsed.errors.filter(e => e.code !== 18003)
+    if (fatalErrors.length > 0) {
+      const msg = ts.flattenDiagnosticMessageText(fatalErrors[0].messageText, '\n')
+      throw new Error(`Invalid tsconfig at "${configPath}": ${msg}`)
+    }
+  }
 
   const host = ts.createCompilerHost(parsed.options)
   const program = ts.createProgram({

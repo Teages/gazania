@@ -17,10 +17,10 @@ export interface ParsedBlock {
  *
  * Returns `null` if the file does not reference `gazania`/`Gazania` or no blocks parse.
  */
-export async function parseFile(filePath: string): Promise<ParsedBlock[] | null> {
+export async function parseFile(filePath: string, options?: { skipFilter?: boolean }): Promise<ParsedBlock[] | null> {
   const rawCode = await readFile(filePath, 'utf-8')
 
-  if (!rawCode.includes('gazania') && !rawCode.includes('Gazania')) {
+  if (!options?.skipFilter && !rawCode.includes('gazania') && !rawCode.includes('Gazania')) {
     return null
   }
 
@@ -30,7 +30,7 @@ export async function parseFile(filePath: string): Promise<ParsedBlock[] | null>
   const blocks: ParsedBlock[] = []
 
   for (const { code, lineOffset } of scriptBlocks) {
-    if (!code.includes('gazania') && !code.includes('Gazania')) {
+    if (!options?.skipFilter && !code.includes('gazania') && !code.includes('Gazania')) {
       continue
     }
 
@@ -47,7 +47,7 @@ export async function parseFile(filePath: string): Promise<ParsedBlock[] | null>
         evalCode = transformed.code
       }
 
-      const parseFilename = filePath.endsWith('.jsx') ? 'eval.jsx' : 'eval.js'
+      const parseFilename = (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) ? 'eval.jsx' : 'eval.js'
       const parseResult = parseSync(parseFilename, evalCode)
       if (parseResult.errors.length > 0) {
         continue

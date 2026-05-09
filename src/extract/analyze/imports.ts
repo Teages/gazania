@@ -106,7 +106,7 @@ export function collectLiteralVariables(ast: Program): Map<string, unknown> {
   const literals = new Map<string, unknown>()
 
   walkAST(ast, (node: Node) => {
-    if (node.type !== 'VariableDeclaration') {
+    if (node.type !== 'VariableDeclaration' || node.kind !== 'const') {
       return
     }
 

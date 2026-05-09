@@ -33,6 +33,7 @@ function initGazania(): Gazania {
     partial: (name: string) => createPartialBuilder(name),
     section: (name: string) => createSectionBuilder(name),
     enum: enumFn,
+    '~isGazania': true as const,
   }
 }
 

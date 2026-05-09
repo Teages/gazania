@@ -143,10 +143,11 @@ export function processFileStatic(
           skipped.push({ file, line, reason: err.message })
         }
         else {
+          const errMsg = err instanceof Error ? err.message : String(err)
           skipped.push({
             file,
             line,
-            reason: `Failed to statically analyze ${chain.type} "${chain.name}"`,
+            reason: `Failed to statically analyze ${chain.type} "${chain.name}": ${errMsg}`,
           })
         }
       }
@@ -193,6 +194,25 @@ export async function staticExtractCrossFile(
     const blocks = await parseFile(file)
     if (blocks) {
       parsedFiles.set(file, blocks)
+    }
+  }
+
+  // Step 1b: Force-parse files the type checker knows have gazania builders
+  // but were skipped by the string pre-filter (re-exported/aliased builders)
+  for (const file of files) {
+    if (parsedFiles.has(file)) {
+      continue
+    }
+    const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
+    if (isSFC) {
+      continue
+    }
+    const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
+    if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
+      const blocks = await parseFile(file, { skipFilter: true })
+      if (blocks) {
+        parsedFiles.set(file, blocks)
+      }
     }
   }
 

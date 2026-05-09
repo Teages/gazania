@@ -220,6 +220,8 @@ export function buildFragmentDef(
     buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen)
   }
 
+  seen.delete(partialDef.name)
+
   const mainFragDef: FragmentDefinitionNode = {
     kind: Kind.FRAGMENT_DEFINITION,
     name: { kind: Kind.NAME, value: partialDef.name },

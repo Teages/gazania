@@ -24,7 +24,7 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
   const warn = silent ? () => {} : (msg: string) => console.warn(msg)
 
   if (!tsconfig) {
-    throw new Error('Error: --tsconfig is required. Usage: gazania extract --dir src --tsconfig tsconfig.json')
+    throw new Error('--tsconfig is required. Usage: gazania extract --dir src --tsconfig tsconfig.json')
   }
 
   const scanDir = join(cwd, dir)
@@ -48,11 +48,7 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
       warn(`    Reason: ${entry.reason}`)
 
       const isReferenceError = entry.reason.includes('is not defined')
-      if (isReferenceError && !tsconfig) {
-        warn(`    Possible cause: cross-file partial/section referenced without module resolution`)
-        warn(`    Fix: run with --tsconfig tsconfig.json to enable cross-file resolution`)
-      }
-      else if (isReferenceError && tsconfig) {
+      if (isReferenceError) {
         warn(`    Possible cause: the referenced variable is not exported or not included in tsconfig`)
         warn(`    Fix: ensure the partial/section is exported and its file is covered by tsconfig "include"`)
       }

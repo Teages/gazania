@@ -268,12 +268,6 @@ export function resolveValue(
         return () => enumValue
       }
     }
-
-    if (valueNode.type === 'ArrayExpression') {
-      return (valueNode.elements ?? []).map(
-        (el: any) => resolveValue(el, dollarParam, varsParam, literalScope),
-      )
-    }
   }
 
   if (valueNode.type === 'ArrayExpression') {

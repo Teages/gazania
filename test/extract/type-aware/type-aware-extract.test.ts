@@ -391,7 +391,6 @@ describe('type-aware extract: error handling', () => {
 
   it('throws an error when tsconfig is an empty string', async () => {
     await expect(
-      // @ts-expect-error — intentionally passing empty string
       extract({ dir: 'src', tsconfig: '' }),
     ).rejects.toThrow(/tsconfig is required/)
   })
