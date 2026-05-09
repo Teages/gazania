@@ -92,9 +92,9 @@ Extract all Gazania GraphQL operations and produce a persisted query manifest.
 gazania extract [options]
 ```
 
-The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode` using TypeScript's TypeChecker for type-aware detection, evaluates them at analysis time, and writes a JSON manifest with each operation's body and SHA-256 hash. Vue (`.vue`) and Svelte (`.svelte`) single-file components are supported — each `<script>` block is extracted and processed independently.
+The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode` using type-aware detection, evaluates them at analysis time, and writes a JSON manifest with each operation's body and SHA-256 hash. Vue (`.vue`) and Svelte (`.svelte`) single-file components are supported — each `<script>` block is extracted and processed independently.
 
-A `tsconfig.json` is **required** — Gazania uses the TypeScript TypeChecker to detect builder identifiers by type, supporting re-exported, aliased, and factory-created builders.
+A `tsconfig.json` is **required** — Gazania uses the type-aware detection to detect builder identifiers by type, supporting re-exported, aliased, and factory-created builders.
 
 #### Options
 

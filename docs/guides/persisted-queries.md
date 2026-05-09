@@ -6,13 +6,13 @@ Gazania includes a CLI command to extract all your query definitions and export 
 
 ## The `gazania extract` command
 
-The `extract` command scans your source files, finds all Gazania builder calls using TypeScript's TypeChecker for type-aware detection, evaluates them at analysis time, and writes a JSON manifest containing each operation's body and hash.
+The `extract` command scans your source files, finds all Gazania builder calls using type-aware detection, evaluates them at analysis time, and writes a JSON manifest containing each operation's body and hash.
 
 ```sh
 npx gazania extract --tsconfig tsconfig.json
 ```
 
-A `tsconfig.json` is **required** — Gazania uses the TypeScript TypeChecker to detect builder identifiers by type (including re-exported, aliased, and factory-created builders), not by import string matching.
+A `tsconfig.json` is **required** — Gazania uses type-aware detection to detect builder identifiers by type (including re-exported, aliased, and factory-created builders), not by import string matching.
 
 By default this scans `src/` and writes `gazania-manifest.json` in the current directory.
 
@@ -136,9 +136,8 @@ Each client has a different mechanism for persisted queries. Consult your client
 
 ## Behavior notes
 
-- **Type-aware detection**: The extractor uses TypeScript's TypeChecker to identify Gazania builders by their type (via the `~isGazania` marker). This means re-exported, aliased, and factory-created builders (`import { g } from './utils'`, `const g = createGazania()`) are all detected correctly — not just direct `import { gazania } from 'gazania'` imports.
-- **Static analysis only**: The extractor evaluates builder calls in a sandboxed VM. Builder chains that depend on runtime values are silently skipped.
-- **Partials and sections**: Same-file partials and sections are always resolved. Cross-file resolution is handled automatically via the TypeChecker.
+- **Type-aware detection**: The extractor uses type-aware detection to identify Gazania builders by their type (via the `~isGazania` marker). This means re-exported, aliased, and factory-created builders (`import { g } from './utils'`, `const g = createGazania()`) are all detected correctly — not just direct `import { gazania } from 'gazania'` imports.
+- **Static analysis only**: The extractor evaluates builder with static analysis. Dynamic code patterns that can't be resolved at analysis time (e.g. external variables) won't be included in the manifest.
 - **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
 - **Deduplication**: If the same operation name appears multiple times across files, the last one wins. Use unique operation names to avoid conflicts.
