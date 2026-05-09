@@ -94,6 +94,7 @@ Options:
   --ignore-analysis      Skip analysis failure errors
   --ignore-circular      Skip circular reference errors
   --ignore-all           Skip all extraction errors
+  --noEmit               Suppress manifest output (useful for validation)
   -h, --help             Show help
 ```
 
@@ -127,6 +128,12 @@ npx gazania extract --algorithm sha512 --tsconfig tsconfig.json
 
 ```sh
 npx gazania extract --ignore-all --tsconfig tsconfig.json
+```
+
+**Validation only (no output):**
+
+```sh
+npx gazania extract --noEmit --tsconfig tsconfig.json
 ```
 
 ## Typical workflow
