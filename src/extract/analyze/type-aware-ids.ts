@@ -1,19 +1,15 @@
 import type ts from 'typescript'
 
 function hasGazaniaMarker(
-  ts: typeof import('typescript'),
   checker: ts.TypeChecker,
   type: ts.Type,
 ): boolean {
-  const marker = checker.getPropertyOfType(type, '~isGazania' as ts.__String)
+  const marker = checker.getPropertyOfType(type, '~isGazania')
   if (!marker) {
     return false
   }
   const markerType = checker.getTypeOfSymbol(marker)
-  if ((markerType.flags & ts.TypeFlags.BooleanLiteral) === 0) {
-    return false
-  }
-  return (markerType as { intrinsicName: string }).intrinsicName === 'true'
+  return checker.isTypeAssignableTo(markerType, checker.getTrueType())
 }
 
 /**
@@ -54,7 +50,7 @@ export function collectBuilderNamesByType(
 
   function detectImportSpecifier(spec: ts.ImportSpecifier): void {
     const type = checker.getTypeAtLocation(spec.name)
-    if (hasGazaniaMarker(ts, checker, type)) {
+    if (hasGazaniaMarker(checker, type)) {
       builderNames.add(spec.name.text)
     }
   }
@@ -75,7 +71,7 @@ export function collectBuilderNamesByType(
 
     const exports = checker.getExportsOfModule(moduleSymbol)
     for (const exp of exports) {
-      if (hasGazaniaMarker(ts, checker, checker.getTypeOfSymbol(exp))) {
+      if (hasGazaniaMarker(checker, checker.getTypeOfSymbol(exp))) {
         namespace = nsNode.name.text
         break
       }
@@ -87,7 +83,7 @@ export function collectBuilderNamesByType(
       return
     }
     const type = checker.getTypeAtLocation(node.initializer)
-    if (hasGazaniaMarker(ts, checker, type)) {
+    if (hasGazaniaMarker(checker, type)) {
       builderNames.add(node.name.text)
     }
   }
