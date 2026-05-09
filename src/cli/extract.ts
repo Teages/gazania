@@ -23,6 +23,10 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
   const log = silent ? () => {} : (msg: string) => console.log(msg)
   const warn = silent ? () => {} : (msg: string) => console.warn(msg)
 
+  if (!tsconfig) {
+    throw new Error('Error: --tsconfig is required. Usage: gazania extract --dir src --tsconfig tsconfig.json')
+  }
+
   const scanDir = join(cwd, dir)
   log(`Scanning ${relative(cwd, scanDir) || '.'}...`)
 
@@ -72,6 +76,7 @@ if (import.meta.vitest) {
   const { existsSync } = await import('node:fs')
   const { mkdir: mkdirTest, readFile: readFileTest, rm, writeFile: writeFileTest } = await import('node:fs/promises')
   const { tmpdir } = await import('node:os')
+  const { resolve } = await import('node:path')
 
   describe('runExtract', () => {
     let dir: string
@@ -81,6 +86,19 @@ if (import.meta.vitest) {
       dir = join(tmpdir(), `gazania-cli-extract-test-${Date.now()}`)
       await mkdirTest(dir, { recursive: true })
       await mkdirTest(join(dir, 'src'), { recursive: true })
+
+      await writeFileTest(join(dir, 'tsconfig.json'), JSON.stringify({
+        compilerOptions: {
+          target: 'esnext',
+          module: 'esnext',
+          moduleResolution: 'bundler',
+          baseUrl: resolve(process.cwd()),
+          paths: {
+            gazania: ['src/index.ts'],
+          },
+        },
+        include: ['src'],
+      }))
     })
 
     afterEach(async () => {
@@ -102,6 +120,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         algorithm: 'sha256',
         silent: true,
         cwd: dir,
+        tsconfig: 'tsconfig.json',
       })
 
       const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
@@ -118,6 +137,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         algorithm: 'sha256',
         silent: true,
         cwd: dir,
+        tsconfig: 'tsconfig.json',
       })
 
       expect(existsSync(join(dir, 'nested', 'dir', 'manifest.json'))).toBe(true)
@@ -133,6 +153,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         algorithm: 'sha256',
         silent: false,
         cwd: dir,
+        tsconfig: 'tsconfig.json',
       })
 
       expect(mockLog).toHaveBeenCalled()
@@ -153,6 +174,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         algorithm: 'sha256',
         silent: false,
         cwd: dir,
+        tsconfig: 'tsconfig.json',
       })
 
       expect(mockWarn).not.toHaveBeenCalled()
@@ -174,6 +196,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         algorithm: 'sha256',
         silent: false,
         cwd: dir,
+        tsconfig: 'tsconfig.json',
       })
 
       const warnCalls = mockWarn.mock.calls.map(c => c[0])
@@ -199,40 +222,32 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         algorithm: 'sha256',
         silent: true,
         cwd: dir,
+        tsconfig: 'tsconfig.json',
       })
 
       expect(mockWarn).not.toHaveBeenCalled()
       mockWarn.mockRestore()
     })
 
-    it('shows cross-file fix hint when ReferenceError occurs without --tsconfig', async () => {
-      const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
+    it('throws when --tsconfig is not provided', async () => {
       await writeFileTest(
         join(dir, 'src', 'query.js'),
         `import { gazania } from 'gazania'\nconst doc = gazania.query('Fail').select($ => $.select([...crossFilePartial({})]))`,
       )
 
-      await runExtract({
+      await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
         cwd: dir,
-        // no tsconfig
-      })
-
-      const warnCalls = mockWarn.mock.calls.map(c => c[0])
-      expect(warnCalls.some((msg: string) => msg.includes('--tsconfig'))).toBe(true)
-      expect(warnCalls.some((msg: string) => msg.includes('cross-file partial/section'))).toBe(true)
-      mockWarn.mockRestore()
+      })).rejects.toThrow('tsconfig is required')
     })
 
     it('shows runtime value fix hint when error is not a ReferenceError', async () => {
       const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      // Spread a non-function — causes a TypeError at call time
       await writeFileTest(
         join(dir, 'src', 'query.js'),
         `import { gazania } from 'gazania'
@@ -247,6 +262,7 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
         algorithm: 'sha256',
         silent: false,
         cwd: dir,
+        tsconfig: 'tsconfig.json',
       })
 
       const warnCalls = mockWarn.mock.calls.map(c => c[0])

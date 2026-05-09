@@ -41,7 +41,7 @@ Options:
   -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
-  --tsconfig <path>      Path to tsconfig.json for cross-file partial/section resolution
+  --tsconfig <path>      (required) Path to tsconfig.json for cross-file partial/section resolution
   --silent               Suppress output
   -h, --help             Show help
 `

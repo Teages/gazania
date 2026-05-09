@@ -15,12 +15,12 @@ export interface ParsedBlock {
  * Parse a file into one or more code blocks with their ASTs.
  * Handles Vue/Svelte SFCs and TypeScript stripping.
  *
- * Returns `null` if the file does not reference `gazania` or no blocks parse.
+ * Returns `null` if the file does not reference `gazania`/`Gazania` or no blocks parse.
  */
 export async function parseFile(filePath: string): Promise<ParsedBlock[] | null> {
   const rawCode = await readFile(filePath, 'utf-8')
 
-  if (!rawCode.includes('gazania')) {
+  if (!rawCode.includes('gazania') && !rawCode.includes('Gazania')) {
     return null
   }
 
@@ -30,7 +30,7 @@ export async function parseFile(filePath: string): Promise<ParsedBlock[] | null>
   const blocks: ParsedBlock[] = []
 
   for (const { code, lineOffset } of scriptBlocks) {
-    if (!code.includes('gazania')) {
+    if (!code.includes('gazania') && !code.includes('Gazania')) {
       continue
     }
 
