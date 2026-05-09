@@ -6,11 +6,13 @@ Gazania includes a CLI command to extract all your query definitions and export 
 
 ## The `gazania extract` command
 
-The `extract` command scans your source files, finds all Gazania builder calls, evaluates them at analysis time, and writes a JSON manifest containing each operation's body and hash.
+The `extract` command scans your source files, finds all Gazania builder calls using TypeScript's TypeChecker for type-aware detection, evaluates them at analysis time, and writes a JSON manifest containing each operation's body and hash.
 
 ```sh
-npx gazania extract
+npx gazania extract --tsconfig tsconfig.json
 ```
+
+A `tsconfig.json` is **required** — Gazania uses the TypeScript TypeChecker to detect builder identifiers by type (including re-exported, aliased, and factory-created builders), not by import string matching.
 
 By default this scans `src/` and writes `gazania-manifest.json` in the current directory.
 
@@ -43,23 +45,13 @@ Operations (queries, mutations, subscriptions) go into `operations`. Named fragm
 
 The extractor understands `gazania.partial()` and `gazania.section()` builders and includes their generated fragments in the manifest.
 
-**Same-file** partials and sections are resolved automatically with no extra configuration.
+**Same-file** partials and sections are resolved automatically.
 
-**Cross-file** partials and sections — where a partial defined in one file is imported and spread into a query in another file — require TypeScript module resolution to trace the imports. Pass `--tsconfig` pointing to your `tsconfig.json` to enable this:
-
-```sh
-npx gazania extract --tsconfig tsconfig.json
-```
-
-When `--tsconfig` is provided, files are processed in dependency order so that evaluated partials and sections are available when the importer files are evaluated.
-
-::: tip
-If you share partials or sections across multiple files, always pass `--tsconfig`. Without it, cross-file partial/section references are silently skipped and you may end up with incomplete manifests.
-:::
+**Cross-file** partials and sections — where a partial defined in one file is imported and spread into a query in another file — are resolved via TypeScript module resolution. Files are processed in dependency order so that evaluated partials and sections are available when the importer files are evaluated.
 
 ### tsconfig requirements
 
-Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
+The `--tsconfig` flag is **required** for all extraction. Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
 
 ```json
 {
@@ -82,41 +74,35 @@ Options:
   -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
-  --tsconfig <path>      Path to tsconfig.json for cross-file partial/section resolution
+  --tsconfig <path>      (required) Path to tsconfig.json
   --silent               Suppress output
   -h, --help             Show help
 ```
 
 ### Examples
 
-**Use defaults:**
+**Basic usage:**
 
 ```sh
-npx gazania extract
+npx gazania extract --tsconfig tsconfig.json
 ```
 
 **Scan a different directory:**
 
 ```sh
-npx gazania extract --dir app
+npx gazania extract --dir app --tsconfig tsconfig.json
 ```
 
 **Custom output path:**
 
 ```sh
-npx gazania extract --output dist/persisted-queries.json
+npx gazania extract --output dist/persisted-queries.json --tsconfig tsconfig.json
 ```
 
 **Use SHA-512 hashes:**
 
 ```sh
-npx gazania extract --algorithm sha512
-```
-
-**Enable cross-file partial/section tracking:**
-
-```sh
-npx gazania extract --tsconfig tsconfig.json
+npx gazania extract --algorithm sha512 --tsconfig tsconfig.json
 ```
 
 ## Typical workflow
@@ -128,7 +114,7 @@ Run `gazania extract` as part of your CI or build pipeline, after TypeScript com
 ```json
 {
   "scripts": {
-    "build": "tsc && gazania extract",
+    "build": "tsc && gazania extract --tsconfig tsconfig.json",
     "generate": "gazania generate"
   }
 }
@@ -150,8 +136,9 @@ Each client has a different mechanism for persisted queries. Consult your client
 
 ## Behavior notes
 
+- **Type-aware detection**: The extractor uses TypeScript's TypeChecker to identify Gazania builders by their type (via the `~isGazania` marker). This means re-exported, aliased, and factory-created builders (`import { g } from './utils'`, `const g = createGazania()`) are all detected correctly — not just direct `import { gazania } from 'gazania'` imports.
 - **Static analysis only**: The extractor evaluates builder calls in a sandboxed VM. Builder chains that depend on runtime values are silently skipped.
-- **Partials and sections**: Same-file partials and sections are always resolved. Cross-file resolution requires `--tsconfig`.
+- **Partials and sections**: Same-file partials and sections are always resolved. Cross-file resolution is handled automatically via the TypeChecker.
 - **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
 - **Deduplication**: If the same operation name appears multiple times across files, the last one wins. Use unique operation names to avoid conflicts.
