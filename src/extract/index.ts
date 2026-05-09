@@ -7,6 +7,7 @@ import { cwd as getCwd } from 'node:process'
 import { print } from 'graphql'
 import { parseSync } from 'oxc-parser'
 import { transformSync } from 'oxc-transform'
+import { processFileStatic, staticExtractCrossFile } from './static/partial-resolver'
 
 export interface ManifestEntry {
   body: string
@@ -57,8 +58,8 @@ export interface ExtractOptions {
  * Scan source files for Gazania operations and return a persisted-query manifest.
  *
  * When `tsconfig` is provided, cross-file partial/section resolution is enabled:
- * files are processed in dependency order and evaluated partials are passed
- * between files via the VM context.
+ * files are processed in dependency order and partial definitions are propagated
+ * between files via static AST analysis.
  *
  * @example
  * ```ts
@@ -117,214 +118,14 @@ async function extractPerFile(
 /**
  * Cross-file extraction using TypeScript module resolution.
  * Files are processed in dependency order so that partials defined in one file
- * are available when evaluating operations in other files.
+ * are available when analyzing operations in other files.
  */
 async function extractWithCrossFileResolution(
   files: string[],
   algorithm: string,
   tsconfigPath: string,
 ): Promise<ExtractResult> {
-  const { createModuleResolver } = await import('./ts-program')
-  const { getFileImports, topologicalSort } = await import('./dependency-graph')
-  const { evaluateGazaniaExpressionsExtended } = await import('./evaluate')
-
-  const resolver = await createModuleResolver(tsconfigPath)
-
-  // Step 1: Parse all files and collect their ASTs
-  const parsedFiles = new Map<string, ParsedFileBlocks>()
-  for (const file of files) {
-    const parsed = await parseFile(file)
-    if (parsed) {
-      parsedFiles.set(file, parsed)
-    }
-  }
-
-  const knownFiles = new Set(parsedFiles.keys())
-
-  // Step 2: Build dependency graph from imports
-  const deps = new Map<string, Set<string>>()
-  const fileImportsMap = new Map<string, import('./dependency-graph').FileImport[]>()
-
-  for (const [file, parsed] of parsedFiles) {
-    const depSet = new Set<string>()
-
-    for (const block of parsed.blocks) {
-      const imports = getFileImports(block.ast, file, resolver, knownFiles)
-      const existing = fileImportsMap.get(file) || []
-      fileImportsMap.set(file, [...existing, ...imports])
-
-      for (const imp of imports) {
-        depSet.add(imp.resolvedPath)
-      }
-    }
-
-    deps.set(file, depSet)
-  }
-
-  // Step 3: Topological sort (dependencies first)
-  const order = topologicalSort(deps, [...parsedFiles.keys()])
-
-  // Step 4: Evaluate in dependency order
-  const manifest: ExtractManifest = {
-    operations: {},
-    fragments: {},
-  }
-
-  // Stores evaluated bindings per file for cross-file injection
-  const fileBindings = new Map<string, {
-    evaluatedBindings: Record<string, unknown>
-    exportMap: Map<string, string>
-  }>()
-
-  // Stores skipped calls per file (keyed by file path); second-pass results
-  // overwrite first-pass results for files that had unresolved imports.
-  const fileSkipped = new Map<string, SkippedExtraction[]>()
-
-  // Track files that had unresolved imports during the first pass (circular deps)
-  const filesNeedingSecondPass = new Set<string>()
-
-  for (const file of order) {
-    const parsed = parsedFiles.get(file)
-    if (!parsed) {
-      continue
-    }
-
-    // Build external bindings from resolved imports
-    const externalBindings: Record<string, unknown> = {}
-    const imports = fileImportsMap.get(file) || []
-    let hadMissingImport = false
-
-    for (const imp of imports) {
-      const sourceResult = fileBindings.get(imp.resolvedPath)
-      if (!sourceResult) {
-        hadMissingImport = true
-        continue
-      }
-
-      // Find the local variable name in the source file for this export
-      const localName = sourceResult.exportMap.get(imp.importedName) || imp.importedName
-      const value = sourceResult.evaluatedBindings[localName]
-
-      if (value !== undefined) {
-        externalBindings[imp.localName] = value
-      }
-    }
-
-    if (hadMissingImport) {
-      filesNeedingSecondPass.add(file)
-    }
-
-    // Evaluate all blocks in this file
-    const mergedBindings: Record<string, unknown> = {}
-    const mergedExportMap = new Map<string, string>()
-    const mergedSkipped: SkippedExtraction[] = []
-
-    for (const block of parsed.blocks) {
-      const result = evaluateGazaniaExpressionsExtended(
-        block.code,
-        block.ast,
-        { externalBindings },
-      )
-
-      // Collect documents
-      for (const docResult of result.documents) {
-        try {
-          const doc = JSON.parse(docResult.replacement) as DocumentNode
-          if (doc.kind === 'Document') {
-            addDocumentToManifest(manifest, doc, algorithm)
-          }
-        }
-        catch {
-          // Skip invalid results
-        }
-      }
-
-      // Collect skipped calls with file + line info
-      for (const s of result.skipped) {
-        mergedSkipped.push({
-          file,
-          line: offsetToLine(block.code, s.start) + block.lineOffset,
-          reason: s.reason,
-        })
-      }
-
-      // Merge bindings for other files to use
-      Object.assign(mergedBindings, result.evaluatedBindings)
-      for (const [k, v] of result.exportMap) {
-        mergedExportMap.set(k, v)
-      }
-    }
-
-    fileSkipped.set(file, mergedSkipped)
-    fileBindings.set(file, {
-      evaluatedBindings: mergedBindings,
-      exportMap: mergedExportMap,
-    })
-  }
-
-  // Second pass: re-evaluate files that had unresolved imports in the first pass
-  // (caused by circular dependencies where the dependency was processed later)
-  for (const file of filesNeedingSecondPass) {
-    const parsed = parsedFiles.get(file)
-    if (!parsed) {
-      continue
-    }
-
-    // Rebuild external bindings — all fileBindings are now complete
-    const externalBindings: Record<string, unknown> = {}
-    const imports = fileImportsMap.get(file) || []
-
-    for (const imp of imports) {
-      const sourceResult = fileBindings.get(imp.resolvedPath)
-      if (!sourceResult) {
-        continue
-      }
-
-      const localName = sourceResult.exportMap.get(imp.importedName) || imp.importedName
-      const value = sourceResult.evaluatedBindings[localName]
-
-      if (value !== undefined) {
-        externalBindings[imp.localName] = value
-      }
-    }
-
-    // Accumulate second-pass skipped across all blocks before writing to fileSkipped
-    const secondPassSkipped: SkippedExtraction[] = []
-
-    for (const block of parsed.blocks) {
-      const result = evaluateGazaniaExpressionsExtended(
-        block.code,
-        block.ast,
-        { externalBindings },
-      )
-
-      for (const docResult of result.documents) {
-        try {
-          const doc = JSON.parse(docResult.replacement) as DocumentNode
-          if (doc.kind === 'Document') {
-            addDocumentToManifest(manifest, doc, algorithm)
-          }
-        }
-        catch {
-          // Skip invalid results
-        }
-      }
-
-      for (const s of result.skipped) {
-        secondPassSkipped.push({
-          file,
-          line: offsetToLine(block.code, s.start) + block.lineOffset,
-          reason: s.reason,
-        })
-      }
-    }
-
-    // Overwrite first-pass entries with the second-pass results for this file
-    fileSkipped.set(file, secondPassSkipped)
-  }
-
-  const allSkipped = [...fileSkipped.values()].flat()
-  return { manifest, skipped: allSkipped }
+  return staticExtractCrossFile(files, { tsconfigPath, algorithm })
 }
 
 interface ParsedBlock {
@@ -430,48 +231,20 @@ async function walkDir(dir: string, extensions: Set<string>, results: string[]):
   }
 }
 
-/**
- * Convert a character offset within a code string to a 1-based line number.
- */
-function offsetToLine(code: string, offset: number): number {
-  return code.slice(0, offset).split('\n').length
-}
-
 async function extractFromFile(filePath: string): Promise<{ documents: DocumentNode[], skipped: SkippedExtraction[] }> {
   const parsed = await parseFile(filePath)
   if (!parsed) {
     return { documents: [], skipped: [] }
   }
 
-  const { evaluateGazaniaExpressionsExtended } = await import('./evaluate')
-  const documents: DocumentNode[] = []
-  const skipped: SkippedExtraction[] = []
+  const result = processFileStatic(
+    parsed.blocks,
+    filePath,
+    new Map(),
+    [],
+  )
 
-  for (const block of parsed.blocks) {
-    const result = evaluateGazaniaExpressionsExtended(block.code, block.ast)
-
-    for (const docResult of result.documents) {
-      try {
-        const doc = JSON.parse(docResult.replacement) as DocumentNode
-        if (doc.kind === 'Document') {
-          documents.push(doc)
-        }
-      }
-      catch {
-        // Skip invalid results
-      }
-    }
-
-    for (const s of result.skipped) {
-      skipped.push({
-        file: filePath,
-        line: offsetToLine(block.code, s.start) + block.lineOffset,
-        reason: s.reason,
-      })
-    }
-  }
-
-  return { documents, skipped }
+  return { documents: result.documents, skipped: result.skipped }
 }
 
 function addDocumentToManifest(
@@ -961,7 +734,7 @@ export const userPartial = gazania.partial('UserFields')
     it('extracts operations from framework files (Vue/Svelte/React) that import gazania from a local module', async () => {
       // Regression: Vue/Svelte/React files import `gazania` from a local module
       // (e.g. `import { gazania } from './index'`) rather than from 'gazania'.
-      // Previously these files were skipped because evaluateGazaniaExpressions
+      // Previously these files were skipped because the static analysis
       // returned early when no `import from 'gazania'` was present.
       await writeFile(
         join(dir, 'src', 'index.ts'),
@@ -1092,7 +865,7 @@ const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', '
       // The fragments file is outside the `src/` scan root, so it is not
       // collected by findFiles and therefore not available as a known file.
       // Because the import cannot be resolved to a known file, the binding
-      // never appears in externalBindings and the query fails to evaluate.
+      // never appears in the cross-file bindings and the query fails to evaluate.
       await mkdir(join(dir, 'fragments'), { recursive: true })
       await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
         compilerOptions: { target: 'esnext', moduleResolution: 'bundler' },
