@@ -52,6 +52,51 @@ export async function createModuleResolver(tsconfigPath: string): Promise<Module
   }
 }
 
+export interface TypeCheckerProgram {
+  program: import('typescript').Program
+  checker: import('typescript').TypeChecker
+}
+
+export async function createTypeCheckerProgram(tsconfigPath: string): Promise<TypeCheckerProgram> {
+  let ts: typeof import('typescript')
+
+  try {
+    ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
+  }
+  catch {
+    throw new Error(
+      'TypeScript is required for cross-file extraction (--tsconfig). '
+      + 'Install it with: npm install -D typescript',
+    )
+  }
+
+  const configPath = resolve(tsconfigPath)
+  const configFile = ts.readConfigFile(configPath, ts.sys.readFile)
+
+  if (configFile.error) {
+    const msg = ts.flattenDiagnosticMessageText(configFile.error.messageText, '\n')
+    throw new Error(`Failed to read tsconfig at "${configPath}": ${msg}`)
+  }
+
+  const parsed = ts.parseJsonConfigFileContent(
+    configFile.config,
+    ts.sys,
+    dirname(configPath),
+  )
+
+  const host = ts.createCompilerHost(parsed.options)
+  const program = ts.createProgram({
+    rootNames: parsed.fileNames,
+    options: parsed.options,
+    host,
+  })
+
+  return {
+    program,
+    checker: program.getTypeChecker(),
+  }
+}
+
 if (import.meta.vitest) {
   const { describe, it, expect, beforeEach, afterEach } = import.meta.vitest
   // eslint-disable-next-line antfu/no-top-level-await
@@ -114,6 +159,28 @@ if (import.meta.vitest) {
     it('throws on invalid tsconfig path', async () => {
       await expect(
         createModuleResolver(join(dir, 'nonexistent.json')),
+      ).rejects.toThrow('Failed to read tsconfig')
+    })
+  })
+
+  describe('createTypeCheckerProgram', () => {
+    it('returns program with TypeChecker', async () => {
+      const { program, checker } = await createTypeCheckerProgram('tsconfig.json')
+
+      expect(program).toBeDefined()
+      expect(checker).toBeDefined()
+      expect(typeof checker.getTypeAtLocation).toBe('function')
+    })
+
+    it('has source files from the project', async () => {
+      const { program } = await createTypeCheckerProgram('tsconfig.node.json')
+
+      expect(program.getSourceFiles().length).toBeGreaterThan(0)
+    })
+
+    it('throws on invalid tsconfig path', async () => {
+      await expect(
+        createTypeCheckerProgram(join(tmpdir(), 'nonexistent.json')),
       ).rejects.toThrow('Failed to read tsconfig')
     })
   })
