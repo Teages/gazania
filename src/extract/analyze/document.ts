@@ -217,7 +217,12 @@ export function buildFragmentDef(
       continue
     }
 
-    buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen)
+    const nestedFragDefs = buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen)
+    if (nestedFragDefs && nestedFragDefs.length > 0) {
+      for (const d of nestedFragDefs) {
+        fragCtx.pushDefinition(d)
+      }
+    }
   }
 
   seen.delete(partialDef.name)
