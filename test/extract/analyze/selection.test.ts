@@ -1,7 +1,7 @@
-import type { StaticPartialDef } from '../../../src/extract/static/types'
+import type { StaticPartialDef } from '../../../src/extract/analyze/types'
 import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
-import { collectNestedPartialRefs, interpretArgsObject, interpretSelectCallback, resolveValue } from '../../../src/extract/static/selection'
+import { collectNestedPartialRefs, interpretArgsObject, interpretSelectCallback, resolveValue } from '../../../src/extract/analyze/selection'
 import { Variable } from '../../../src/runtime/variable'
 
 function parseExpr(code: string): any {

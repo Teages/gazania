@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { staticExtractCrossFile } from '../../../src/extract/static/partial-resolver'
+import { staticExtractCrossFile } from '../../../src/extract/analyze/pipeline'
 
 describe('staticExtractCrossFile: cross-file partial/section resolution', () => {
   let dir: string

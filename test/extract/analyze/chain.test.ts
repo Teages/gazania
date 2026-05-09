@@ -1,13 +1,7 @@
 import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
-import {
-  analyzeBuilderChain,
-  collectExports,
-  collectImports,
-  collectLiteralVariables,
-  isGazaniaChainRoot,
-  isGazaniaSelectCall,
-} from '../../../src/extract/static/chain'
+import { analyzeBuilderChain, isGazaniaChainRoot, isGazaniaSelectCall } from '../../../src/extract/analyze/chain'
+import { collectExports, collectImports, collectLiteralVariables } from '../../../src/extract/analyze/imports'
 
 function parseCode(code: string) {
   return parseSync('test.js', code).program as any

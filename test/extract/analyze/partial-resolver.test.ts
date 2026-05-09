@@ -1,8 +1,10 @@
 import { print } from 'graphql'
 import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
-import { analyzeBuilderChain, collectImports, isGazaniaSelectCall } from '../../../src/extract/static/chain'
-import { collectPartialDefs, resolveSameFilePartials, staticExtractWithPartials } from '../../../src/extract/static/partial-resolver'
+import { analyzeBuilderChain, isGazaniaSelectCall } from '../../../src/extract/analyze/chain'
+import { collectImports } from '../../../src/extract/analyze/imports'
+import { collectPartialDefs, resolveSameFilePartials } from '../../../src/extract/analyze/partial'
+import { staticExtractWithPartials } from '../../../src/extract/analyze/pipeline'
 import { walkAST } from '../../../src/extract/walk'
 
 describe('partial-resolver: same-file partial/section resolution', () => {
