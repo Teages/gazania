@@ -417,3 +417,334 @@ export function collectNestedPartialRefs(selection: SelectionInput): StaticParti
 
   return refs
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+
+  async function parseExpr(code: string): Promise<any> {
+    const { parseSync } = await import('oxc-parser')
+    const ast = parseSync('test.js', `(${code})`).program as any
+    const node = ast.body[0].expression
+    return node.type === 'ParenthesizedExpression' ? node.expression : node
+  }
+
+  async function _parseStatement(code: string): Promise<any> {
+    const { parseSync } = await import('oxc-parser')
+    const ast = parseSync('test.ts', code).program as any
+    return ast.body[0]
+  }
+
+  async function getCallbackFromSelect(code: string, dollarParam = '$', varsParam?: string) {
+    const expr = await parseExpr(code)
+    const callback = expr.arguments?.[0]
+      ?? expr.callee?.object?.arguments?.[0]
+      ?? expr
+    return { callback, dollarParam, varsParam }
+  }
+
+  function makePartialDef(name: string, typeName: string): StaticPartialDef {
+    return {
+      name,
+      typeName,
+      selectCallback: {} as any,
+      callbackParams: { dollar: '$' },
+    }
+  }
+
+  describe('interpretSelectCallback', () => {
+    it('1. simple string fields: $.select(["id", "name"])', async () => {
+      const { callback, dollarParam } = await getCallbackFromSelect(
+        `gazania.query('Test').select($ => $.select(['id', 'name']))`,
+      )
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      expect(result.selection).toEqual(['id', 'name'])
+      expect(result.partialRefs).toEqual([])
+    })
+
+    it('2. scalar shorthand: { user: true }', async () => {
+      const { callback, dollarParam } = await getCallbackFromSelect(
+        `gazania.query('Test').select($ => $.select([{ user: true }]))`,
+      )
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      expect(result.selection).toHaveLength(1)
+      const obj = result.selection[0] as Record<string, any>
+      expect(obj.user).toBe(true)
+    })
+
+    it('3. nested with args: { user: $ => $.args({...}).select([...]) }', async () => {
+      const { callback, dollarParam } = await getCallbackFromSelect(
+        `gazania.query('Test').select($ => $.select([{ user: $ => $.args({ id: 1 }).select(['name']) }]))`,
+      )
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      expect(result.selection).toHaveLength(1)
+      const obj = result.selection[0] as Record<string, any>
+      expect(typeof obj.user).toBe('function')
+
+      const fieldDollar = { _args: undefined, _selection: undefined, _directives: undefined }
+      obj.user(fieldDollar)
+      expect(fieldDollar._args).toEqual({ id: 1 })
+      expect(fieldDollar._selection).toEqual(['name'])
+    })
+
+    it('4. with directives: { user: $ => $.directives([...]).select([...]) }', async () => {
+      const { callback, dollarParam } = await getCallbackFromSelect(
+        `gazania.query('Test').select($ => $.select([{ user: $ => $.directives(['@skip', { if: true }]).select(['name']) }]))`,
+      )
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      expect(result.selection).toHaveLength(1)
+      const obj = result.selection[0] as Record<string, any>
+      expect(typeof obj.user).toBe('function')
+
+      const fieldDollar = { _args: undefined, _selection: undefined, _directives: undefined }
+      obj.user(fieldDollar)
+      expect(fieldDollar._directives).toHaveLength(1)
+      expect(fieldDollar._directives![0][0]).toBe('@skip')
+      expect(fieldDollar._directives![0][1]).toEqual({ if: true })
+      expect(fieldDollar._selection).toEqual(['name'])
+    })
+
+    it('5. variable reference in args: vars.id', async () => {
+      const { callback } = await getCallbackFromSelect(
+        `gazania.query('Test').vars({ id: 'ID!' }).select(($, vars) => $.select([{ user: $ => $.args({ id: vars.id }).select(['name']) }]))`,
+      )
+      const result = interpretSelectCallback(callback, '$', 'vars')
+
+      const obj = result.selection[0] as Record<string, any>
+      const fieldDollar: any = { _args: undefined, _selection: undefined, _directives: undefined }
+      obj.user(fieldDollar)
+
+      expect(fieldDollar._args.id).toBeInstanceOf(Variable)
+      expect((fieldDollar._args.id as Variable).name).toBe('id')
+    })
+
+    it('6. enum value: $.enum("ANIME")', async () => {
+      const { callback, dollarParam, varsParam } = await getCallbackFromSelect(
+        `gazania.query('Test').select(($, vars) => $.select([{ media: $ => $.args({ type: $.enum('ANIME') }).select(['title']) }]))`,
+      )
+      const result = interpretSelectCallback(callback, dollarParam, varsParam)
+
+      const obj = result.selection[0] as Record<string, any>
+      const fieldDollar: any = { _args: undefined, _selection: undefined, _directives: undefined }
+      obj.media(fieldDollar)
+
+      expect(typeof fieldDollar._args.type).toBe('function')
+      expect((fieldDollar._args.type as () => string)()).toBe('ANIME')
+    })
+
+    it('7. inline fragment: "... on Type": $ => $.select([...])', async () => {
+      const { callback, dollarParam } = await getCallbackFromSelect(
+        `gazania.query('Test').select($ => $.select([{ '... on User': $ => $.select(['id', 'name']) }]))`,
+      )
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      const obj = result.selection[0] as Record<string, any>
+      expect(typeof obj['... on User']).toBe('function')
+
+      const fieldDollar = { _args: undefined, _selection: undefined, _directives: undefined }
+      obj['... on User'](fieldDollar)
+      expect(fieldDollar._selection).toEqual(['id', 'name'])
+    })
+
+    it('8. generic inline fragment: "...": $ => $.select([...])', async () => {
+      const { callback, dollarParam } = await getCallbackFromSelect(
+        `gazania.query('Test').select($ => $.select([{ '...': $ => $.select(['id']) }]))`,
+      )
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      const obj = result.selection[0] as Record<string, any>
+      expect(typeof obj['...']).toBe('function')
+
+      const fieldDollar = { _args: undefined, _selection: undefined, _directives: undefined }
+      obj['...'](fieldDollar)
+      expect(fieldDollar._selection).toEqual(['id'])
+    })
+
+    it('9. partial spread: ...partialRef({})', async () => {
+      const partials = new Map<string, StaticPartialDef>()
+      partials.set('userPartial', makePartialDef('userPartial', 'User'))
+
+      const code = `gazania.query('Test').select($ => $.select(['id', ...userPartial({})]))`
+      const { callback, dollarParam } = await getCallbackFromSelect(code)
+      const result = interpretSelectCallback(callback, dollarParam, undefined, partials)
+
+      expect(result.selection).toEqual(['id'])
+      expect(result.partialRefs).toHaveLength(1)
+      expect(result.partialRefs[0].localName).toBe('userPartial')
+    })
+
+    it('10. partial with vars: ...partialRef(vars)', async () => {
+      const partials = new Map<string, StaticPartialDef>()
+      partials.set('userPartial', makePartialDef('userPartial', 'User'))
+
+      const code = `gazania.query('Test').vars({ id: 'ID!' }).select(($, vars) => $.select(['id', ...userPartial(vars)]))`
+      const { callback, dollarParam, varsParam } = await getCallbackFromSelect(code, '$', 'vars')
+      const result = interpretSelectCallback(callback, dollarParam, varsParam, partials)
+
+      expect(result.selection).toEqual(['id'])
+      expect(result.partialRefs).toHaveLength(1)
+      expect(result.partialRefs[0].localName).toBe('userPartial')
+    })
+
+    it('11. skipped patterns — unknown spread does not crash', async () => {
+      const code = `gazania.query('Test').select($ => $.select(['id', ...dynamicExpr]))`
+      const { callback, dollarParam } = await getCallbackFromSelect(code)
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      expect(result.selection).toEqual(['id'])
+      expect(result.partialRefs).toEqual([])
+    })
+
+    it('11b. skipped — non-literal dynamic value', async () => {
+      const code = `gazania.query('Test').select($ => $.select(['id', someVar]))`
+      const { callback, dollarParam } = await getCallbackFromSelect(code)
+      const result = interpretSelectCallback(callback, dollarParam)
+
+      expect(result.selection).toEqual(['id'])
+      expect(result.partialRefs).toEqual([])
+    })
+
+    it('handles block-body arrow function', async () => {
+      const code = `gazania.query('Test').select($ => { return $.select(['id']) })`
+      const expr = await parseExpr(code)
+      const callback = expr.arguments[0]
+      const result = interpretSelectCallback(callback, '$')
+
+      expect(result.selection).toEqual(['id'])
+    })
+
+    it('handles FunctionExpression', async () => {
+      const code = `gazania.query('Test').select(function($) { return $.select(['id', 'name']) })`
+      const expr = await parseExpr(code)
+      const callback = expr.arguments[0]
+      const result = interpretSelectCallback(callback, '$')
+
+      expect(result.selection).toEqual(['id', 'name'])
+    })
+
+    it('returns empty result when no select call found', async () => {
+      const code = `gazania.query('Test').select($ => $.args({ id: 1 }))`
+      const expr = await parseExpr(code)
+      const callback = expr.arguments[0]
+      const result = interpretSelectCallback(callback, '$')
+
+      expect(result.selection).toEqual([])
+      expect(result.partialRefs).toEqual([])
+    })
+
+    it('mixed selection with string, object, and spread', async () => {
+      const partials = new Map<string, StaticPartialDef>()
+      partials.set('nameFields', makePartialDef('nameFields', 'User'))
+
+      const code = `gazania.query('Test').select($ => $.select(['id', { active: true }, ...nameFields({})]))`
+      const expr = await parseExpr(code)
+      const callback = expr.arguments[0]
+      const result = interpretSelectCallback(callback, '$', undefined, partials)
+
+      expect(result.selection).toHaveLength(2)
+      expect(result.selection[0]).toBe('id')
+      expect((result.selection[1] as any).active).toBe(true)
+      expect(result.partialRefs).toHaveLength(1)
+      expect(result.partialRefs[0].localName).toBe('nameFields')
+    })
+  })
+
+  describe('interpretArgsObject', () => {
+    it('extracts literal values from ObjectExpression', async () => {
+      const obj = await parseExpr(`{ id: 1, name: 'test', active: true }`)
+      const result = interpretArgsObject(obj, '$', 'vars')
+
+      expect(result).toEqual({ id: 1, name: 'test', active: true })
+    })
+
+    it('resolves variable references', async () => {
+      const obj = await parseExpr(`{ id: vars.userId }`)
+      const result = interpretArgsObject(obj, '$', 'vars')
+
+      expect(result.id).toBeInstanceOf(Variable)
+      expect((result.id as Variable).name).toBe('userId')
+    })
+
+    it('resolves nested objects', async () => {
+      const obj = await parseExpr(`{ filter: { status: 'active' } }`)
+      const result = interpretArgsObject(obj, '$', 'vars')
+
+      expect(result.filter).toEqual({ status: 'active' })
+    })
+  })
+
+  describe('resolveValue', () => {
+    it('resolves string literal', async () => {
+      const node = await parseExpr(`'hello'`)
+      expect(resolveValue(node, '$', 'vars')).toBe('hello')
+    })
+
+    it('resolves number literal', async () => {
+      const node = await parseExpr(`42`)
+      expect(resolveValue(node, '$', 'vars')).toBe(42)
+    })
+
+    it('resolves boolean literal', async () => {
+      expect(resolveValue(await parseExpr('true'), '$', 'vars')).toBe(true)
+      expect(resolveValue(await parseExpr('false'), '$', 'vars')).toBe(false)
+    })
+
+    it('resolves null literal', async () => {
+      const node = await parseExpr(`null`)
+      expect(resolveValue(node, '$', 'vars')).toBeNull()
+    })
+
+    it('resolves variable member expression', async () => {
+      const node = await parseExpr(`vars.id`)
+      const result = resolveValue(node, '$', 'vars')
+      expect(result).toBeInstanceOf(Variable)
+      expect((result as Variable).name).toBe('id')
+    })
+
+    it('resolves $.enum() call', async () => {
+      const node = await parseExpr(`$.enum('ANIME')`)
+      const result = resolveValue(node, '$', 'vars')
+      expect(typeof result).toBe('function')
+      expect((result as () => string)()).toBe('ANIME')
+    })
+
+    it('resolves array expression', async () => {
+      const node = await parseExpr(`[1, 2, 3]`)
+      expect(resolveValue(node, '$', 'vars')).toEqual([1, 2, 3])
+    })
+
+    it('resolves negative number', async () => {
+      const node = await parseExpr(`-5`)
+      expect(resolveValue(node, '$', 'vars')).toBe(-5)
+    })
+
+    it('returns undefined for unrecognized node types', async () => {
+      const node = await parseExpr(`someFunction()`)
+      expect(resolveValue(node, '$', 'vars')).toBeUndefined()
+    })
+  })
+
+  describe('collectNestedPartialRefs', () => {
+    it('collects refs from field callback functions', async () => {
+      const partials = new Map<string, StaticPartialDef>()
+      partials.set('nestedPartial', makePartialDef('nestedPartial', 'Item'))
+
+      const code = `gazania.query('Test').select($ => $.select([{ user: $ => $.select([...nestedPartial({})]) }]))`
+      const expr = await parseExpr(code)
+      const callback = expr.arguments[0]
+      const result = interpretSelectCallback(callback, '$', undefined, partials)
+
+      const nestedRefs = collectNestedPartialRefs(result.selection)
+      expect(nestedRefs).toHaveLength(1)
+      expect(nestedRefs[0].localName).toBe('nestedPartial')
+    })
+
+    it('returns empty array for plain selection', () => {
+      const refs = collectNestedPartialRefs(['id', 'name'])
+      expect(refs).toEqual([])
+    })
+  })
+}

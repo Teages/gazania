@@ -268,3 +268,234 @@ export function analyzeBuilderChain(
     },
   }
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+
+  async function parseCode(code: string) {
+    const { parseSync } = await import('oxc-parser')
+    return parseSync('test.js', code).program as any
+  }
+
+  async function getExpression(code: string) {
+    const ast = await parseCode(code)
+    return ast.body[0].expression
+  }
+
+  async function _getLastExpression(code: string) {
+    const ast = await parseCode(code)
+    const last = ast.body[ast.body.length - 1]
+    return last.type === 'ExpressionStatement' ? last.expression : last.declarations?.[0]?.init
+  }
+
+  describe('analyzeBuilderChain', () => {
+    it('extracts metadata from simple query chain', async () => {
+      const expr = await getExpression(
+        `gazania.query('TestQuery').select($ => $.select(['id', 'name']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('query')
+      expect(result!.name).toBe('TestQuery')
+      expect(result!.typeName).toBeUndefined()
+      expect(result!.variableDefs).toBeUndefined()
+      expect(result!.callbackParams.dollar).toBe('$')
+      expect(result!.callbackParams.vars).toBeUndefined()
+    })
+
+    it('extracts metadata from mutation chain', async () => {
+      const expr = await getExpression(
+        `gazania.mutation('CreateUser').select($ => $.select(['id']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('mutation')
+      expect(result!.name).toBe('CreateUser')
+    })
+
+    it('extracts metadata from subscription chain', async () => {
+      const expr = await getExpression(
+        `gazania.subscription('OnMessage').select($ => $.select(['id', 'text']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('subscription')
+      expect(result!.name).toBe('OnMessage')
+    })
+
+    it('extracts metadata from fragment chain with .on()', async () => {
+      const expr = await getExpression(
+        `gazania.fragment('UserFields').on('User').select($ => $.select(['id', 'name']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('fragment')
+      expect(result!.name).toBe('UserFields')
+      expect(result!.typeName).toBe('User')
+    })
+
+    it('extracts metadata from partial chain', async () => {
+      const expr = await getExpression(
+        `gazania.partial('UserFields').on('User').select($ => $.select(['id']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('partial')
+      expect(result!.name).toBe('UserFields')
+      expect(result!.typeName).toBe('User')
+    })
+
+    it('extracts metadata from section chain', async () => {
+      const expr = await getExpression(
+        `gazania.section('UserFields').on('User').select($ => $.select(['id']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('section')
+      expect(result!.name).toBe('UserFields')
+      expect(result!.typeName).toBe('User')
+    })
+
+    it('extracts variable definitions from .vars()', async () => {
+      const expr = await getExpression(
+        `gazania.query('FetchUser').vars({ id: 'ID!', name: 'String' }).select(($, vars) => $.select(['id']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('query')
+      expect(result!.name).toBe('FetchUser')
+      expect(result!.variableDefs).toEqual({ id: 'ID!', name: 'String' })
+      expect(result!.callbackParams.dollar).toBe('$')
+      expect(result!.callbackParams.vars).toBe('vars')
+    })
+
+    it('extracts directive definitions from .directives()', async () => {
+      const expr = await getExpression(
+        `gazania.query('CachedQuery').directives(() => [['@cache', { maxAge: 60 }]]).select($ => $.select(['data']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.directives).toHaveLength(1)
+      expect(result!.directives![0].hasVarsParam).toBe(false)
+      expect(result!.directives![0].callback.type).toBe('ArrowFunctionExpression')
+    })
+
+    it('extracts directives with vars parameter', async () => {
+      const expr = await getExpression(
+        `gazania.query('Test').directives((vars) => [['@cache', { maxAge: 60 }]]).select($ => $.select(['id']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.directives).toHaveLength(1)
+      expect(result!.directives![0].hasVarsParam).toBe(true)
+    })
+
+    it('returns null for non-CallExpression', () => {
+      expect(analyzeBuilderChain({ type: 'Identifier', name: 'x' } as any, ['gazania'], undefined)).toBeNull()
+    })
+
+    it('returns null for non-.select() call', async () => {
+      const expr = await getExpression(`gazania.query('Test')`)
+      expect(analyzeBuilderChain(expr, ['gazania'], undefined)).toBeNull()
+    })
+
+    it('returns null for select call not on gazania chain', async () => {
+      const expr = await getExpression(`something.select($ => $.select(['id']))`)
+      expect(analyzeBuilderChain(expr, ['gazania'], undefined)).toBeNull()
+    })
+
+    it('returns null when select has no arguments', async () => {
+      const expr = await getExpression(`gazania.query('Test').select()`)
+      expect(analyzeBuilderChain(expr, ['gazania'], undefined)).toBeNull()
+    })
+
+    it('works with createGazania builder via builderNames', async () => {
+      const code = `const doc = createGazania().query('MyQuery').select($ => $.select(['id']))`
+      const ast = await parseCode(code)
+      const init = ast.body[0].declarations[0].init
+      const result = analyzeBuilderChain(init, ['createGazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(result!.type).toBe('query')
+      expect(result!.name).toBe('MyQuery')
+    })
+
+    it('preserves source location', async () => {
+      const expr = await getExpression(
+        `gazania.query('Test').select($ => $.select(['id']))`,
+      )
+      const result = analyzeBuilderChain(expr, ['gazania'], undefined)
+
+      expect(result).not.toBeNull()
+      expect(typeof result!.loc.start).toBe('number')
+      expect(typeof result!.loc.end).toBe('number')
+      expect(result!.loc.start).toBeLessThan(result!.loc.end)
+    })
+  })
+
+  describe('isGazaniaSelectCall', () => {
+    it('identifies gazania select call', async () => {
+      const expr = await getExpression(
+        `gazania.query('Test').select($ => $.select(['id']))`,
+      )
+      expect(isGazaniaSelectCall(expr, ['gazania'], undefined)).toBe(true)
+    })
+
+    it('rejects non-select call', async () => {
+      const expr = await getExpression(`gazania.query('Test')`)
+      expect(isGazaniaSelectCall(expr, ['gazania'], undefined)).toBe(false)
+    })
+
+    it('rejects non-CallExpression', () => {
+      expect(isGazaniaSelectCall({ type: 'Identifier', name: 'x' } as any, ['gazania'], undefined)).toBe(false)
+    })
+
+    it('rejects select call on non-gazania chain', async () => {
+      const expr = await getExpression(`something.select($ => $.select(['id']))`)
+      expect(isGazaniaSelectCall(expr, ['gazania'], undefined)).toBe(false)
+    })
+
+    it('recognizes namespace-based select call', async () => {
+      const expr = await getExpression(
+        `g.gazania.query('Test').select($ => $.select(['id']))`,
+      )
+      expect(isGazaniaSelectCall(expr, [], 'g')).toBe(true)
+    })
+  })
+
+  describe('isGazaniaChainRoot', () => {
+    it('recognizes direct builder identifier', () => {
+      const node = { type: 'Identifier', name: 'gazania' } as any
+      expect(isGazaniaChainRoot(node, ['gazania'], undefined)).toBe(true)
+    })
+
+    it('rejects unknown identifier', () => {
+      const node = { type: 'Identifier', name: 'other' } as any
+      expect(isGazaniaChainRoot(node, ['gazania'], undefined)).toBe(false)
+    })
+
+    it('recognizes namespace member access', async () => {
+      const node = await getExpression(`g.query`)
+      expect(isGazaniaChainRoot(node, [], 'g')).toBe(true)
+    })
+
+    it('recognizes chained call expression', async () => {
+      const node = await getExpression(`gazania.query('Test')`)
+      expect(isGazaniaChainRoot(node, ['gazania'], undefined)).toBe(true)
+    })
+
+    it('recognizes createGazania() direct call', async () => {
+      const node = await getExpression(`createGazania()`)
+      expect(isGazaniaChainRoot(node, ['createGazania'], undefined)).toBe(true)
+    })
+  })
+}

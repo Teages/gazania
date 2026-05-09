@@ -157,3 +157,86 @@ export function detectCircularPartialRefs(
 
   return cycles
 }
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+  const { parseSync } = await import('oxc-parser')
+  const { collectImports } = await import('./imports')
+  const { isGazaniaSelectCall, analyzeBuilderChain } = await import('./chain')
+  const { walkAST } = await import('../walk')
+
+  async function parseCode(code: string) {
+    return parseSync('test.js', code).program as any
+  }
+
+  describe('partial-resolver: same-file partial/section resolution', () => {
+    it('7. collectPartialDefs returns empty map when no partials', async () => {
+      const ast = await parseCode(`
+      import { gazania } from 'gazania'
+      gazania.query('Simple').select($ => $.select(['id']))
+    `)
+
+      const contextMap: Record<string, unknown> = {}
+      const { builderNames, namespace } = collectImports(ast, contextMap)
+      const partialDefs = collectPartialDefs(ast, builderNames, namespace)
+
+      expect(partialDefs.size).toBe(0)
+    })
+
+    it('8. collectPartialDefs finds partial and section', async () => {
+      const ast = await parseCode(`
+      import { gazania } from 'gazania'
+      const p = gazania.partial('P').on('T').select($ => $.select(['a']))
+      const s = gazania.section('S').on('U').select($ => $.select(['b']))
+    `)
+
+      const contextMap: Record<string, unknown> = {}
+      const { builderNames, namespace } = collectImports(ast, contextMap)
+      const partialDefs = collectPartialDefs(ast, builderNames, namespace)
+
+      expect(partialDefs.size).toBe(2)
+      expect(partialDefs.has('p')).toBe(true)
+      expect(partialDefs.has('s')).toBe(true)
+      expect(partialDefs.get('p')!.name).toBe('P')
+      expect(partialDefs.get('p')!.typeName).toBe('T')
+      expect(partialDefs.get('s')!.name).toBe('S')
+      expect(partialDefs.get('s')!.typeName).toBe('U')
+    })
+
+    it('9. resolveSameFilePartials returns selection and fragmentDefs', async () => {
+      const code = `
+      import { gazania } from 'gazania'
+      const uf = gazania.partial('UF').on('User').select($ => $.select(['id']))
+      const q = gazania.query('Q').select($ => $.select([...uf(), 'name']))
+    `
+      const ast = await parseCode(code)
+      const contextMap: Record<string, unknown> = {}
+      const { builderNames, namespace } = collectImports(ast, contextMap)
+
+      const partialDefs = collectPartialDefs(ast, builderNames, namespace)
+      expect(partialDefs.size).toBe(1)
+
+      const chains: any[] = []
+      walkAST(ast, (node: any) => {
+        if (!isGazaniaSelectCall(node, builderNames, namespace)) {
+          return
+        }
+        const chain = analyzeBuilderChain(node, builderNames, namespace)
+        if (chain) {
+          chains.push(chain)
+        }
+      })
+
+      const queryChain = chains.find(c => c.type === 'query')
+      expect(queryChain).toBeDefined()
+
+      const { selection, fragmentDefs } = resolveSameFilePartials(queryChain, partialDefs)
+
+      expect(selection).toHaveLength(1)
+      expect(selection).toContain('name')
+      expect(fragmentDefs).toHaveLength(1)
+      expect(fragmentDefs[0].name.value).toBe('UF')
+      expect(fragmentDefs[0].typeCondition.name.value).toBe('User')
+    })
+  })
+}
