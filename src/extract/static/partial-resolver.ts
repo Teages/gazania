@@ -3,6 +3,7 @@ import type { DocumentNode, FragmentDefinitionNode, SelectionNode, SelectionSetN
 import type { DirectiveInput } from '../../runtime/directive'
 import type { SelectionInput, SelectionObject } from '../../runtime/dollar'
 import type { StaticBuilderChain, StaticDirectiveDef, StaticPartialDef, StaticPartialRef } from './types'
+import { CircularPartialError } from './types'
 import { createHash, getHashes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
@@ -165,7 +166,8 @@ function buildFragmentDef(
     seen = new Set()
   }
   if (seen.has(partialDef.name)) {
-    return null
+    const cyclePath = [...seen, partialDef.name].join(' → ')
+    throw new CircularPartialError(partialDef.name, cyclePath)
   }
   seen.add(partialDef.name)
 
@@ -841,12 +843,18 @@ export function processFileStatic(
           definitions: ctx.definitions.reverse(),
         })
       }
-      catch {
-        skipped.push({
-          file,
-          line: staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset,
-          reason: `Failed to statically analyze ${chain.type} "${chain.name}"`,
-        })
+      catch (err) {
+        const line = staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset
+        if (err instanceof CircularPartialError) {
+          skipped.push({ file, line, reason: err.message })
+        }
+        else {
+          skipped.push({
+            file,
+            line,
+            reason: `Failed to statically analyze ${chain.type} "${chain.name}"`,
+          })
+        }
       }
     }
   }
@@ -858,6 +866,57 @@ export function processFileStatic(
     documents,
     skipped,
   }
+}
+
+function detectCircularPartialRefs(
+  partialDefs: Map<string, StaticPartialDef>,
+): Map<string, string> {
+  const cycles = new Map<string, string>()
+
+  for (const [localName, def] of partialDefs) {
+    const visited = new Set<string>()
+    const path: string[] = []
+
+    function visit(name: string, def: StaticPartialDef): void {
+      if (visited.has(name)) {
+        const cycleStart = path.indexOf(name)
+        const cyclePath = [...path.slice(cycleStart), name].join(' → ')
+        cycles.set(cyclePath, name)
+        return
+      }
+      visited.add(name)
+      path.push(name)
+
+      const result = interpretSelectCallback(
+        def.selectCallback,
+        def.callbackParams.dollar,
+        def.callbackParams.vars,
+        def.scopedDeps || partialDefs,
+      )
+
+      for (const ref of result.partialRefs) {
+        const refDef = (def.scopedDeps || partialDefs).get(ref.localName)
+        if (refDef) {
+          visit(refDef.name, refDef)
+        }
+      }
+
+      const nestedRefs = collectNestedPartialRefs(result.selection)
+      for (const ref of nestedRefs) {
+        const refDef = (def.scopedDeps || partialDefs).get(ref.localName)
+        if (refDef) {
+          visit(refDef.name, refDef)
+        }
+      }
+
+      path.pop()
+      visited.delete(name)
+    }
+
+    visit(def.name, def)
+  }
+
+  return cycles
 }
 
 /**
@@ -1019,6 +1078,35 @@ export async function staticExtractCrossFile(
       exportMap: result.exportMap,
       builderExports: result.builderExports,
     })
+  }
+
+  // After both passes, all scopedDeps are fully resolved.
+  // Detect circular partial references across the full dependency graph.
+  // Build a deduplicated map keyed by partial name, preferring the definition
+  // from the file that owns the partial (where it was locally defined).
+  const allPartialDefs = new Map<string, StaticPartialDef>()
+  for (const bindings of fileBindings.values()) {
+    for (const [k, v] of bindings.partialDefs) {
+      // Prefer entries with scopedDeps set — they come from the file that
+      // defines the partial (home file), not from a cross-file import.
+      const existing = allPartialDefs.get(k)
+      if (!existing || existing.scopedDeps === undefined) {
+        allPartialDefs.set(k, v)
+      }
+    }
+  }
+
+  const cycles = detectCircularPartialRefs(allPartialDefs)
+  if (cycles.size > 0) {
+    const allSkipped = [...fileSkipped.values()].flat()
+    for (const [cyclePath] of cycles) {
+      allSkipped.push({
+        file: '',
+        line: 0,
+        reason: `Circular fragment reference detected: ${cyclePath}. Fragment spreads must not form cycles (GraphQL spec 5.5.2.2).`,
+      })
+    }
+    return { manifest, skipped: allSkipped }
   }
 
   const allSkipped = [...fileSkipped.values()].flat()

@@ -91,6 +91,27 @@ export interface StaticPartialDef {
 }
 
 /**
+ * Error thrown when a circular fragment reference is detected during static extraction.
+ * GraphQL spec Section 5.5.2.2 forbids fragment spreads that form cycles.
+ */
+export class CircularPartialError extends Error {
+  /** The name of the partial that triggered the cycle */
+  readonly partialName: string
+  /** The full cycle path (e.g. "PartialC → PartialE → PartialC") */
+  readonly cyclePath: string
+
+  constructor(partialName: string, cyclePath: string) {
+    super(
+      `Circular fragment reference detected: ${cyclePath}. `
+      + `Fragment spreads must not form cycles (GraphQL spec 5.5.2.2).`,
+    )
+    this.name = 'CircularPartialError'
+    this.partialName = partialName
+    this.cyclePath = cyclePath
+  }
+}
+
+/**
  * Result of extracting all gazania operations from a single source file.
  * Contains the generated GraphQL documents, partial definitions, export mappings,
  * and any skipped calls that could not be statically analyzed.
