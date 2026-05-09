@@ -18,7 +18,7 @@
  */
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { extract } from '../../src/extract'
 
@@ -34,6 +34,10 @@ describe('circular partial reference detection', () => {
         target: 'esnext',
         module: 'esnext',
         moduleResolution: 'bundler',
+        baseUrl: resolve(process.cwd()),
+        paths: {
+          gazania: ['src/index.ts'],
+        },
       },
       include: ['src'],
     }))

@@ -11,7 +11,7 @@ export interface ExtractOptions {
   include?: string;
   algorithm?: string;
   cwd?: string;
-  tsconfig?: string;
+  tsconfig: string;
 }
 export interface ExtractResult {
   manifest: ExtractManifest;

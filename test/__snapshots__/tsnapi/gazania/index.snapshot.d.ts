@@ -25,6 +25,7 @@ export interface FragmentRef<Name extends string, _TypeName extends string> {
   readonly ' $fragmentRefs'?: { [K in Name]: true };
 }
 export interface Gazania {
+  readonly '~isGazania': true;
   query: (_?: string) => OperationBuilderWithoutVars;
   mutation: (_?: string) => OperationBuilderWithoutVars;
   subscription: (_?: string) => OperationBuilderWithoutVars;
@@ -54,6 +55,7 @@ export interface TypedDocumentNode<Result = Record<string, any>, Variables = Rec
   __ensureTypesOfVariablesAndResultMatching?: (_: Variables) => Result;
 }
 export interface TypedGazania<Schema extends DefineSchema<any>> {
+  readonly '~isGazania': true;
   query: (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>;
   mutation: (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>;
   subscription: (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>;
