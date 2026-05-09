@@ -2,15 +2,15 @@
   "compilerOptions": {
     "target": "esnext",
     "jsx": "react",
+    "baseUrl": "../../../..",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "baseUrl": "../../../..",
     "paths": {
       "gazania": ["src/index.ts"]
-    }
+    },
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
   "include": ["src"]
 }

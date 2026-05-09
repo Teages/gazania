@@ -260,11 +260,11 @@ export interface ReadFragmentFn {
 
 export interface TypedGazania<Schema extends DefineSchema<any>> {
   readonly '~isGazania': true
-  query: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>
-  mutation: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>
-  subscription: (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>
-  fragment: (name: string) => TypedFragmentBuilder<Schema>
-  partial: <Name extends string>(name: Name) => TypedPartialBuilder<Schema, Name>
-  section: <Name extends string>(name: Name) => TypedSectionBuilder<Schema, Name>
-  enum: EnumFunction
+  'query': (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>
+  'mutation': (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>
+  'subscription': (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>
+  'fragment': (name: string) => TypedFragmentBuilder<Schema>
+  'partial': <Name extends string>(name: Name) => TypedPartialBuilder<Schema, Name>
+  'section': <Name extends string>(name: Name) => TypedSectionBuilder<Schema, Name>
+  'enum': EnumFunction
 }

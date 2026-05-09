@@ -73,12 +73,14 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
 if (import.meta.vitest) {
   const { describe, it, expect, beforeEach, afterEach, vi } = import.meta.vitest
-  const { existsSync } = await import('node:fs')
-  const { mkdir: mkdirTest, readFile: readFileTest, rm, writeFile: writeFileTest } = await import('node:fs/promises')
-  const { tmpdir } = await import('node:os')
-  const { resolve } = await import('node:path')
 
-  describe('runExtract', () => {
+  describe('runExtract', async () => {
+    const { existsSync } = await import('node:fs')
+    const { mkdir: mkdirTest, readFile: readFileTest, rm, writeFile: writeFileTest } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { resolve } = await import('node:path')
+    const { cwd: getCwd } = await import('node:process')
+
     let dir: string
     const mockLog = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -92,7 +94,7 @@ if (import.meta.vitest) {
           target: 'esnext',
           module: 'esnext',
           moduleResolution: 'bundler',
-          baseUrl: resolve(process.cwd()),
+          baseUrl: resolve(getCwd()),
           paths: {
             gazania: ['src/index.ts'],
           },

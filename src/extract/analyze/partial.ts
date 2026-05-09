@@ -160,16 +160,17 @@ export function detectCircularPartialRefs(
 
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
-  const { parseSync } = await import('oxc-parser')
-  const { collectImports } = await import('./imports')
-  const { isGazaniaSelectCall, analyzeBuilderChain } = await import('./chain')
-  const { walkAST } = await import('../walk')
 
-  async function parseCode(code: string) {
-    return parseSync('test.js', code).program as any
-  }
+  describe('partial-resolver: same-file partial/section resolution', async () => {
+    const { parseSync } = await import('oxc-parser')
+    const { collectImports } = await import('./imports')
+    const { isGazaniaSelectCall, analyzeBuilderChain } = await import('./chain')
+    const { walkAST } = await import('../walk')
 
-  describe('partial-resolver: same-file partial/section resolution', () => {
+    async function parseCode(code: string) {
+      return parseSync('test.js', code).program as any
+    }
+
     it('7. collectPartialDefs returns empty map when no partials', async () => {
       const ast = await parseCode(`
       import { gazania } from 'gazania'

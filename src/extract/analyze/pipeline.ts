@@ -10,11 +10,11 @@ import { addDocumentToManifest } from '../manifest'
 import { createModuleResolver, createTypeCheckerProgram } from '../ts-program'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
-import { collectExports, collectImports } from './imports'
 import { buildDocumentFromChain } from './document'
+import { collectExports, collectImports } from './imports'
 import { collectPartialDefs, detectCircularPartialRefs, findUnresolvedSpreadRef } from './partial'
-import { CircularPartialError } from './types'
 import { collectBuilderNamesForFile } from './type-aware-ids'
+import { CircularPartialError } from './types'
 
 interface FileStaticBindings {
   partialDefs: Map<string, StaticPartialDef>
@@ -236,7 +236,9 @@ export async function staticExtractCrossFile(
       for (const block of blocks) {
         const { builderNames, namespace: ns } = collectImports(block.ast, {})
         mergedBuilderNames.push(...builderNames)
-        if (ns) namespace = ns
+        if (ns) {
+          namespace = ns
+        }
       }
       return { builderNames: mergedBuilderNames, namespace }
     }
@@ -249,7 +251,9 @@ export async function staticExtractCrossFile(
     for (const block of blocks) {
       const { builderNames, namespace: ns } = collectImports(block.ast, {})
       mergedBuilderNames.push(...builderNames)
-      if (ns) namespace = ns
+      if (ns) {
+        namespace = ns
+      }
     }
     return { builderNames: mergedBuilderNames, namespace }
   }
@@ -382,9 +386,10 @@ export async function staticExtractCrossFile(
 
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
-  const { print } = await import('graphql')
 
-  describe('partial-resolver: same-file partial/section resolution', () => {
+  describe('partial-resolver: same-file partial/section resolution', async () => {
+    const { print } = await import('graphql')
+
     it('1. single same-file partial', () => {
       const code = `
       import { gazania } from 'gazania'

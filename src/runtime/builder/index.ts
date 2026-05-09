@@ -13,13 +13,13 @@ export type { PartialPackage, SectionPackage }
 
 export interface Gazania {
   readonly '~isGazania': true
-  query: (name?: string) => OperationBuilderWithoutVars
-  mutation: (name?: string) => OperationBuilderWithoutVars
-  subscription: (name?: string) => OperationBuilderWithoutVars
-  fragment: (name: string) => FragmentBuilder
-  partial: (name: string) => PartialBuilder
-  section: (name: string) => SectionBuilder
-  enum: EnumFunction
+  'query': (name?: string) => OperationBuilderWithoutVars
+  'mutation': (name?: string) => OperationBuilderWithoutVars
+  'subscription': (name?: string) => OperationBuilderWithoutVars
+  'fragment': (name: string) => FragmentBuilder
+  'partial': (name: string) => PartialBuilder
+  'section': (name: string) => SectionBuilder
+  'enum': EnumFunction
 }
 
 function initGazania(): Gazania {

@@ -103,7 +103,8 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
       `import { gazania } from 'gazania'\nconst doc = gazania.query('TestQuery').select($ => $.select(['id']))`,
     )
     await expect(extract({ dir: 'src', algorithm: 'invalid-algo-xyz', cwd: dir, tsconfig: 'tsconfig.json' }))
-      .rejects.toThrow(/Supported algorithms:/)
+      .rejects
+      .toThrow(/Supported algorithms:/)
   })
 
   it('extracts a query from a .vue <script setup> block', async () => {

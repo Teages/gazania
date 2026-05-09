@@ -1,4 +1,4 @@
-import type { Node, Program } from 'estree'
+import type { Node } from 'estree'
 import type { StaticBuilderChain, StaticDirectiveDef } from './types'
 
 /**

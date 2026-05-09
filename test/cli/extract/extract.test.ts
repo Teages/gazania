@@ -136,11 +136,11 @@ describe('feature: skipped call diagnostics', () => {
 
   it('throws when tsconfig is not provided', async () => {
     await expect(extract({ dir: 'src', cwd: fixtureDir }))
-      .rejects.toThrow('tsconfig is required')
+      .rejects
+      .toThrow('tsconfig is required')
   })
 
   it('runExtract throws when tsconfig is not provided', async () => {
-    const { vi } = await import('vitest')
     const { join } = await import('node:path')
     const { mkdir, rm, writeFile } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
