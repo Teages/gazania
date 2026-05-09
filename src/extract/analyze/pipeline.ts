@@ -7,13 +7,14 @@ import { parseSync } from 'oxc-parser'
 import { getFileImports, topologicalSort } from '../dependency-graph'
 import { parseFile, staticOffsetToLine } from '../files'
 import { addDocumentToManifest } from '../manifest'
-import { createModuleResolver } from '../ts-program'
+import { createModuleResolver, createTypeCheckerProgram } from '../ts-program'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { collectExports, collectImports } from './imports'
 import { buildDocumentFromChain } from './document'
 import { collectPartialDefs, detectCircularPartialRefs, findUnresolvedSpreadRef } from './partial'
 import { CircularPartialError } from './types'
+import { collectBuilderNamesForFile } from './type-aware-ids'
 
 interface FileStaticBindings {
   partialDefs: Map<string, StaticPartialDef>
@@ -25,7 +26,8 @@ export function processFileStatic(
   blocks: StaticParsedBlock[],
   file: string,
   crossFilePartials: Map<string, StaticPartialDef>,
-  crossFileBuilderNames: string[],
+  builderNames: string[],
+  namespace: string | undefined,
 ): {
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
@@ -39,17 +41,13 @@ export function processFileStatic(
   const documents: DocumentNode[] = []
   const skipped: Array<{ file: string, line: number, reason: string }> = []
 
-  // Accumulate builder names across blocks so later blocks see earlier aliases
   const accumulatedBuilderNames: string[] = []
 
   for (const block of blocks) {
-    const contextMap: Record<string, unknown> = {}
-    const { builderNames, namespace } = collectImports(block.ast, contextMap)
+    const blockBuilderNames = [...builderNames]
 
-    // Merge cross-file builder names + names discovered in previous blocks
-    builderNames.push(...crossFileBuilderNames, ...accumulatedBuilderNames)
+    blockBuilderNames.push(...accumulatedBuilderNames)
 
-    // Detect local builder aliases (e.g. const g = createGazania(...))
     walkAST(block.ast, (node: any) => {
       if (node.type !== 'VariableDeclaration') {
         return
@@ -62,27 +60,23 @@ export function processFileStatic(
         if (
           init.type === 'CallExpression'
           && init.callee.type === 'Identifier'
-          && builderNames.includes(init.callee.name)
+          && blockBuilderNames.includes(init.callee.name)
         ) {
-          builderNames.push(decl.id.name)
+          blockBuilderNames.push(decl.id.name)
           accumulatedBuilderNames.push(decl.id.name)
         }
       }
     })
 
-    // Collect same-file partial defs
-    const localPartials = collectPartialDefs(block.ast, builderNames, namespace)
+    const localPartials = collectPartialDefs(block.ast, blockBuilderNames, namespace)
     for (const [k, v] of localPartials) {
       mergedPartialDefs.set(k, v)
     }
 
-    // Add cross-file partials
     for (const [k, v] of crossFilePartials) {
       mergedPartialDefs.set(k, v)
     }
 
-    // Populate scopedDeps for local partials so they carry their home-file scope
-    // when used cross-file. This lets buildFragmentDef resolve transitive deps.
     for (const [k, v] of localPartials) {
       if (!v.scopedDeps) {
         const deps = new Map(mergedPartialDefs)
@@ -91,26 +85,23 @@ export function processFileStatic(
       }
     }
 
-    // Collect exports
     const exports = collectExports(block.ast)
     for (const [k, v] of exports) {
       mergedExportMap.set(k, v)
     }
 
-    // Detect builder exports for downstream files
     for (const [exportedName, localName] of exports) {
-      if (builderNames.includes(localName)) {
+      if (blockBuilderNames.includes(localName)) {
         mergedBuilderExports.push(exportedName)
       }
     }
 
-    // Walk AST for select calls → analyze chains → build documents
     const chains: StaticBuilderChain[] = []
     walkAST(block.ast, (node: any) => {
-      if (!isGazaniaSelectCall(node, builderNames, namespace)) {
+      if (!isGazaniaSelectCall(node, blockBuilderNames, namespace)) {
         return
       }
-      const chain = analyzeBuilderChain(node, builderNames, namespace)
+      const chain = analyzeBuilderChain(node, blockBuilderNames, namespace)
       if (chain) {
         chains.push(chain)
       }
@@ -171,7 +162,6 @@ export function processFileStatic(
   }
 }
 
-/** Full static extraction pipeline with same-file partial/section resolution. */
 export function staticExtractWithPartials(
   code: string,
   filePath?: string,
@@ -180,18 +170,11 @@ export function staticExtractWithPartials(
   const ast = parseResult.program as unknown as Program
   const blocks: StaticParsedBlock[] = [{ code, ast, lineOffset: 0 }]
 
-  const result = processFileStatic(blocks, filePath ?? 'test.js', new Map(), [])
+  const { builderNames, namespace } = collectImports(ast, {})
+  const result = processFileStatic(blocks, filePath ?? 'test.js', new Map(), builderNames, namespace)
   return result.documents
 }
 
-/**
- * Cross-file static extraction pipeline.
- *
- * Mirrors `extractWithCrossFileResolution()` from `src/extract/index.ts` but
- * replaces runtime VM evaluation with pure static AST analysis. Files are
- * parsed, sorted in dependency order, and processed in two passes to handle
- * circular imports.
- */
 export async function staticExtractCrossFile(
   files: string[],
   options: { tsconfigPath: string, algorithm?: string },
@@ -201,6 +184,8 @@ export async function staticExtractCrossFile(
 }> {
   const algorithm = options.algorithm ?? 'sha256'
   const resolver = await createModuleResolver(options.tsconfigPath)
+  const { program, checker } = await createTypeCheckerProgram(options.tsconfigPath)
+  const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
@@ -243,6 +228,32 @@ export async function staticExtractCrossFile(
   const fileSkipped = new Map<string, Array<{ file: string, line: number, reason: string }>>()
   const filesNeedingSecondPass = new Set<string>()
 
+  function getBuilderInfoForFile(file: string, blocks: StaticParsedBlock[]): { builderNames: string[], namespace: string | undefined } {
+    const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
+    if (isSFC) {
+      const mergedBuilderNames: string[] = []
+      let namespace: string | undefined
+      for (const block of blocks) {
+        const { builderNames, namespace: ns } = collectImports(block.ast, {})
+        mergedBuilderNames.push(...builderNames)
+        if (ns) namespace = ns
+      }
+      return { builderNames: mergedBuilderNames, namespace }
+    }
+    const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
+    if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
+      return tcResult
+    }
+    const mergedBuilderNames: string[] = []
+    let namespace: string | undefined
+    for (const block of blocks) {
+      const { builderNames, namespace: ns } = collectImports(block.ast, {})
+      mergedBuilderNames.push(...builderNames)
+      if (ns) namespace = ns
+    }
+    return { builderNames: mergedBuilderNames, namespace }
+  }
+
   for (const file of order) {
     const blocks = parsedFiles.get(file)
     if (!blocks) {
@@ -251,7 +262,6 @@ export async function staticExtractCrossFile(
 
     const imports = fileImportsMap.get(file) || []
 
-    // Resolve cross-file bindings from already-processed files
     const crossFilePartials = new Map<string, StaticPartialDef>()
     const crossFileBuilderNames: string[] = []
     let hadMissingImport = false
@@ -278,7 +288,9 @@ export async function staticExtractCrossFile(
       filesNeedingSecondPass.add(file)
     }
 
-    const result = processFileStatic(blocks, file, crossFilePartials, crossFileBuilderNames)
+    const { builderNames, namespace } = getBuilderInfoForFile(file, blocks)
+    const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
+    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace)
 
     for (const doc of result.documents) {
       addDocumentToManifest(manifest, doc, algorithm)
@@ -325,7 +337,9 @@ export async function staticExtractCrossFile(
       }
     }
 
-    const result = processFileStatic(blocks, file, crossFilePartials, crossFileBuilderNames)
+    const { builderNames, namespace } = getBuilderInfoForFile(file, blocks)
+    const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
+    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace)
 
     for (const doc of result.documents) {
       addDocumentToManifest(manifest, doc, algorithm)
@@ -339,15 +353,9 @@ export async function staticExtractCrossFile(
     })
   }
 
-  // After both passes, all scopedDeps are fully resolved.
-  // Detect circular partial references across the full dependency graph.
-  // Build a deduplicated map keyed by partial name, preferring the definition
-  // from the file that owns the partial (where it was locally defined).
   const allPartialDefs = new Map<string, StaticPartialDef>()
   for (const bindings of fileBindings.values()) {
     for (const [k, v] of bindings.partialDefs) {
-      // Prefer entries with scopedDeps set — they come from the file that
-      // defines the partial (home file), not from a cross-file import.
       const existing = allPartialDefs.get(k)
       if (!existing || existing.scopedDeps === undefined) {
         allPartialDefs.set(k, v)
@@ -370,4 +378,138 @@ export async function staticExtractCrossFile(
 
   const allSkipped = [...fileSkipped.values()].flat()
   return { manifest, skipped: allSkipped }
+}
+
+if (import.meta.vitest) {
+  const { describe, it, expect } = import.meta.vitest
+  const { print } = await import('graphql')
+
+  describe('partial-resolver: same-file partial/section resolution', () => {
+    it('1. single same-file partial', () => {
+      const code = `
+      import { gazania } from 'gazania'
+      const userFields = gazania.partial('UserFields').on('User').select($ => $.select(['id', 'name']))
+      gazania.query('GetUser').select($ => $.select([...userFields(), 'status']))
+    `
+      const docs = staticExtractWithPartials(code)
+      expect(docs).toHaveLength(1)
+
+      const output = print(docs[0])
+      expect(output).toContain('...UserFields')
+      expect(output).toContain('fragment UserFields on User')
+      expect(output).toContain('id')
+      expect(output).toContain('name')
+      expect(output).toContain('status')
+      expect(output).toContain('query GetUser')
+    })
+
+    it('2. single same-file section', () => {
+      const code = `
+      import { gazania } from 'gazania'
+      const postSection = gazania.section('PostSection').on('Post').select($ => $.select(['title', 'body']))
+      gazania.query('GetPosts').select($ => $.select([...postSection(), 'createdAt']))
+    `
+      const docs = staticExtractWithPartials(code)
+      expect(docs).toHaveLength(1)
+
+      const output = print(docs[0])
+      expect(output).toContain('...PostSection')
+      expect(output).toContain('fragment PostSection on Post')
+      expect(output).toContain('title')
+      expect(output).toContain('body')
+      expect(output).toContain('createdAt')
+      expect(output).toContain('query GetPosts')
+    })
+
+    it('3. multiple same-file partials', () => {
+      const code = `
+      import { gazania } from 'gazania'
+      const userInfo = gazania.partial('UserInfo').on('User').select($ => $.select(['id', 'name']))
+      const userAvatar = gazania.partial('UserAvatar').on('User').select($ => $.select(['avatarUrl']))
+      gazania.query('GetUserProfile').select($ => $.select([...userInfo(), ...userAvatar()]))
+    `
+      const docs = staticExtractWithPartials(code)
+      expect(docs).toHaveLength(1)
+
+      const output = print(docs[0])
+      expect(output).toContain('...UserInfo')
+      expect(output).toContain('...UserAvatar')
+      expect(output).toContain('fragment UserInfo on User')
+      expect(output).toContain('fragment UserAvatar on User')
+      expect(output).toContain('avatarUrl')
+      expect(output).toContain('query GetUserProfile')
+    })
+
+    it('4. partial forward reference (declared AFTER query)', () => {
+      const code = `
+      import { gazania } from 'gazania'
+      gazania.query('ForwardRef').select($ => $.select([...userFields(), 'active']))
+      const userFields = gazania.partial('UserFields').on('User').select($ => $.select(['id', 'email']))
+    `
+      const docs = staticExtractWithPartials(code)
+      expect(docs).toHaveLength(1)
+
+      const output = print(docs[0])
+      expect(output).toContain('...UserFields')
+      expect(output).toContain('fragment UserFields on User')
+      expect(output).toContain('id')
+      expect(output).toContain('email')
+      expect(output).toContain('active')
+      expect(output).toContain('query ForwardRef')
+    })
+
+    it('5. partial with vars', () => {
+      const code = `
+      import { gazania } from 'gazania'
+      const filteredItems = gazania.partial('FilteredItems').on('Item').vars({ limit: 'Int!' }).select(($, vars) => $.select(['name']))
+      gazania.query('GetItems').select($ => $.select([...filteredItems()]))
+    `
+      const docs = staticExtractWithPartials(code)
+      expect(docs).toHaveLength(1)
+
+      const output = print(docs[0])
+      expect(output).toContain('...FilteredItems')
+      expect(output).toContain('fragment FilteredItems')
+      expect(output).toContain('on Item')
+      const doc = docs[0]
+      const frag = doc.definitions.find((d: any) => d.kind === 'FragmentDefinition') as any
+      expect(frag).toBeDefined()
+      expect(frag.variableDefinitions).toHaveLength(1)
+      expect(frag.variableDefinitions[0].variable.name.value).toBe('limit')
+      expect(frag.variableDefinitions[0].type.type.name.value).toBe('Int')
+    })
+
+    it('6. partial with directives', () => {
+      const code = `
+      import { gazania } from 'gazania'
+      const deprecatedFields = gazania.partial('DeprecatedFields').on('User').directives(() => [['@deprecated', { reason: 'use v2' }]]).select($ => $.select(['oldField']))
+      gazania.query('Legacy').select($ => $.select([...deprecatedFields()]))
+    `
+      const docs = staticExtractWithPartials(code)
+      expect(docs).toHaveLength(1)
+
+      const output = print(docs[0])
+      expect(output).toContain('...DeprecatedFields')
+      expect(output).toContain('fragment DeprecatedFields on User')
+      expect(output).toContain('@deprecated')
+      expect(output).toContain('use v2')
+    })
+
+    it('10. partial-only selection (empty non-spread selection)', () => {
+      const code = `
+      import { gazania } from 'gazania'
+      const allFields = gazania.partial('AllFields').on('Item').select($ => $.select(['id', 'label']))
+      gazania.query('GetAll').select($ => $.select([...allFields()]))
+    `
+      const docs = staticExtractWithPartials(code)
+      expect(docs).toHaveLength(1)
+
+      const output = print(docs[0])
+      expect(output).toContain('...AllFields')
+      expect(output).toContain('fragment AllFields on Item')
+      expect(output).toContain('id')
+      expect(output).toContain('label')
+      expect(output).toContain('query GetAll')
+    })
+  })
 }
