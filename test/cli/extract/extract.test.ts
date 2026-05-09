@@ -158,6 +158,7 @@ describe('feature: skipped call diagnostics', () => {
       await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
