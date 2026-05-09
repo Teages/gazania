@@ -532,3 +532,118 @@ declare module 'gazania' {
   }
 }
 ```
+
+---
+
+## Extract API
+
+Use the extract API for programmatic access to static query extraction. Import it from `gazania/extract`.
+
+```ts
+import { extract } from 'gazania/extract'
+```
+
+### `extract(options)`
+
+Scans source files for Gazania operations and returns a persisted query manifest.
+
+```ts
+const { manifest, skipped } = await extract({
+  dir: 'src',
+  tsconfig: 'tsconfig.json',
+})
+```
+
+If a Gazania call cannot be statically evaluated, `extract()` throws an `ExtractionError`. You can suppress specific failure types by passing `ignoreCategories`:
+
+```ts
+const { manifest, skipped } = await extract({
+  dir: 'src',
+  tsconfig: 'tsconfig.json',
+  ignoreCategories: ['unresolved', 'circular'],
+})
+```
+
+### `ExtractionError`
+
+Thrown when Gazania detects calls that it cannot statically evaluate.
+
+```ts
+try {
+  await extract({ dir: 'src', tsconfig: 'tsconfig.json' })
+}
+catch (err) {
+  if (err instanceof ExtractionError) {
+    for (const entry of err.skipped) {
+      console.error(`${entry.file}:${entry.line}: ${entry.reason}`)
+    }
+  }
+}
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `skipped` | `SkippedExtraction[]` | Calls that failed extraction |
+
+### Types
+
+#### `ExtractOptions`
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `dir` | `string` | — | Directory to scan for source files |
+| `include` | `string` | `'**/*.{ts,tsx,js,jsx,vue,svelte}'` | Glob pattern for files to include |
+| `algorithm` | `string` | `'sha256'` | Hash algorithm |
+| `cwd` | `string` | `process.cwd()` | Working directory for resolving `dir` |
+| `tsconfig` | `string` | — | **(required)** Path to `tsconfig.json` |
+| `ignoreCategories` | `SkippedExtractionCategory[]` | `[]` | Categories of failures to suppress |
+
+#### `ExtractResult`
+
+| Property | Type | Description |
+|---|---|---|
+| `manifest` | `ExtractManifest` | The extracted manifest containing operations and fragments |
+| `skipped` | `SkippedExtraction[]` | Gazania calls that were detected but not extracted |
+
+#### `ManifestEntry`
+
+| Property | Type | Description |
+|---|---|---|
+| `body` | `string` | The GraphQL operation or fragment body |
+| `hash` | `string` | Body hash in `algorithm:hex` format |
+| `loc` | `SourceLoc` | Source location in the original file |
+
+#### `SourceLoc`
+
+| Property | Type | Description |
+|---|---|---|
+| `start` | `SourceLocation` | Start position of the operation |
+| `end` | `SourceLocation` | End position of the operation |
+
+#### `SourceLocation`
+
+| Property | Type | Description |
+|---|---|---|
+| `line` | `number` | 1-based line number |
+| `column` | `number` | 1-based column number |
+| `offset` | `number` | 0-based character offset from the start of the file |
+
+#### `SkippedExtraction`
+
+| Property | Type | Description |
+|---|---|---|
+| `file` | `string` | Absolute path of the file with the skipped call |
+| `line` | `number` | 1-based line number |
+| `reason` | `string` | Error message from the failed evaluation |
+| `category` | `SkippedExtractionCategory` | Failure category |
+
+#### `SkippedExtractionCategory`
+
+```ts
+type SkippedExtractionCategory = 'unresolved' | 'analysis' | 'circular'
+```
+
+- **`unresolved`** — A referenced partial, section, or variable could not be found.
+- **`analysis`** — The builder chain could not be statically evaluated. This often happens when it depends on runtime values.
+- **`circular`** — Circular reference detected between partials or sections.
+
