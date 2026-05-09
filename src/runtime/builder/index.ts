@@ -26,13 +26,13 @@ function initGazania(): Gazania {
   const enumFn = createEnumFunction()
 
   return {
-    query: (name?: string) => createOperationBuilder('query', name),
-    mutation: (name?: string) => createOperationBuilder('mutation', name),
-    subscription: (name?: string) => createOperationBuilder('subscription', name),
-    fragment: (name: string) => createFragmentBuilder(name),
-    partial: (name: string) => createPartialBuilder(name),
-    section: (name: string) => createSectionBuilder(name),
-    enum: enumFn,
+    'query': (name?: string) => createOperationBuilder('query', name),
+    'mutation': (name?: string) => createOperationBuilder('mutation', name),
+    'subscription': (name?: string) => createOperationBuilder('subscription', name),
+    'fragment': (name: string) => createFragmentBuilder(name),
+    'partial': (name: string) => createPartialBuilder(name),
+    'section': (name: string) => createSectionBuilder(name),
+    'enum': enumFn,
     '~isGazania': true as const,
   }
 }

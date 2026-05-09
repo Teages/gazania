@@ -1,5 +1,5 @@
 import type { Program } from 'estree'
-import type { StaticBuilderChain, StaticPartialDef } from './types'
+import type { StaticPartialDef } from './types'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { collectNestedPartialRefs, interpretSelectCallback } from './selection'
@@ -142,8 +142,6 @@ if (import.meta.vitest) {
   describe('partial-resolver: same-file partial/section resolution', async () => {
     const { parseSync } = await import('oxc-parser')
     const { collectImports } = await import('./imports')
-    const { isGazaniaSelectCall, analyzeBuilderChain } = await import('./chain')
-    const { walkAST } = await import('../walk')
 
     async function parseCode(code: string) {
       return parseSync('test.js', code).program as any
@@ -181,6 +179,5 @@ if (import.meta.vitest) {
       expect(partialDefs.get('s')!.name).toBe('S')
       expect(partialDefs.get('s')!.typeName).toBe('U')
     })
-
   })
 }

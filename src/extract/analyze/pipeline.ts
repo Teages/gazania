@@ -344,7 +344,9 @@ export async function staticExtractCrossFile(
     filesNeedingSecondPass.clear()
 
     for (const f of order) {
-      if (reprocessSet.has(f)) continue
+      if (reprocessSet.has(f)) {
+        continue
+      }
       const imports = fileImportsMap.get(f) || []
       if (imports.some(imp => reprocessSet.has(imp.resolvedPath))) {
         reprocessSet.add(f)
