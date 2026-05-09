@@ -82,6 +82,12 @@ export interface StaticPartialDef {
   selectCallback: Node
   /** Parameter names from the callback signature */
   callbackParams: { dollar: string, vars?: string }
+  /**
+   * Snapshot of all other partials that were in scope when this partial was defined
+   * (keyed by their local variable name in the source file). Used by buildFragmentDef
+   * to resolve transitive partial references across file boundaries.
+   */
+  scopedDeps?: Map<string, StaticPartialDef>
 }
 
 /**

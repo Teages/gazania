@@ -71,13 +71,13 @@ function wrapFieldCallback(
           continue
         }
 
-        const fragDef = buildFragmentDef(partialDef, partialDefs)
-        if (fragDef) {
+        const fragDefs = buildFragmentDef(partialDef, partialDefs)
+        if (fragDefs && fragDefs.length > 0) {
           const sym = Symbol('@gazania:PartialContent')
           partialEntries.push({
             [sym]: {
               _fragmentName: partialDef.name,
-              _documentNode: { definitions: [fragDef] },
+              _documentNode: { definitions: fragDefs },
             },
           })
         }
@@ -160,7 +160,7 @@ function buildFragmentDef(
   partialDefs: Map<string, StaticPartialDef>,
   literalScope?: Map<string, unknown>,
   seen?: Set<string>,
-): FragmentDefinitionNode | null {
+): FragmentDefinitionNode[] | null {
   if (!seen) {
     seen = new Set()
   }
@@ -169,11 +169,17 @@ function buildFragmentDef(
   }
   seen.add(partialDef.name)
 
+  // Merge home-file scope so the partial's callback can resolve its own deps
+  // (e.g. transitive cross-file partials that the consumer file doesn't directly import)
+  const effectiveDefs: Map<string, StaticPartialDef> = partialDef.scopedDeps
+    ? new Map([...partialDef.scopedDeps, ...partialDefs])
+    : partialDefs
+
   const partialResult = interpretSelectCallback(
     partialDef.selectCallback,
     partialDef.callbackParams.dollar,
     partialDef.callbackParams.vars,
-    partialDefs,
+    effectiveDefs,
     literalScope,
   )
 
@@ -184,22 +190,29 @@ function buildFragmentDef(
     ? partialDef.directives.flatMap(interpretDirectiveCallback)
     : []
 
+  // Wrap field callbacks so field-nested partial refs (e.g. ...postFields inside a
+  // posts field callback) are resolved the same way as in top-level operation processing.
+  const wrappedSelection = wrapSelectionWithPartialRefs(partialResult.selection, effectiveDefs)
+
   let fragSelectionSet: SelectionSetNode
-  if (partialResult.selection.length > 0) {
-    fragSelectionSet = parseSelectionSet(partialResult.selection, fragCtx, enumFn)
+  if (wrappedSelection.length > 0) {
+    fragSelectionSet = parseSelectionSet(wrappedSelection, fragCtx, enumFn)
   }
   else {
     fragSelectionSet = { kind: Kind.SELECTION_SET, selections: [] }
   }
 
   for (const nestedRef of partialResult.partialRefs) {
-    const nestedDef = partialDefs.get(nestedRef.localName)
+    const nestedDef = effectiveDefs.get(nestedRef.localName)
     if (!nestedDef) {
       continue
     }
 
-    const nestedFragDef = buildFragmentDef(nestedDef, partialDefs, literalScope, seen)
-    if (nestedFragDef) {
+    const nestedFragDefs = buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen)
+    if (nestedFragDefs && nestedFragDefs.length > 0) {
+      for (const d of nestedFragDefs) {
+        fragCtx.pushDefinition(d)
+      }
       ;(fragSelectionSet.selections as SelectionNode[]).push({
         kind: Kind.FRAGMENT_SPREAD,
         name: { kind: Kind.NAME, value: nestedDef.name },
@@ -209,15 +222,15 @@ function buildFragmentDef(
 
   const fieldCallbackRefs = collectNestedPartialRefs(partialResult.selection)
   for (const nestedRef of fieldCallbackRefs) {
-    const nestedDef = partialDefs.get(nestedRef.localName)
+    const nestedDef = effectiveDefs.get(nestedRef.localName)
     if (!nestedDef) {
       continue
     }
 
-    buildFragmentDef(nestedDef, partialDefs, literalScope, seen)
+    buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen)
   }
 
-  return {
+  const mainFragDef: FragmentDefinitionNode = {
     kind: Kind.FRAGMENT_DEFINITION,
     name: { kind: Kind.NAME, value: partialDef.name },
     typeCondition: {
@@ -230,6 +243,8 @@ function buildFragmentDef(
       : [],
     directives: parseDirectives(fragDirectives),
   } as FragmentDefinitionNode
+
+  return [mainFragDef, ...(fragCtx.definitions as FragmentDefinitionNode[])]
 }
 
 function collectAllFragmentDefs(
@@ -247,9 +262,9 @@ function collectAllFragmentDefs(
         continue
       }
 
-      const fragDef = buildFragmentDef(partialDef, partialDefs, literalScope, seen)
-      if (fragDef) {
-        fragmentDefs.push(fragDef)
+      const fragDefs = buildFragmentDef(partialDef, partialDefs, literalScope, seen)
+      if (fragDefs) {
+        fragmentDefs.push(...fragDefs)
       }
 
       const nestedResult = interpretSelectCallback(
@@ -421,9 +436,11 @@ export function staticExtractWithPartials(
       }
       seenFrags.add(partialDef.name)
 
-      const fragDef = buildFragmentDef(partialDef, partialDefs)
-      if (fragDef) {
-        ctx.pushDefinition(fragDef)
+      const fragDefs = buildFragmentDef(partialDef, partialDefs)
+      if (fragDefs) {
+        for (const fragDef of fragDefs) {
+          ctx.pushDefinition(fragDef)
+        }
       }
 
       ;(selectionSet.selections as SelectionNode[]).push({
@@ -673,6 +690,16 @@ export function processFileStatic(
       mergedPartialDefs.set(k, v)
     }
 
+    // Populate scopedDeps for local partials so they carry their home-file scope
+    // when used cross-file. This lets buildFragmentDef resolve transitive deps.
+    for (const [k, v] of localPartials) {
+      if (!v.scopedDeps) {
+        const deps = new Map(mergedPartialDefs)
+        deps.delete(k)
+        v.scopedDeps = deps
+      }
+    }
+
     // Collect exports
     const exports = collectExports(block.ast)
     for (const [k, v] of exports) {
@@ -760,9 +787,11 @@ export function processFileStatic(
           }
           seenFrags.add(partialDef.name)
 
-          const fragDef = buildFragmentDef(partialDef, mergedPartialDefs)
-          if (fragDef) {
-            ctx.pushDefinition(fragDef)
+          const fragDefs = buildFragmentDef(partialDef, mergedPartialDefs)
+          if (fragDefs) {
+            for (const fragDef of fragDefs) {
+              ctx.pushDefinition(fragDef)
+            }
           }
 
           ;(selectionSet.selections as SelectionNode[]).push({

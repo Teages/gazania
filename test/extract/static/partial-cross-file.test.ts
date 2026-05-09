@@ -234,7 +234,65 @@ const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', '
     expect(manifest.operations).toHaveProperty('GetUsers_React')
   })
 
-  it('7. simple query regression (no cross-file deps)', async () => {
+  it('7. three-level chain: a uses b\'s partial, b\'s partial uses c\'s partial', async () => {
+    // c.js: defines postFields partial
+    await writeFile(
+      join(dir, 'src', 'fragments', 'post.js'),
+      `import { gazania } from 'gazania'
+export const postFields = gazania.partial('PostFields')
+  .on('Post')
+  .select($ => $.select(['title', 'content']))`,
+    )
+
+    // b.js: defines userFields partial that internally uses postFields
+    await writeFile(
+      join(dir, 'src', 'fragments', 'user.js'),
+      `import { gazania } from 'gazania'
+import { postFields } from './post'
+export const userFields = gazania.partial('UserFields')
+  .on('User')
+  .select($ => $.select([{
+    posts: $ => $.select([
+      ...postFields({}),
+    ]),
+  }]))`,
+    )
+
+    // a.js: query that uses userFields (which transitively depends on postFields)
+    await writeFile(
+      join(dir, 'src', 'query.js'),
+      `import { gazania } from 'gazania'
+import { userFields } from './fragments/user'
+const doc = gazania.query('GetUser')
+  .select($ => $.select([{
+    user: $ => $.select([
+      ...userFields({}),
+    ]),
+  }]))`,
+    )
+
+    const { manifest } = await staticExtractCrossFile(
+      [
+        join(dir, 'src', 'fragments', 'post.js'),
+        join(dir, 'src', 'fragments', 'user.js'),
+        join(dir, 'src', 'query.js'),
+      ],
+      { tsconfigPath: join(dir, 'tsconfig.json') },
+    )
+
+    expect(manifest.operations).toHaveProperty('GetUser')
+    // UserFields fragment should be included
+    expect(manifest.operations.GetUser!.body).toContain('...UserFields')
+    expect(manifest.operations.GetUser!.body).toContain('fragment UserFields on User')
+    // posts field inside UserFields should contain PostFields spread
+    expect(manifest.operations.GetUser!.body).toContain('...PostFields')
+    // PostFields fragment definition should also be included
+    expect(manifest.operations.GetUser!.body).toContain('fragment PostFields on Post')
+    expect(manifest.operations.GetUser!.body).toContain('title')
+    expect(manifest.operations.GetUser!.body).toContain('content')
+  })
+
+  it('8. simple query regression (no cross-file deps)', async () => {
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'
