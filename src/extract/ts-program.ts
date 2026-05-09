@@ -118,6 +118,8 @@ if (import.meta.vitest) {
   // eslint-disable-next-line antfu/no-top-level-await
   const { mkdir, rm, writeFile } = await import('node:fs/promises')
   // eslint-disable-next-line antfu/no-top-level-await
+  const { randomUUID } = await import('node:crypto')
+  // eslint-disable-next-line antfu/no-top-level-await
   const { tmpdir } = await import('node:os')
   // eslint-disable-next-line antfu/no-top-level-await
   const { join } = await import('node:path')
@@ -126,7 +128,7 @@ if (import.meta.vitest) {
     let dir: string
 
     beforeEach(async () => {
-      dir = join(tmpdir(), `gazania-ts-program-test-${Date.now()}`)
+      dir = join(tmpdir(), `gazania-ts-program-test-${randomUUID()}`)
       await mkdir(dir, { recursive: true })
       await mkdir(join(dir, 'src'), { recursive: true })
       await mkdir(join(dir, 'src', 'fragments'), { recursive: true })
@@ -188,7 +190,7 @@ if (import.meta.vitest) {
       expect(typeof checker.getTypeAtLocation).toBe('function')
     })
 
-    it('has source files from the project', async () => {
+    it('has source files from the project', { timeout: 30_000 }, async () => {
       const { program } = await createTypeCheckerProgram('tsconfig.node.json')
 
       expect(program.getSourceFiles().length).toBeGreaterThan(0)

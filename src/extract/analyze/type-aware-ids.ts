@@ -115,6 +115,7 @@ if (import.meta.vitest) {
     const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
     const { createTypeCheckerProgram } = await import('../ts-program')
     const { mkdir, rm, writeFile } = await import('node:fs/promises')
+    const { randomUUID } = await import('node:crypto')
     const { tmpdir } = await import('node:os')
     const { join, resolve } = await import('node:path')
     const { cwd } = await import('node:process')
@@ -148,7 +149,7 @@ if (import.meta.vitest) {
       let dir: string
 
       beforeEach(async () => {
-        dir = join(tmpdir(), `gazania-type-aware-test-${Date.now()}`)
+        dir = join(tmpdir(), `gazania-type-aware-test-${randomUUID()}`)
         await mkdir(dir, { recursive: true })
       })
 
@@ -257,7 +258,7 @@ if (import.meta.vitest) {
     })
 
     describe('collectBuilderNamesForFile', () => {
-      it('returns empty for missing file', async () => {
+      it('returns empty for missing file', { timeout: 30_000 }, async () => {
         const { program, checker } = await createTypeCheckerProgram('tsconfig.node.json')
         const result = collectBuilderNamesForFile(ts, program, checker, '/nonexistent/file.ts')
         expect(result.builderNames).toEqual([])

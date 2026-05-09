@@ -93,13 +93,14 @@ if (import.meta.vitest) {
   const { mkdir: mkdirTest, rm, writeFile: writeFileTest } = await import('node:fs/promises')
   const { tmpdir } = await import('node:os')
   const { join } = await import('node:path')
+  const { randomUUID } = await import('node:crypto')
 
   describe('runGenerate (multi-config)', () => {
     let dir: string
     const mockLog = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     beforeEach(async () => {
-      dir = join(tmpdir(), `gazania-test-${Date.now()}`)
+      dir = join(tmpdir(), `gazania-test-${randomUUID()}`)
       await mkdirTest(dir, { recursive: true })
     })
 

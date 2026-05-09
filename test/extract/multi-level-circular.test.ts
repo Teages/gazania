@@ -16,6 +16,7 @@
  * The extractor must reject this pattern and report it via the `skipped` array
  * rather than silently producing an incomplete document.
  */
+import { randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -26,7 +27,7 @@ describe('circular partial reference detection', () => {
   let dir: string
 
   beforeEach(async () => {
-    dir = join(tmpdir(), `gazania-circular-partial-${Date.now()}`)
+    dir = join(tmpdir(), `gazania-circular-partial-${randomUUID()}`)
     await mkdir(join(dir, 'src'), { recursive: true })
 
     await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({

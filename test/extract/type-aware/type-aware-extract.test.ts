@@ -10,6 +10,7 @@
  *   4. Mixed patterns
  *   5. Error path (missing tsconfig)
  */
+import { randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -17,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { extract } from '../../../src/extract'
 
 async function createTempProject(): Promise<string> {
-  const dir = join(tmpdir(), `gazania-type-aware-${Date.now()}`)
+  const dir = join(tmpdir(), `gazania-type-aware-${randomUUID()}`)
   await mkdir(join(dir, 'src'), { recursive: true })
 
   await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({

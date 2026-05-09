@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -8,7 +9,7 @@ describe('staticExtractCrossFile: cross-file partial/section resolution', () => 
   let dir: string
 
   beforeEach(async () => {
-    dir = join(tmpdir(), `gazania-static-crossfile-test-${Date.now()}`)
+    dir = join(tmpdir(), `gazania-static-crossfile-test-${randomUUID()}`)
     await mkdir(dir, { recursive: true })
     await mkdir(join(dir, 'src'), { recursive: true })
     await mkdir(join(dir, 'src', 'fragments'), { recursive: true })

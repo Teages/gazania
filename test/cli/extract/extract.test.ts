@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { runExtract } from '../../../src/cli/extract'
@@ -146,7 +147,7 @@ describe('feature: skipped call diagnostics', () => {
     const { mkdir, rm, writeFile } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
 
-    const dir = join(tmpdir(), `gazania-e2e-warn-${Date.now()}`)
+    const dir = join(tmpdir(), `gazania-e2e-warn-${randomUUID()}`)
     await mkdir(join(dir, 'src'), { recursive: true })
     await writeFile(
       join(dir, 'src', 'query.js'),

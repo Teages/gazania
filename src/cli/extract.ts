@@ -76,12 +76,13 @@ if (import.meta.vitest) {
     const { tmpdir } = await import('node:os')
     const { resolve } = await import('node:path')
     const { cwd: getCwd } = await import('node:process')
+    const { randomUUID } = await import('node:crypto')
 
     let dir: string
     const mockLog = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     beforeEach(async () => {
-      dir = join(tmpdir(), `gazania-cli-extract-test-${Date.now()}`)
+      dir = join(tmpdir(), `gazania-cli-extract-test-${randomUUID()}`)
       await mkdirTest(dir, { recursive: true })
       await mkdirTest(join(dir, 'src'), { recursive: true })
 
