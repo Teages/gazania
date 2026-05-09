@@ -10,6 +10,7 @@ export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction }
 export interface ExtractCommandOptions {
   dir: string
   output: string | null
+  noEmit: boolean
   include: string
   algorithm: string
   silent: boolean
@@ -23,7 +24,7 @@ export interface ExtractCommandOptions {
  * Delegates to the core `extract()` function and writes the manifest to disk.
  */
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, include, algorithm, silent, cwd, tsconfig, ignoreCategories } = options
+  const { dir, output, noEmit, include, algorithm, silent, cwd, tsconfig, ignoreCategories } = options
   const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
   const warn = (msg: string) => stderr.write(`${msg}\n`)
 
@@ -72,16 +73,16 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
   log(`Extracted ${totalFound} GraphQL document(s).`)
 
-  const outputToStdout = output === null || output === '-'
-
-  if (outputToStdout) {
-    stdout.write(`${JSON.stringify(manifest, null, 2)}\n`)
-  }
-  else {
-    const outputPath = isAbsolute(output) ? output : join(cwd, output)
-    await mkdir(dirname(outputPath), { recursive: true })
-    await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
-    log(`Manifest written to ${relative(cwd, outputPath)}`)
+  if (!noEmit) {
+    if (output === null || output === '-') {
+      stdout.write(`${JSON.stringify(manifest, null, 2)}\n`)
+    }
+    else {
+      const outputPath = isAbsolute(output) ? output : join(cwd, output)
+      await mkdir(dirname(outputPath), { recursive: true })
+      await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
+      log(`Manifest written to ${relative(cwd, outputPath)}`)
+    }
   }
 }
 
@@ -133,6 +134,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: true,
@@ -150,6 +152,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await runExtract({
         dir: 'src',
         output: 'nested/dir/manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: true,
@@ -166,6 +169,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
@@ -187,6 +191,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
@@ -209,6 +214,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
@@ -234,6 +240,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: true,
@@ -257,6 +264,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
@@ -273,6 +281,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       await runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: true,
@@ -297,6 +306,7 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
         await runExtract({
           dir: 'src',
           output: null,
+          noEmit: false,
           include: '**/*.{ts,tsx,js,jsx}',
           algorithm: 'sha256',
           silent: true,
@@ -327,6 +337,7 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
       await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
