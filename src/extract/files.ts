@@ -1,6 +1,7 @@
 import type { Program } from 'estree'
 import { readdir, readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
+import { env, stderr } from 'node:process'
 import { parseSync } from 'oxc-parser'
 import { transformSync } from 'oxc-transform'
 
@@ -15,12 +16,12 @@ export interface ParsedBlock {
  * Parse a file into one or more code blocks with their ASTs.
  * Handles Vue/Svelte SFCs and TypeScript stripping.
  *
- * Returns `null` if the file does not reference `gazania`/`Gazania` or no blocks parse.
+ * Returns `null` if the file does not contain a `.select(` call or no blocks parse.
  */
 export async function parseFile(filePath: string, options?: { skipFilter?: boolean }): Promise<ParsedBlock[] | null> {
   const rawCode = await readFile(filePath, 'utf-8')
 
-  if (!options?.skipFilter && !rawCode.includes('gazania') && !rawCode.includes('Gazania')) {
+  if (!options?.skipFilter && !rawCode.includes('.select(')) {
     return null
   }
 
@@ -30,7 +31,7 @@ export async function parseFile(filePath: string, options?: { skipFilter?: boole
   const blocks: ParsedBlock[] = []
 
   for (const { code, lineOffset } of scriptBlocks) {
-    if (!options?.skipFilter && !code.includes('gazania') && !code.includes('Gazania')) {
+    if (!options?.skipFilter && !code.includes('.select(')) {
       continue
     }
 
@@ -42,6 +43,7 @@ export async function parseFile(filePath: string, options?: { skipFilter?: boole
         const tsBasename = isSFC ? 'block.ts' : basename(filePath)
         const transformed = transformSync(tsBasename, code)
         if (transformed.errors.length > 0) {
+          debugLog(filePath, lineOffset, 'transform failed')
           continue
         }
         evalCode = transformed.code
@@ -50,17 +52,25 @@ export async function parseFile(filePath: string, options?: { skipFilter?: boole
       const parseFilename = (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) ? 'eval.jsx' : 'eval.js'
       const parseResult = parseSync(parseFilename, evalCode)
       if (parseResult.errors.length > 0) {
+        debugLog(filePath, lineOffset, 'parse failed')
         continue
       }
 
       blocks.push({ code: evalCode, ast: parseResult.program as unknown as Program, lineOffset })
     }
     catch {
+      debugLog(filePath, lineOffset, 'unexpected parse exception')
       continue
     }
   }
 
   return blocks.length > 0 ? blocks : null
+}
+
+function debugLog(filePath: string, line: number, reason: string): void {
+  if (env.GAZANIA_DEBUG === '1') {
+    stderr.write(`[gazania:extract] ${filePath}:${line} ${reason}\n`)
+  }
 }
 
 export async function findFiles(dir: string, pattern: string): Promise<string[]> {

@@ -87,16 +87,31 @@ export function addDocumentToManifest(
   const { name, type } = getOperationName(doc)
 
   if (!name) {
-    // TODO: anonymous operation collision detection not implemented
     const HASH_PREFIX_LENGTH = 8
     const hashStart = hash.indexOf(':') + 1
-    const anonKey = `Anonymous_${hash.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
+    let anonKey = `Anonymous_${hash.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
+    const existing = manifest.operations[anonKey]
+    if (existing) {
+      if (existing.hash === hash) {
+        return // identical anonymous operation
+      }
+      // Hash collision — extend prefix until unique
+      for (let len = HASH_PREFIX_LENGTH + 1; len <= hash.length - hashStart; len++) {
+        anonKey = `Anonymous_${hash.slice(hashStart, hashStart + len)}`
+        if (!manifest.operations[anonKey]) {
+          break
+        }
+        if (manifest.operations[anonKey]!.hash === hash) {
+          return
+        }
+      }
+    }
     manifest.operations[anonKey] = { body, hash, loc }
   }
   else if (type === 'fragment') {
     const existing = manifest.fragments[name]
     if (existing) {
-      if (existing.body === body) {
+      if (existing.hash === hash) {
         return
       }
       throw new Error(
@@ -108,7 +123,7 @@ export function addDocumentToManifest(
   else {
     const existing = manifest.operations[name]
     if (existing) {
-      if (existing.body === body) {
+      if (existing.hash === hash) {
         return
       }
       throw new Error(
