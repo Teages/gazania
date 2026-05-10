@@ -548,9 +548,15 @@ import { extract } from 'gazania/extract'
 Scans source files for Gazania operations and returns a persisted query manifest.
 
 ```ts
+import { createHash } from 'node:crypto'
+import { extract } from 'gazania/extract'
+
+const hash = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
+
 const { manifest, skipped } = await extract({
   dir: 'src',
   tsconfig: 'tsconfig.json',
+  hash,
 })
 ```
 
@@ -560,6 +566,7 @@ If a Gazania call cannot be statically evaluated, `extract()` throws an `Extract
 const { manifest, skipped } = await extract({
   dir: 'src',
   tsconfig: 'tsconfig.json',
+  hash,
   ignoreCategories: ['unresolved', 'circular'],
 })
 ```
@@ -570,7 +577,7 @@ Thrown when Gazania detects calls that it cannot statically evaluate.
 
 ```ts
 try {
-  await extract({ dir: 'src', tsconfig: 'tsconfig.json' })
+  await extract({ dir: 'src', tsconfig: 'tsconfig.json', hash })
 }
 catch (err) {
   if (err instanceof ExtractionError) {
@@ -593,10 +600,11 @@ catch (err) {
 |---|---|---|---|
 | `dir` | `string` | — | Directory to scan for source files |
 | `include` | `string` | `'**/*.{ts,tsx,js,jsx,vue,svelte}'` | Glob pattern for files to include |
-| `algorithm` | `string` | `'sha256'` | Hash algorithm |
+| `hash` | `(body: string) => string` | — | **(required)** Hash function for computing operation identifiers |
 | `cwd` | `string` | `process.cwd()` | Working directory for resolving `dir` |
 | `tsconfig` | `string` | — | **(required)** Path to `tsconfig.json` |
 | `ignoreCategories` | `SkippedExtractionCategory[]` | `[]` | Categories of failures to suppress |
+| `logger` | `ExtractLogger` | — | Logger for extraction diagnostics |
 
 #### `ExtractResult`
 
