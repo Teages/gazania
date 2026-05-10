@@ -606,6 +606,43 @@ catch (err) {
 |---|---|---|
 | `skipped` | `SkippedExtraction[]` | Calls that failed extraction |
 
+### `validateManifest(manifest, schema)`
+
+Validates all operations in an extracted manifest against a GraphQL schema. For each operation, transitive fragment dependencies are resolved and merged into a single document so that fragment spreads are satisfied during validation.
+
+```ts
+import { validateManifest } from 'gazania/extract'
+import { buildASTSchema, parse } from 'graphql'
+
+const schema = buildASTSchema(parse(sdlString))
+const { errors, warnings } = validateManifest(manifest, schema)
+
+for (const e of errors) {
+  console.error(`${e.loc.file}:${e.loc.start.line} ${e.message}`)
+}
+```
+
+Returns `{ errors: ValidationError[], warnings: ValidationWarning[] }`.
+
+- **Errors** — produced by GraphQL spec compliance rules (`specifiedRules`). These indicate queries that will fail at runtime (unknown fields, missing arguments, type mismatches, etc.).
+- **Warnings** — produced by `NoDeprecatedCustomRule`. These indicate usage of deprecated fields.
+
+### Types
+
+#### `ValidationError`
+
+| Property | Type | Description |
+|---|---|---|
+| `loc` | `SourceLoc` | Source location of the invalid operation |
+| `message` | `string` | Validation error message |
+
+#### `ValidationWarning`
+
+| Property | Type | Description |
+|---|---|---|
+| `loc` | `SourceLoc` | Source location of the operation using a deprecated field |
+| `message` | `string` | Deprecation warning message |
+
 ### Types
 
 #### `ExtractOptions`
@@ -691,6 +728,7 @@ type CreateHostFn = (
 
 | Property | Type | Description |
 |---|---|---|
+| `file` | `string` | Absolute path of the source file |
 | `start` | `SourceLocation` | Start position of the operation |
 | `end` | `SourceLocation` | End position of the operation |
 
