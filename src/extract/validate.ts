@@ -1,16 +1,16 @@
 import type { GraphQLSchema } from 'graphql'
 import type { DocumentNode, FragmentDefinitionNode } from '../lib/graphql'
-import type { ExtractManifest, ManifestEntry } from './manifest'
+import type { ExtractManifest, SourceLoc } from './manifest'
 import { NoDeprecatedCustomRule, parse, specifiedRules, validate, visit } from 'graphql'
 import { Kind } from '../lib/graphql'
 
 export interface ValidationError {
-  loc: ManifestEntry['loc']
+  loc: SourceLoc
   message: string
 }
 
 export interface ValidationWarning {
-  loc: ManifestEntry['loc']
+  loc: SourceLoc
   message: string
 }
 
