@@ -605,6 +605,50 @@ catch (err) {
 | `tsconfig` | `string` | — | **(required)** Path to `tsconfig.json` |
 | `ignoreCategories` | `SkippedExtractionCategory[]` | `[]` | Categories of failures to suppress |
 | `logger` | `ExtractLogger` | — | Logger for extraction diagnostics |
+| `fs` | `ExtractFS` | `ts.sys` | File-system interface for all file operations |
+| `createHost` | `CreateHostFn` | — | Override the default CompilerHost construction |
+
+#### `ExtractFS`
+
+Minimal synchronous file-system interface. `ts.sys` satisfies this interface in Node.js environments. All methods must be synchronous — for async environments, preload files into memory before calling `extract()`.
+
+| Method | Required | Description |
+|---|---|---|
+| `readFile(path: string): string \| undefined` | Yes | Read file contents |
+| `readDirectory(path, extensions?, excludes?, includes?, depth?): string[]` | Yes | Recursively list files in a directory. Should exclude `node_modules` and `.git` |
+| `fileExists(path: string): boolean` | No | Check if a file exists. Falls back to `readFile(path) !== undefined` if not provided |
+
+```ts
+import { extract } from 'gazania/extract'
+
+// Use with a virtual file system
+const vfs: Map<string, string> = new Map([
+  ['src/operations/GetUser.ts', '...'],
+])
+
+await extract({
+  dir: 'src',
+  tsconfig: 'tsconfig.json',
+  hash,
+  fs: {
+    readFile: path => vfs.get(path),
+    readDirectory: (dir, extensions) =>
+      [...vfs.keys()].filter(k => k.startsWith(dir) && extensions?.some(e => k.endsWith(e))),
+  },
+})
+```
+
+#### `CreateHostFn`
+
+Override the default `ts.CompilerHost` construction. Receives the resolved `ts.System` (assembled from `fs` + `ts.sys` defaults) and the parsed compiler options from tsconfig.
+
+```ts
+type CreateHostFn = (
+  ts: typeof import('typescript'),
+  system: import('typescript').System,
+  compilerOptions: import('typescript').CompilerOptions,
+) => import('typescript').CompilerHost
+```
 
 #### `ExtractResult`
 
