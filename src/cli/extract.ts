@@ -91,16 +91,16 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
     if (errors.length > 0) {
       for (const e of errors) {
-        warn(`✗ ${relative(cwd, e.file) || e.file}:${e.line} ${e.message}`)
+        warn(`✗ ${relative(cwd, e.loc.file) || e.loc.file}:${e.loc.start.line} ${e.message}`)
       }
       for (const w of warnings) {
-        warn(`⚠ ${relative(cwd, w.file) || w.file}:${w.line} ${w.message}`)
+        warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
       }
       throw new Error(`GraphQL validation failed with ${errors.length} error(s)`)
     }
 
     for (const w of warnings) {
-      warn(`⚠ ${relative(cwd, w.file) || w.file}:${w.line} ${w.message}`)
+      warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
     }
 
     if (strict && warnings.length > 0) {

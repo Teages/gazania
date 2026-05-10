@@ -1,20 +1,16 @@
 import type { GraphQLSchema } from 'graphql'
 import type { DocumentNode, FragmentDefinitionNode } from '../lib/graphql'
-import type { ExtractManifest } from './manifest'
+import type { ExtractManifest, ManifestEntry } from './manifest'
 import { NoDeprecatedCustomRule, parse, specifiedRules, validate, visit } from 'graphql'
 import { Kind } from '../lib/graphql'
 
 export interface ValidationError {
-  name: string
-  file: string
-  line: number
+  loc: ManifestEntry['loc']
   message: string
 }
 
 export interface ValidationWarning {
-  name: string
-  file: string
-  line: number
+  loc: ManifestEntry['loc']
   message: string
 }
 
@@ -83,7 +79,7 @@ export function validateManifest(
   const errors: ValidationError[] = []
   const warnings: ValidationWarning[] = []
 
-  for (const [opName, entry] of Object.entries(manifest.operations)) {
+  for (const [_opName, entry] of Object.entries(manifest.operations)) {
     const opDoc = parse(entry.body) as DocumentNode
 
     const directSpreads = collectFragmentSpreads(opDoc)
@@ -109,9 +105,7 @@ export function validateManifest(
     const ruleErrors = validate(schema, mergedDoc, specifiedRules)
     for (const err of ruleErrors) {
       errors.push({
-        name: opName,
-        file: entry.loc.file,
-        line: entry.loc.start.line,
+        loc: entry.loc,
         message: err.message,
       })
     }
@@ -119,9 +113,7 @@ export function validateManifest(
     const depWarnings = validate(schema, mergedDoc, [NoDeprecatedCustomRule])
     for (const warn of depWarnings) {
       warnings.push({
-        name: opName,
-        file: entry.loc.file,
-        line: entry.loc.start.line,
+        loc: entry.loc,
         message: warn.message,
       })
     }
@@ -251,7 +243,7 @@ if (import.meta.vitest) {
       })
       const result = validateManifest(manifest, baseSchema)
       expect(result.errors.length).toBe(1)
-      expect(result.errors[0]!.name).toBe('Bad')
+      expect(result.errors[0]!.message).toContain('bogus')
     })
 
     // 9. Scalar field with sub-selection → error (ScalarLeafsRule)
