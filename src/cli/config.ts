@@ -1,4 +1,4 @@
-import type { Config } from '../codegen/schema'
+import type { Config } from '../codegen/config'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { cwd as getCwd } from 'node:process'

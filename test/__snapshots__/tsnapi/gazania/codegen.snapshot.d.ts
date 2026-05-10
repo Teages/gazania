@@ -3,7 +3,7 @@
  */
 // #region Interfaces
 export interface Config {
-  schema: SchemaSource;
+  schema: SchemaLoader;
   output: string;
   scalars?: Record<string, string | {
     input: string;
@@ -30,8 +30,9 @@ export interface UrlSource {
 // #endregion
 
 // #region Types
-export type GetterSource = () => string | Promise<string>;
-export type SchemaSource = string | UrlSource | SdlSource | JsonSource | GetterSource;
+export type GetterSource = () => string | GraphQLSchema | Promise<string | GraphQLSchema>;
+export type SchemaLoader = string | UrlSource | SdlSource | JsonSource | GetterSource;
+export type SchemaSource = string | GraphQLSchema;
 export type UserConfig = Config | Config[];
 // #endregion
 
@@ -39,8 +40,7 @@ export type UserConfig = Config | Config[];
 export declare function defineConfig(_: Config): Config;
 export declare function generate(_: SchemaSource, _?: GenerateOptions & {
   url?: string;
-}): Promise<string>;
-export declare function loadSchema(_: SchemaSource): Promise<string>;
+}): string;
 export declare function parseSchema(_: string, _?: GenerateOptions): SchemaData;
 export declare function printSchema(_: SchemaData, _?: GenerateOptions & {
   url?: string;

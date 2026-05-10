@@ -47,7 +47,7 @@ Each entry in the array is an independent `Config` object and supports all the s
 
 ### `schema`
 
-- **Type:** `SchemaSource`
+- **Type:** `SchemaLoader`
 - **Required:** Yes
 
 The GraphQL schema source. Accepts several formats:
@@ -137,7 +137,7 @@ export default defineConfig({
 
 | Type | Description |
 |---|---|
-| `() => string \| Promise<string>` | Function that returns SDL string |
+| `() => string \| GraphQLSchema \| Promise<string \| GraphQLSchema>` | Function that returns an SDL string or GraphQLSchema |
 
 ### `output`
 

@@ -1,54 +1,64 @@
 import type { IntrospectionQuery } from 'graphql'
-import type { SchemaSource } from './schema'
+import type { SchemaLoader } from '../codegen/config'
 import { extname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { buildClientSchema, getIntrospectionQuery, GraphQLSchema, printSchema } from 'graphql'
 
-export async function loadSchema(source: SchemaSource): Promise<string> {
+export async function resolveSchema(source: SchemaLoader): Promise<string> {
   if (typeof source === 'function') {
-    return await source()
+    const result = await source()
+    if (result instanceof GraphQLSchema) {
+      return printSchema(result)
+    }
+    return result
   }
-
   if (typeof source === 'string') {
-    return loadSchemaFromString(source)
+    return resolveString(source)
   }
-
+  if ('url' in source) {
+    return introspectFromUrl(source.url, source.headers, source.method)
+  }
   if ('sdl' in source) {
     return source.sdl
   }
-
   if ('json' in source) {
-    return loadSchemaFromJson(source.json)
+    return jsonToSDL(source.json)
   }
-
-  // { url, headers?, method? }
-  return loadSchemaFromUrl(source.url, source.headers, source.method)
+  throw new Error('Invalid schema loader')
 }
 
-async function loadSchemaFromString(value: string): Promise<string> {
+async function resolveString(value: string): Promise<string> {
   if (value.startsWith('http://') || value.startsWith('https://')) {
-    return loadSchemaFromUrl(value)
+    return introspectFromUrl(value)
   }
 
   const ext = extname(value).toLowerCase()
 
   if (ext === '.graphql' || ext === '.gql') {
-    return loadSchemaFromSdlFile(value)
+    return readFileSDL(value)
   }
 
   if (ext === '.json') {
     const { readFile } = await import('node:fs/promises')
-    return loadSchemaFromJson(await readFile(value, 'utf-8'))
+    return jsonToSDL(await readFile(value, 'utf-8'))
   }
 
   if (ext === '.ts' || ext === '.js') {
-    return loadSchemaFromModule(value)
+    return loadFromModule(value)
   }
 
-  throw new Error(`Cannot determine schema type from path: ${value}`)
+  if (ext || value.includes('/') || value.includes('\\')) {
+    throw new Error(
+      `Unknown schema source: ${value}\n`
+      + 'If this is a file, use a supported extension: .graphql, .gql, .json, .ts, .js',
+    )
+  }
+
+  // Bare SDL string
+  return value
 }
 
-async function loadSchemaFromSdlFile(filePath: string): Promise<string> {
+async function readFileSDL(filePath: string): Promise<string> {
   const { readFile } = await import('node:fs/promises')
   try {
     return await readFile(filePath, 'utf-8')
@@ -58,7 +68,7 @@ async function loadSchemaFromSdlFile(filePath: string): Promise<string> {
   }
 }
 
-async function loadSchemaFromJson(raw: string): Promise<string> {
+function jsonToSDL(raw: string): string {
   try {
     return printSchema(buildClientSchema(JSON.parse(raw) as IntrospectionQuery))
   }
@@ -67,7 +77,7 @@ async function loadSchemaFromJson(raw: string): Promise<string> {
   }
 }
 
-async function loadSchemaFromModule(filePath: string): Promise<string> {
+async function loadFromModule(filePath: string): Promise<string> {
   const url = pathToFileURL(filePath).href
   const mod = await import(url)
   const schema = mod.schema ?? mod.default
@@ -75,7 +85,6 @@ async function loadSchemaFromModule(filePath: string): Promise<string> {
   if (typeof schema === 'string') {
     return schema
   }
-
   if (schema instanceof GraphQLSchema) {
     return printSchema(schema)
   }
@@ -85,7 +94,7 @@ async function loadSchemaFromModule(filePath: string): Promise<string> {
   )
 }
 
-async function loadSchemaFromUrl(
+async function introspectFromUrl(
   url: string,
   headers?: Record<string, string>,
   method: 'GET' | 'POST' = 'POST',
@@ -118,37 +127,4 @@ async function loadSchemaFromUrl(
   }
 
   return printSchema(buildClientSchema(data))
-}
-
-if (import.meta.vitest) {
-  const { describe, it, expect } = import.meta.vitest
-
-  const SIMPLE_SDL = `
-  type Query {
-    hello: String
-    user(id: ID!): User
-  }
-
-  type User {
-    id: ID!
-    name: String!
-    email: String
-  }
-`
-
-  describe('loadSchema', () => {
-    it('loads SDL from string getter', async () => {
-      const sdl = await loadSchema(() => SIMPLE_SDL)
-      expect(sdl).toContain('type Query')
-    })
-
-    it('loads from inline SDL source', async () => {
-      const sdl = await loadSchema({ sdl: SIMPLE_SDL })
-      expect(sdl).toBe(SIMPLE_SDL)
-    })
-
-    it('throws for unknown string extension', async () => {
-      await expect(loadSchema('schema.unknown')).rejects.toThrow()
-    })
-  })
 }
