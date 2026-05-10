@@ -237,23 +237,36 @@ if (import.meta.vitest) {
   })
 
   describe('createTypeCheckerProgram', async () => {
-    const { tmpdir } = await import('node:os')
-    const { join } = await import('node:path')
+    const { createTestingSystem } = await import('../../test/utils/vfs')
 
     it('returns program with TypeChecker', async () => {
       const ts = await loadTS()
-      const parsed = parseTSConfig(ts, 'tsconfig.json', ts.sys)
-      const { program, checker } = createTypeCheckerProgram(ts, parsed, ts.sys)
+      const system = createTestingSystem({
+        '/vfs/tsconfig.json': JSON.stringify({
+          compilerOptions: { target: 'esnext', module: 'esnext', moduleResolution: 'bundler', strict: true },
+          files: ['/vfs/a.ts'],
+        }),
+        '/vfs/a.ts': 'export const x = 1',
+      }, ts)
+      const parsed = parseTSConfig(ts, '/vfs/tsconfig.json', system)
+      const { program, checker } = createTypeCheckerProgram(ts, parsed, system)
 
       expect(program).toBeDefined()
       expect(checker).toBeDefined()
       expect(typeof checker.getTypeAtLocation).toBe('function')
     })
 
-    it('has source files from the project', { timeout: 30_000 }, async () => {
+    it('has source files matching the virtual file system', async () => {
       const ts = await loadTS()
-      const parsed = parseTSConfig(ts, 'tsconfig.node.json', ts.sys)
-      const { program } = createTypeCheckerProgram(ts, parsed, ts.sys)
+      const system = createTestingSystem({
+        '/vfs/tsconfig.json': JSON.stringify({
+          compilerOptions: { target: 'esnext', module: 'esnext', moduleResolution: 'bundler', strict: true },
+          files: ['/vfs/a.ts'],
+        }),
+        '/vfs/a.ts': 'export const x = 1',
+      }, ts)
+      const parsed = parseTSConfig(ts, '/vfs/tsconfig.json', system)
+      const { program } = createTypeCheckerProgram(ts, parsed, system)
 
       expect(program.getSourceFiles().length).toBeGreaterThan(0)
     })
@@ -261,7 +274,7 @@ if (import.meta.vitest) {
     it('throws on invalid tsconfig path', async () => {
       const ts = await loadTS()
       expect(
-        () => parseTSConfig(ts, join(tmpdir(), 'nonexistent.json'), ts.sys),
+        () => parseTSConfig(ts, '/vfs/nonexistent.json', createTestingSystem({}, ts)),
       ).toThrow('Failed to read tsconfig')
     })
   })

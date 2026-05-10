@@ -115,10 +115,9 @@ if (import.meta.vitest) {
     const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
     const { createTypeCheckerProgram, loadTS, parseTSConfig } = await import('../ts-program')
     const { createTestingSystem } = await import('../../../test/utils/vfs')
-    const { resolve } = await import('node:path')
-    const { cwd } = await import('node:process')
 
-    const projectRoot = resolve(cwd())
+    const tsInstance = await loadTS()
+    const projectRoot = tsInstance.sys.resolvePath(tsInstance.sys.getCurrentDirectory())
 
     function setupFixture(
       dir: string,
@@ -262,10 +261,17 @@ if (import.meta.vitest) {
     })
 
     describe('collectBuilderNamesForFile', () => {
-      it('returns empty for missing file', { timeout: 30_000 }, async () => {
+      it('returns empty for missing file', async () => {
         const tsInstance = await loadTS()
-        const parsed = parseTSConfig(tsInstance, 'tsconfig.node.json', tsInstance.sys)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, tsInstance.sys)
+        const system = createTestingSystem({
+          '/vfs/tsconfig.json': JSON.stringify({
+            compilerOptions: { target: 'esnext', module: 'esnext', moduleResolution: 'bundler', strict: true },
+            files: ['/vfs/a.ts'],
+          }),
+          '/vfs/a.ts': 'export const x = 1',
+        }, tsInstance)
+        const parsed = parseTSConfig(tsInstance, '/vfs/tsconfig.json', system)
+        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
         const result = collectBuilderNamesForFile(ts, program, checker, '/nonexistent/file.ts')
         expect(result.builderNames).toEqual([])
         expect(result.namespace).toBeUndefined()
