@@ -178,14 +178,10 @@ export function createTypeCheckerProgram(
 
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
-  // eslint-disable-next-line antfu/no-top-level-await
-  const { createTestingSystem } = await import('../../test/utils/vfs')
-  // eslint-disable-next-line antfu/no-top-level-await
-  const { tmpdir } = await import('node:os')
-  // eslint-disable-next-line antfu/no-top-level-await
-  const { join } = await import('node:path')
 
-  describe('createModuleResolver', () => {
+  describe('createModuleResolver', async () => {
+    const { createTestingSystem } = await import('../../test/utils/vfs')
+
     it('resolves relative imports between TypeScript files', async () => {
       const ts = await loadTS()
       const dir = '/vfs/ts-program'
@@ -240,7 +236,10 @@ if (import.meta.vitest) {
     })
   })
 
-  describe('createTypeCheckerProgram', () => {
+  describe('createTypeCheckerProgram', async () => {
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+
     it('returns program with TypeChecker', async () => {
       const ts = await loadTS()
       const parsed = parseTSConfig(ts, 'tsconfig.json', ts.sys)
