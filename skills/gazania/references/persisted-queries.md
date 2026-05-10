@@ -94,7 +94,7 @@ Options:
   --ignore-analysis      Skip analysis failure errors
   --ignore-circular      Skip circular reference errors
   --ignore-all           Skip all extraction errors
-  --noEmit               Suppress manifest output (useful for validation)
+  --no-emit               Suppress manifest output (useful for validation)
   -h, --help             Show help
 ```
 
@@ -133,7 +133,7 @@ npx gazania extract --ignore-all --tsconfig tsconfig.json
 **Validation only (no output):**
 
 ```sh
-npx gazania extract --noEmit --tsconfig tsconfig.json
+npx gazania extract --no-emit --tsconfig tsconfig.json
 ```
 
 ## Typical workflow
@@ -169,8 +169,7 @@ Each client has a different mechanism for persisted queries. Consult your client
 ## Behavior notes
 
 - **Type-aware detection**: The extractor uses type-aware detection to identify Gazania builders by their type (via the `~isGazania` marker). This means re-exported, aliased, and factory-created builders (`import { g } from './utils'`, `const g = createGazania()`) are all detected correctly.
-- **Static analysis only**: The extractor evaluates builders with static analysis. Dynamic code patterns that can't be resolved at analysis time (e.g. external variables) won't be included in the manifest.
+- **Static analysis only**: The extractor evaluates builders with static analysis. When a Gazania call cannot be statically evaluated (e.g., unresolved references, runtime-dependent values, circular partials), extraction fails by default. Use `--ignore-*` flags to suppress specific failure categories and allow extraction to continue.
 - **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
 - **Duplicate names**: If the same operation or fragment name is defined in multiple files with different bodies, extraction fails with an error. If the bodies are identical, the duplicate is silently skipped.
-- **Error handling**: By default, extraction fails when any Gazania call cannot be statically evaluated (unresolved references, analysis failures, circular partials). Use `--ignore-*` flags to suppress specific error categories.

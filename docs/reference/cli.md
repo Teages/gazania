@@ -110,7 +110,7 @@ A `tsconfig.json` is **required** — Gazania uses the type-aware detection to d
 | `--ignore-analysis` | | `boolean` | `false` | Skip analysis failure errors |
 | `--ignore-circular` | | `boolean` | `false` | Skip circular reference errors |
 | `--ignore-all` | | `boolean` | `false` | Skip all extraction errors |
-| `--noEmit` | | `boolean` | `false` | Suppress manifest output (useful for validation) |
+| `--no-emit` | | `boolean` | `false` | Suppress manifest output (useful for validation) |
 | `--help` | `-h` | | | Show help |
 
 #### Examples
@@ -160,7 +160,7 @@ npx gazania extract --ignore-all --tsconfig tsconfig.json
 **Validation only (no output):**
 
 ```sh
-npx gazania extract --noEmit --tsconfig tsconfig.json
+npx gazania extract --no-emit --tsconfig tsconfig.json
 ```
 
 #### Manifest format
