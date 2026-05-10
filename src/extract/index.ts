@@ -1,11 +1,11 @@
-import type { ExtractResult, SkippedExtractionCategory } from './manifest'
+import type { ExtractResult, HashFn, SkippedExtractionCategory } from './manifest'
 import { join } from 'node:path'
 import { cwd as getCwd } from 'node:process'
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
 import { ExtractionError } from './manifest'
 
-export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction } from './manifest'
+export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction } from './manifest'
 
 export interface ExtractLogger {
   debug: (...args: any[]) => void
@@ -18,8 +18,8 @@ export interface ExtractOptions {
   dir: string
   /** Glob pattern for files to include. Defaults to `"**\/*.{ts,tsx,js,jsx,vue,svelte}"`. */
   include?: string
-  /** Hash algorithm. Defaults to `"sha256"`. */
-  algorithm?: string
+  /** Hash function for computing operation identifiers. */
+  hash: HashFn
   /** Working directory used to resolve `dir`. Defaults to `process.cwd()`. */
   cwd?: string
   /**
@@ -57,7 +57,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const {
     dir,
     include = '**/*.{ts,tsx,js,jsx,vue,svelte}',
-    algorithm = 'sha256',
+    hash,
     cwd = getCwd(),
     tsconfig,
     ignoreCategories = [],
@@ -71,7 +71,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const scanDir = join(cwd, dir)
   const files = await findFiles(scanDir, include)
 
-  const result = await staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), algorithm, logger })
+  const result = await staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), hash, logger })
 
   const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))
 

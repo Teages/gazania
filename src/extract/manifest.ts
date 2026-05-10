@@ -1,5 +1,4 @@
 import type { DocumentNode } from 'graphql'
-import { createHash, getHashes } from 'node:crypto'
 import { print } from 'graphql'
 
 export interface SourceLocation {
@@ -51,16 +50,7 @@ export class ExtractionError extends Error {
   }
 }
 
-export function computeHash(body: string, algorithm: string): string {
-  if (!getHashes().includes(algorithm)) {
-    throw new Error(
-      `Unsupported hash algorithm: "${algorithm}". `
-      + `Supported algorithms: ${getHashes().join(', ')}`,
-    )
-  }
-  const hash = createHash(algorithm).update(body).digest('hex')
-  return `${algorithm}:${hash}`
-}
+export type HashFn = (body: string) => string
 
 export function getOperationName(doc: DocumentNode): { name: string | undefined, type: 'operation' | 'fragment' } {
   if (doc.definitions.length === 0) {
@@ -79,57 +69,57 @@ export function getOperationName(doc: DocumentNode): { name: string | undefined,
 export function addDocumentToManifest(
   manifest: ExtractManifest,
   doc: DocumentNode,
-  algorithm: string,
+  hash: HashFn,
   loc: SourceLoc,
 ): void {
   const body = print(doc)
-  const hash = computeHash(body, algorithm)
+  const hashStr = hash(body)
   const { name, type } = getOperationName(doc)
 
   if (!name) {
     const HASH_PREFIX_LENGTH = 8
-    const hashStart = hash.indexOf(':') + 1
-    let anonKey = `Anonymous_${hash.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
+    const hashStart = hashStr.indexOf(':') + 1
+    let anonKey = `Anonymous_${hashStr.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
     const existing = manifest.operations[anonKey]
     if (existing) {
-      if (existing.hash === hash) {
+      if (existing.hash === hashStr) {
         return // identical anonymous operation
       }
       // Hash collision — extend prefix until unique
-      for (let len = HASH_PREFIX_LENGTH + 1; len <= hash.length - hashStart; len++) {
-        anonKey = `Anonymous_${hash.slice(hashStart, hashStart + len)}`
+      for (let len = HASH_PREFIX_LENGTH + 1; len <= hashStr.length - hashStart; len++) {
+        anonKey = `Anonymous_${hashStr.slice(hashStart, hashStart + len)}`
         if (!manifest.operations[anonKey]) {
           break
         }
-        if (manifest.operations[anonKey]!.hash === hash) {
+        if (manifest.operations[anonKey]!.hash === hashStr) {
           return
         }
       }
     }
-    manifest.operations[anonKey] = { body, hash, loc }
+    manifest.operations[anonKey] = { body, hash: hashStr, loc }
   }
   else if (type === 'fragment') {
     const existing = manifest.fragments[name]
     if (existing) {
-      if (existing.hash === hash) {
+      if (existing.hash === hashStr) {
         return
       }
       throw new Error(
         `Duplicate fragment name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.fragments[name] = { body, hash, loc }
+    manifest.fragments[name] = { body, hash: hashStr, loc }
   }
   else {
     const existing = manifest.operations[name]
     if (existing) {
-      if (existing.hash === hash) {
+      if (existing.hash === hashStr) {
         return
       }
       throw new Error(
         `Duplicate operation name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.operations[name] = { body, hash, loc }
+    manifest.operations[name] = { body, hash: hashStr, loc }
   }
 }
