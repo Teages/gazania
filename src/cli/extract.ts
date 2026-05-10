@@ -1,4 +1,5 @@
 import type { SkippedExtractionCategory } from '../extract/manifest'
+import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import { env, stderr, stdout } from 'node:process'
@@ -37,7 +38,11 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
   let manifest
   try {
-    const result = await extract({ dir, include, algorithm, cwd, tsconfig, ignoreCategories, logger: { debug: env.GAZANIA_DEBUG === '1' ? (msg: any) => stderr.write(`${msg}\n`) : () => {}, warn: (msg: any) => stderr.write(`${msg}\n`), error: (msg: any) => stderr.write(`${msg}\n`) } })
+    const hash = (body: string) => {
+      const hex = createHash(algorithm).update(body).digest('hex')
+      return `${algorithm}:${hex}`
+    }
+    const result = await extract({ dir, include, hash, cwd, tsconfig, ignoreCategories, logger: { debug: env.GAZANIA_DEBUG === '1' ? (msg: any) => stderr.write(`${msg}\n`) : () => {}, warn: (msg: any) => stderr.write(`${msg}\n`), error: (msg: any) => stderr.write(`${msg}\n`) } })
     manifest = result.manifest
   }
   catch (err) {
