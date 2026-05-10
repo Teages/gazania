@@ -1,4 +1,4 @@
-import type { Config, SchemaLoader } from '../codegen/schema'
+import type { Config, SchemaLoader } from '../codegen/config'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { cwd as getCwd } from 'node:process'

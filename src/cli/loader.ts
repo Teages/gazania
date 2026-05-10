@@ -1,5 +1,5 @@
 import type { IntrospectionQuery } from 'graphql'
-import type { SchemaLoader } from '../codegen/schema'
+import type { SchemaLoader } from '../codegen/config'
 import { extname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { buildClientSchema, getIntrospectionQuery, GraphQLSchema, printSchema } from 'graphql'
