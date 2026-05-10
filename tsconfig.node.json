@@ -8,6 +8,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/cli", "src/codegen", "src/extract", "test"],
+  "include": ["src/cli", "src/codegen", "test"],
   "exclude": ["test/**/fixture"]
 }
