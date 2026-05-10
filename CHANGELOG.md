@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.12.0
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.11.0...v0.12.0)
+
+### 💅 Refactors
+
+- **extract:** ⚠️  Type-aware extract with static AST analysis ([#11](https://github.com/Teages/gazania/pull/11))
+
+#### ⚠️ Breaking Changes
+
+- **extract:** ⚠️  Type-aware extract with static AST analysis ([#11](https://github.com/Teages/gazania/pull/11))
+
+### ❤️ Contributors
+
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.11.0
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.9.0...v0.11.0)
