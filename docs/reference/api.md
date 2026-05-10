@@ -549,13 +549,16 @@ Scans source files for Gazania operations and returns a persisted query manifest
 
 ```ts
 import { createHash } from 'node:crypto'
-import { extract } from 'gazania/extract'
+import { resolve } from 'node:path'
+import { extract, parseTSConfig } from 'gazania/extract'
+import ts from 'typescript'
 
 const hash = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
+const parsed = parseTSConfig(ts, resolve('tsconfig.json'), ts.sys)
 
 const { manifest, skipped } = await extract({
-  dir: 'src',
-  tsconfig: 'tsconfig.json',
+  dir: resolve('src'),
+  tsconfig: parsed,
   hash,
 })
 ```
@@ -564,11 +567,22 @@ If a Gazania call cannot be statically evaluated, `extract()` throws an `Extract
 
 ```ts
 const { manifest, skipped } = await extract({
-  dir: 'src',
-  tsconfig: 'tsconfig.json',
+  dir: resolve('src'),
+  tsconfig: parsed,
   hash,
   ignoreCategories: ['unresolved', 'circular'],
 })
+```
+
+### `parseTSConfig(ts, tsconfigPath, system)`
+
+Parses a tsconfig file into a `ts.ParsedCommandLine`. Re-exported from `gazania/extract` for convenience.
+
+```ts
+import { parseTSConfig } from 'gazania/extract'
+import ts from 'typescript'
+
+const parsed = parseTSConfig(ts, '/path/to/tsconfig.json', ts.sys)
 ```
 
 ### `ExtractionError`
@@ -577,7 +591,7 @@ Thrown when Gazania detects calls that it cannot statically evaluate.
 
 ```ts
 try {
-  await extract({ dir: 'src', tsconfig: 'tsconfig.json', hash })
+  await extract({ dir: resolve('src'), tsconfig: parsed, hash })
 }
 catch (err) {
   if (err instanceof ExtractionError) {
@@ -598,11 +612,10 @@ catch (err) {
 
 | Property | Type | Default | Description |
 |---|---|---|---|
-| `dir` | `string` | — | Directory to scan for source files |
+| `dir` | `string` | — | **(required)** Absolute path to directory to scan for source files |
 | `include` | `string` | `'**/*.{ts,tsx,js,jsx,vue,svelte}'` | Glob pattern for files to include |
 | `hash` | `(body: string) => string` | — | **(required)** Hash function for computing operation identifiers |
-| `cwd` | `string` | `process.cwd()` | Working directory for resolving `dir` |
-| `tsconfig` | `string` | — | **(required)** Path to `tsconfig.json` |
+| `tsconfig` | `ts.ParsedCommandLine` | — | **(required)** Parsed TypeScript configuration. Use `parseTSConfig()` to create |
 | `ignoreCategories` | `SkippedExtractionCategory[]` | `[]` | Categories of failures to suppress |
 | `logger` | `ExtractLogger` | — | Logger for extraction diagnostics |
 | `fs` | `ExtractFS` | `ts.sys` | File-system interface for all file operations |
@@ -619,16 +632,25 @@ Minimal synchronous file-system interface. `ts.sys` satisfies this interface in 
 | `fileExists(path: string): boolean` | No | Check if a file exists. Falls back to `readFile(path) !== undefined` if not provided |
 
 ```ts
-import { extract } from 'gazania/extract'
+import { extract, parseTSConfig } from 'gazania/extract'
+import ts from 'typescript'
 
 // Use with a virtual file system
 const vfs: Map<string, string> = new Map([
-  ['src/operations/GetUser.ts', '...'],
+  ['/project/src/operations/GetUser.ts', '...'],
+  ['/project/tsconfig.json', '{"compilerOptions":{"target":"esnext","module":"esnext","moduleResolution":"bundler"}}'],
 ])
 
+const parsed = parseTSConfig(ts, '/project/tsconfig.json', {
+  ...ts.sys,
+  readFile: path => vfs.get(path),
+  readDirectory: (dir, extensions) =>
+    [...vfs.keys()].filter(k => k.startsWith(dir) && extensions?.some(e => k.endsWith(e))),
+})
+
 await extract({
-  dir: 'src',
-  tsconfig: 'tsconfig.json',
+  dir: '/project/src',
+  tsconfig: parsed,
   hash,
   fs: {
     readFile: path => vfs.get(path),
