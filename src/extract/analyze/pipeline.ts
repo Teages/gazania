@@ -184,7 +184,7 @@ export function staticExtractWithPartials(
 
 export async function staticExtractCrossFile(
   files: string[],
-  options: { tsconfigPath: string, algorithm?: string },
+  options: { tsconfigPath: string, algorithm?: string, logger?: { debug: (...args: any[]) => void, warn: (...args: any[]) => void, error: (...args: any[]) => void } },
 ): Promise<{
   manifest: ExtractManifest
   skipped: SkippedExtraction[]
@@ -197,7 +197,7 @@ export async function staticExtractCrossFile(
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
   for (const file of files) {
-    const blocks = await parseFile(file)
+    const blocks = await parseFile(file, { logger: options.logger })
     if (blocks) {
       parsedFiles.set(file, blocks)
     }
@@ -215,7 +215,7 @@ export async function staticExtractCrossFile(
     }
     const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
-      const blocks = await parseFile(file, { skipFilter: true })
+      const blocks = await parseFile(file, { skipFilter: true, logger: options.logger })
       if (blocks) {
         parsedFiles.set(file, blocks)
       }

@@ -1,7 +1,7 @@
 import type { SkippedExtractionCategory } from '../extract/manifest'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative } from 'node:path'
-import { stderr, stdout } from 'node:process'
+import { env, stderr, stdout } from 'node:process'
 import { extract } from '../extract'
 import { ExtractionError } from '../extract/manifest'
 
@@ -37,7 +37,7 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
   let manifest
   try {
-    const result = await extract({ dir, include, algorithm, cwd, tsconfig, ignoreCategories })
+    const result = await extract({ dir, include, algorithm, cwd, tsconfig, ignoreCategories, logger: { debug: env.GAZANIA_DEBUG === '1' ? (msg: any) => stderr.write(`${msg}\n`) : () => {}, warn: (msg: any) => stderr.write(`${msg}\n`), error: (msg: any) => stderr.write(`${msg}\n`) } })
     manifest = result.manifest
   }
   catch (err) {

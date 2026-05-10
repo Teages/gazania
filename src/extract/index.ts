@@ -7,6 +7,12 @@ import { ExtractionError } from './manifest'
 
 export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction } from './manifest'
 
+export interface ExtractLogger {
+  debug: (...args: any[]) => void
+  warn: (...args: any[]) => void
+  error: (...args: any[]) => void
+}
+
 export interface ExtractOptions {
   /** Directory to scan for source files. */
   dir: string
@@ -30,6 +36,7 @@ export interface ExtractOptions {
    * By default, any skipped extraction causes extract() to throw ExtractionError.
    */
   ignoreCategories?: SkippedExtractionCategory[]
+  logger?: ExtractLogger
 }
 
 /**
@@ -54,6 +61,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     cwd = getCwd(),
     tsconfig,
     ignoreCategories = [],
+    logger,
   } = options
 
   if (!tsconfig) {
@@ -63,7 +71,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const scanDir = join(cwd, dir)
   const files = await findFiles(scanDir, include)
 
-  const result = await staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), algorithm })
+  const result = await staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), algorithm, logger })
 
   const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))
 
