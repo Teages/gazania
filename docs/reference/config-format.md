@@ -137,7 +137,7 @@ export default defineConfig({
 
 | Type | Description |
 |---|---|
-| `() => string \| Promise<string>` | Function that returns SDL string |
+| `() => string \| GraphQLSchema \| Promise<string \| GraphQLSchema>` | Function that returns an SDL string or GraphQLSchema |
 
 ### `output`
 

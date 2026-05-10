@@ -6,7 +6,11 @@ import { buildClientSchema, getIntrospectionQuery, GraphQLSchema, printSchema } 
 
 export async function resolveSchema(source: SchemaLoader): Promise<string> {
   if (typeof source === 'function') {
-    return await source()
+    const result = await source()
+    if (result instanceof GraphQLSchema) {
+      return printSchema(result)
+    }
+    return result
   }
   if (typeof source === 'string') {
     return resolveString(source)
@@ -41,6 +45,13 @@ async function resolveString(value: string): Promise<string> {
 
   if (ext === '.ts' || ext === '.js') {
     return loadFromModule(value)
+  }
+
+  if (ext || value.includes('/') || value.includes('\\')) {
+    throw new Error(
+      `Unknown schema source: ${value}\n`
+      + 'If this is a file, use a supported extension: .graphql, .gql, .json, .ts, .js',
+    )
   }
 
   // Bare SDL string

@@ -1,5 +1,5 @@
 import type { GenerateOptions, SchemaSource } from './schema'
-import { GraphQLSchema, printSchema as printGraphQLSchema } from 'graphql'
+import { buildSchema, GraphQLSchema, printSchema as printGraphQLSchema } from 'graphql'
 import { parseSchema } from './parse'
 import { printSchema } from './print'
 
@@ -12,7 +12,7 @@ export type { GenerateOptions, SchemaSource } from './schema'
 /**
  * Generate TypeScript type definitions from a GraphQL schema.
  *
- * @param source - SDL string, introspection JSON string, or GraphQLSchema object
+ * @param source - SDL string or GraphQLSchema object
  * @param options - Generation options (scalar mappings, URL for module augmentation)
  * @returns TypeScript type definition string
  */
@@ -82,6 +82,12 @@ if (import.meta.vitest) {
       const url = 'https://api.example.com/graphql'
       const code = generate(SIMPLE_SDL, { url })
       expect(code).toContain(`'${url}': Schema`)
+    })
+
+    it('generates TypeScript from a GraphQLSchema instance', () => {
+      const schema = buildSchema(SIMPLE_SDL)
+      const code = generate(schema)
+      expect(code).toContain('export type Schema = DefineSchema<{')
     })
   })
 }

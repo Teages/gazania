@@ -1,3 +1,5 @@
+import type { GraphQLSchema } from 'graphql'
+
 export interface UrlSource {
   url: string
   headers?: Record<string, string>
@@ -12,7 +14,7 @@ export interface JsonSource {
   json: string
 }
 
-export type GetterSource = () => string | Promise<string>
+export type GetterSource = () => string | GraphQLSchema | Promise<string | GraphQLSchema>
 
 export type SchemaLoader = string | UrlSource | SdlSource | JsonSource | GetterSource
 
