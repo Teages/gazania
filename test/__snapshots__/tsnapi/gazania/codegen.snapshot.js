@@ -4,7 +4,6 @@
 // #region Other
 export { defineConfig }
 export { generate }
-export { loadSchema }
 export { parseSchema }
 export { printSchema }
 // #endregion

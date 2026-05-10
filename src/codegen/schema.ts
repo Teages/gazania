@@ -1,3 +1,17 @@
+import type { GraphQLSchema } from 'graphql'
+
+// ── Codegen input: three sources (no IO) ──────────────
+
+/**
+ * Schema source for `generate()`.
+ *
+ * - `string`: SDL text or introspection JSON (auto-detected by parseSchema)
+ * - `GraphQLSchema`: already-parsed schema object
+ */
+export type SchemaSource = string | GraphQLSchema
+
+// ── Config types: user-facing flexible input ──────────
+
 export interface UrlSource {
   url: string
   headers?: Record<string, string>
@@ -15,7 +29,7 @@ export interface JsonSource {
 export type GetterSource = () => string | Promise<string>
 
 /**
- * Schema source configuration.
+ * User-configurable schema source (resolved by CLI loader).
  *
  * - `string`: URL (`http://`/`https://`) or local file path (`.graphql`, `.gql`, `.json`, `.ts`, `.js`)
  * - `{ url, headers?, method? }`: URL with custom fetch options
@@ -23,14 +37,14 @@ export type GetterSource = () => string | Promise<string>
  * - `{ json }`: Inline introspection JSON string
  * - `() => string | Promise<string>`: Custom getter function returning SDL
  */
-export type SchemaSource = string | UrlSource | SdlSource | JsonSource | GetterSource
+export type SchemaLoader = string | UrlSource | SdlSource | JsonSource | GetterSource
 
 export interface GenerateOptions {
   scalars?: Record<string, string | { input: string, output: string }>
 }
 
 export interface Config {
-  schema: SchemaSource
+  schema: SchemaLoader
   output: string
   scalars?: Record<string, string | { input: string, output: string }>
 }

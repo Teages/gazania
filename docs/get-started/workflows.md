@@ -111,7 +111,9 @@ You can also use the codegen API in build scripts:
 import { writeFile } from 'node:fs/promises'
 import { generate } from 'gazania/codegen'
 
-const code = await generate('https://api.example.com/graphql', {
+const sdl = `type Query { hello: String }`
+
+const code = generate(sdl, {
   scalars: {
     DateTime: 'string',
   },
@@ -125,10 +127,9 @@ await writeFile('src/schema.ts', code)
 For more control:
 
 ```ts
-import { loadSchema, parseSchema, printSchema } from 'gazania/codegen'
+import { parseSchema, printSchema } from 'gazania/codegen'
 
-// Load the schema SDL from any source
-const sdl = await loadSchema('https://api.example.com/graphql')
+const sdl = `type Query { hello: String }`
 
 // Parse SDL into internal schema data
 const schemaData = parseSchema(sdl, {
@@ -138,6 +139,8 @@ const schemaData = parseSchema(sdl, {
 // Generate TypeScript code
 const code = printSchema(schemaData)
 ```
+
+`generate()` accepts an SDL string, introspection JSON string, or `GraphQLSchema` object. For loading schemas from URLs or files, use the CLI.
 
 ## Typical project setup
 

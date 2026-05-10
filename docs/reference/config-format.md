@@ -47,7 +47,7 @@ Each entry in the array is an independent `Config` object and supports all the s
 
 ### `schema`
 
-- **Type:** `SchemaSource`
+- **Type:** `SchemaLoader`
 - **Required:** Yes
 
 The GraphQL schema source. Accepts several formats:

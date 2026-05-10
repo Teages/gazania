@@ -1,9 +1,10 @@
-import type { Config, SchemaSource } from '../codegen/schema'
+import type { Config, SchemaLoader } from '../codegen/schema'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { cwd as getCwd } from 'node:process'
 import { generate } from '../codegen'
 import { loadConfig } from './config'
+import { resolveSchema } from './loader'
 
 export interface GenerateCommandOptions {
   schema?: string
@@ -66,7 +67,7 @@ async function generateOne(
   config: Config,
   { cwd, log }: { cwd: string, log: (msg: string) => void },
 ): Promise<void> {
-  const source: SchemaSource = config.schema
+  const source: SchemaLoader = config.schema
   const outputPath = resolve(cwd, config.output)
   const url = typeof source === 'string' && (source.startsWith('http://') || source.startsWith('https://'))
     ? source
@@ -76,7 +77,8 @@ async function generateOne(
 
   log(`Generating schema types...`)
 
-  const code = await generate(source, { scalars: config.scalars, url })
+  const sdl = await resolveSchema(source)
+  const code = generate(sdl, { scalars: config.scalars, url })
 
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, code, 'utf-8')

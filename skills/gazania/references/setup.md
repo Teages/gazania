@@ -149,7 +149,9 @@ Use `gazania/codegen` in build scripts instead of the CLI:
 import { writeFile } from 'node:fs/promises'
 import { generate } from 'gazania/codegen'
 
-const code = await generate('https://api.example.com/graphql', {
+const sdl = `type Query { hello: String }`
+
+const code = generate(sdl, {
   scalars: { DateTime: 'string' },
 })
 await writeFile('src/schema.ts', code)
@@ -158,9 +160,10 @@ await writeFile('src/schema.ts', code)
 Lower-level functions for more control:
 
 ```ts
-import { loadSchema, parseSchema, printSchema } from 'gazania/codegen'
+import { parseSchema, printSchema } from 'gazania/codegen'
 
-const sdl = await loadSchema('https://api.example.com/graphql')
+const sdl = `type Query { hello: String }`
+
 const schemaData = parseSchema(sdl, { scalars: { DateTime: 'string' } })
 const code = printSchema(schemaData)
 ```
