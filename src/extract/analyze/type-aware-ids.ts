@@ -109,137 +109,23 @@ export function collectBuilderNamesForFile(
 }
 
 if (import.meta.vitest) {
-  const { describe, it, expect, beforeEach, afterEach } = import.meta.vitest
+  const { describe, it, expect } = import.meta.vitest
 
   describe('type-aware-ids', async () => {
     const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
     const { createTypeCheckerProgram, loadTS, parseTSConfig } = await import('../ts-program')
-    const { mkdir, rm, writeFile } = await import('node:fs/promises')
-    const { randomUUID } = await import('node:crypto')
-    const { tmpdir } = await import('node:os')
-    const { join, resolve } = await import('node:path')
-    const { cwd } = await import('node:process')
+    const { createTestingSystem } = await import('../../../test/utils/vfs')
 
-    const projectRoot = resolve(cwd())
+    const tsInstance = await loadTS()
+    const projectRoot = tsInstance.sys.resolvePath(tsInstance.sys.getCurrentDirectory())
 
-    async function setupFixture(
+    function setupFixture(
       dir: string,
       code: string,
-    ): Promise<{ program: ts.Program, checker: ts.TypeChecker, sourceFile: ts.SourceFile }> {
-      await writeFile(join(dir, 'test.ts'), code)
-      await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
-        compilerOptions: {
-          target: 'esnext',
-          module: 'esnext',
-          moduleResolution: 'bundler',
-          baseUrl: projectRoot,
-          paths: {
-            gazania: ['src/index.ts'],
-          },
-        },
-        files: ['test.ts'],
-      }))
-
-      const tsInstance = await loadTS()
-      const parsed = parseTSConfig(tsInstance, join(dir, 'tsconfig.json'), tsInstance.sys)
-      const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, tsInstance.sys)
-      const sourceFile = program.getSourceFile(join(dir, 'test.ts'))!
-      return { program, checker, sourceFile }
-    }
-
-    describe('collectBuilderNamesByType', () => {
-      let dir: string
-
-      beforeEach(async () => {
-        dir = join(tmpdir(), `gazania-type-aware-test-${randomUUID()}`)
-        await mkdir(dir, { recursive: true })
-      })
-
-      afterEach(async () => {
-        await rm(dir, { recursive: true, force: true })
-      })
-
-      it('detects direct gazania import', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `import { gazania } from 'gazania'\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.builderNames).toEqual(['gazania'])
-        expect(result.namespace).toBeUndefined()
-      })
-
-      it('detects aliased import', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `import { gazania as g } from 'gazania'\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.builderNames).toEqual(['g'])
-      })
-
-      it('detects variable from createGazania()', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `import { createGazania } from 'gazania'\nconst g = createGazania()\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.builderNames).toContain('g')
-      })
-
-      it('detects namespace import', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `import * as ns from 'gazania'\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.namespace).toBe('ns')
-        expect(result.builderNames).toEqual([])
-      })
-
-      it('ignores non-gazania variables', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `const notGazania = { query: () => {} }\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.builderNames).toEqual([])
-        expect(result.namespace).toBeUndefined()
-      })
-
-      it('ignores non-gazania imports', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `import { something } from 'other'\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.builderNames).toEqual([])
-        expect(result.namespace).toBeUndefined()
-      })
-
-      it('detects factory call with aliased import', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `import { createGazania as init } from 'gazania'\nconst g = init()\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.builderNames).toContain('g')
-      })
-
-      it('only detects gazania names from mixed imports', async () => {
-        const { program, checker, sourceFile } = await setupFixture(
-          dir,
-          `import { gazania, something } from 'gazania'\nimport { other } from 'other-lib'\n`,
-        )
-        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
-        expect(result.builderNames).toEqual(['gazania'])
-        expect(result.namespace).toBeUndefined()
-      })
-
-      it('detects re-exported gazania import', async () => {
-        await writeFile(join(dir, 'utils.ts'), `export { gazania } from 'gazania'\n`)
-        await writeFile(join(dir, 'test.ts'), `import { gazania } from './utils'\n`)
-        await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
+    ) {
+      const files: Record<string, string> = {
+        [`${dir}/test.ts`]: code,
+        [`${dir}/tsconfig.json`]: JSON.stringify({
           compilerOptions: {
             target: 'esnext',
             module: 'esnext',
@@ -249,23 +135,143 @@ if (import.meta.vitest) {
               gazania: ['src/index.ts'],
             },
           },
-          files: ['test.ts', 'utils.ts'],
-        }))
+          files: ['test.ts'],
+        }),
+      }
+      return files
+    }
 
+    async function getTypeChecker(
+      dir: string,
+      code: string,
+    ): Promise<{ program: ts.Program, checker: ts.TypeChecker, sourceFile: ts.SourceFile }> {
+      const tsInstance = await loadTS()
+      const files = setupFixture(dir, code)
+      const system = createTestingSystem(files, tsInstance)
+      const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
+      const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
+      const sourceFile = program.getSourceFile(`${dir}/test.ts`)!
+      return { program, checker, sourceFile }
+    }
+
+    describe('collectBuilderNamesByType', () => {
+      it('detects direct gazania import', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `import { gazania } from 'gazania'\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.builderNames).toEqual(['gazania'])
+        expect(result.namespace).toBeUndefined()
+      })
+
+      it('detects aliased import', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `import { gazania as g } from 'gazania'\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.builderNames).toEqual(['g'])
+      })
+
+      it('detects variable from createGazania()', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `import { createGazania } from 'gazania'\nconst g = createGazania()\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.builderNames).toContain('g')
+      })
+
+      it('detects namespace import', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `import * as ns from 'gazania'\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.namespace).toBe('ns')
+        expect(result.builderNames).toEqual([])
+      })
+
+      it('ignores non-gazania variables', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `const notGazania = { query: () => {} }\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.builderNames).toEqual([])
+        expect(result.namespace).toBeUndefined()
+      })
+
+      it('ignores non-gazania imports', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `import { something } from 'other'\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.builderNames).toEqual([])
+        expect(result.namespace).toBeUndefined()
+      })
+
+      it('detects factory call with aliased import', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `import { createGazania as init } from 'gazania'\nconst g = init()\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.builderNames).toContain('g')
+      })
+
+      it('only detects gazania names from mixed imports', async () => {
+        const { program, checker, sourceFile } = await getTypeChecker(
+          '/vfs/type-aware',
+          `import { gazania, something } from 'gazania'\nimport { other } from 'other-lib'\n`,
+        )
+        const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
+        expect(result.builderNames).toEqual(['gazania'])
+        expect(result.namespace).toBeUndefined()
+      })
+
+      it('detects re-exported gazania import', async () => {
+        const dir = '/vfs/type-aware'
         const tsInstance = await loadTS()
-        const parsed = parseTSConfig(tsInstance, join(dir, 'tsconfig.json'), tsInstance.sys)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, tsInstance.sys)
-        const sourceFile = program.getSourceFile(join(dir, 'test.ts'))!
+        const system = createTestingSystem({
+          [`${dir}/utils.ts`]: `export { gazania } from 'gazania'\n`,
+          [`${dir}/test.ts`]: `import { gazania } from './utils'\n`,
+          [`${dir}/tsconfig.json`]: JSON.stringify({
+            compilerOptions: {
+              target: 'esnext',
+              module: 'esnext',
+              moduleResolution: 'bundler',
+              baseUrl: projectRoot,
+              paths: {
+                gazania: ['src/index.ts'],
+              },
+            },
+            files: ['test.ts', 'utils.ts'],
+          }),
+        }, tsInstance)
+
+        const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
+        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
+        const sourceFile = program.getSourceFile(`${dir}/test.ts`)!
         const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
         expect(result.builderNames).toEqual(['gazania'])
       })
     })
 
     describe('collectBuilderNamesForFile', () => {
-      it('returns empty for missing file', { timeout: 30_000 }, async () => {
+      it('returns empty for missing file', async () => {
         const tsInstance = await loadTS()
-        const parsed = parseTSConfig(tsInstance, 'tsconfig.node.json', tsInstance.sys)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, tsInstance.sys)
+        const system = createTestingSystem({
+          '/vfs/tsconfig.json': JSON.stringify({
+            compilerOptions: { target: 'esnext', module: 'esnext', moduleResolution: 'bundler', strict: true },
+            files: ['/vfs/a.ts'],
+          }),
+          '/vfs/a.ts': 'export const x = 1',
+        }, tsInstance)
+        const parsed = parseTSConfig(tsInstance, '/vfs/tsconfig.json', system)
+        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
         const result = collectBuilderNamesForFile(ts, program, checker, '/nonexistent/file.ts')
         expect(result.builderNames).toEqual([])
         expect(result.namespace).toBeUndefined()
