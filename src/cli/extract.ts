@@ -51,8 +51,7 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
         warn(`  ${filePath}:${entry.line}`)
         warn(`    Reason: ${entry.reason}`)
 
-        const isReferenceError = entry.reason.includes('is not defined')
-        if (isReferenceError) {
+        if (entry.category === 'unresolved' && entry.reason.includes('is not defined')) {
           warn(`    Possible cause: the referenced variable is not exported or not included in tsconfig`)
           warn(`    Fix: ensure the partial/section is exported and its file is covered by tsconfig "include"`)
         }

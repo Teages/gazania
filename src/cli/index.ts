@@ -48,7 +48,7 @@ Options:
   --ignore-analysis      Ignore static analysis failures
   --ignore-circular      Ignore circular fragment reference errors
   --ignore-all           Ignore all extraction errors
-  --noEmit               Suppress manifest output (useful for validation)
+  --no-emit              Suppress manifest output (useful for validation)
   -h, --help             Show help
 `
 
@@ -109,7 +109,7 @@ else if (command === 'extract') {
       'ignore-analysis': { type: 'boolean' },
       'ignore-circular': { type: 'boolean' },
       'ignore-all': { type: 'boolean' },
-      'noEmit': { type: 'boolean' },
+      'no-emit': { type: 'boolean' },
       'help': { type: 'boolean', short: 'h' },
     },
     strict: true,
@@ -135,7 +135,7 @@ else if (command === 'extract') {
     await runExtract({
       dir: values.dir ?? 'src',
       output: values.output ?? null,
-      noEmit: values.noEmit ?? false,
+      noEmit: values['no-emit'] ?? false,
       include: values.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}',
       algorithm: values.algorithm ?? 'sha256',
       silent: values.silent ?? false,

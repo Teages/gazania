@@ -699,6 +699,7 @@ describe('extract: skipped calls', () => {
     expect(manifest.operations).not.toHaveProperty('GetUser')
     expect(skipped).toHaveLength(1)
     expect(skipped[0]!.reason).toMatch(/myPartial is not defined/)
+    expect(skipped[0]!.category).toBe('unresolved')
   })
 })
 
