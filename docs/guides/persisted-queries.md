@@ -6,13 +6,15 @@ Gazania includes a CLI command to extract all your query definitions and export 
 
 ## The `gazania extract` command
 
-The `extract` command scans your source files, finds all Gazania builder calls, evaluates them at analysis time, and writes a JSON manifest containing each operation's body and hash.
+The `extract` command scans your source files, finds all Gazania builder calls using type-aware detection, evaluates them at analysis time, and writes a JSON manifest containing each operation's body and hash.
 
 ```sh
-npx gazania extract
+npx gazania extract --tsconfig tsconfig.json
 ```
 
-By default this scans `src/` and writes `gazania-manifest.json` in the current directory.
+A `tsconfig.json` is **required** — Gazania uses type-aware detection to detect builder identifiers by type (including re-exported, aliased, and factory-created builders), not by import string matching.
+
+By default this scans `src/` and outputs the manifest to stdout. Use `--output <path>` to write to a file.
 
 ## Manifest format
 
@@ -21,21 +23,35 @@ By default this scans `src/` and writes `gazania-manifest.json` in the current d
   "operations": {
     "FetchAnime": {
       "body": "query FetchAnime($id: Int = 127549) {\n  Media(id: $id, type: ANIME) {\n    id\n    title {\n      romaji\n      english\n      native\n    }\n  }\n}",
-      "hash": "sha256:a1b2c3d4..."
+      "hash": "sha256:a1b2c3d4...",
+      "loc": {
+        "start": { "line": 10, "column": 1, "offset": 245 },
+        "end": { "line": 15, "column": 2, "offset": 412 }
+      }
     },
     "CreateUser": {
       "body": "mutation CreateUser($input: CreateUserInput!) { ... }",
-      "hash": "sha256:e5f6a7b8..."
+      "hash": "sha256:e5f6a7b8...",
+      "loc": {
+        "start": { "line": 20, "column": 1, "offset": 600 },
+        "end": { "line": 25, "column": 2, "offset": 820 }
+      }
     }
   },
   "fragments": {
     "UserFields": {
       "body": "fragment UserFields on User {\n  id\n  name\n  email\n}",
-      "hash": "sha256:c9d0e1f2..."
+      "hash": "sha256:c9d0e1f2...",
+      "loc": {
+        "start": { "line": 3, "column": 14, "offset": 88 },
+        "end": { "line": 3, "column": 52, "offset": 126 }
+      }
     }
   }
 }
 ```
+
+Each entry includes a `loc` field with `start` and `end` source positions. Each position contains `line` (1-based), `column` (1-based), and `offset` (0-based character offset from file start).
 
 Operations (queries, mutations, subscriptions) go into `operations`. Named fragments go into `fragments`.
 
@@ -43,23 +59,13 @@ Operations (queries, mutations, subscriptions) go into `operations`. Named fragm
 
 The extractor understands `gazania.partial()` and `gazania.section()` builders and includes their generated fragments in the manifest.
 
-**Same-file** partials and sections are resolved automatically with no extra configuration.
+**Same-file** partials and sections are resolved automatically.
 
-**Cross-file** partials and sections — where a partial defined in one file is imported and spread into a query in another file — require TypeScript module resolution to trace the imports. Pass `--tsconfig` pointing to your `tsconfig.json` to enable this:
-
-```sh
-npx gazania extract --tsconfig tsconfig.json
-```
-
-When `--tsconfig` is provided, files are processed in dependency order so that evaluated partials and sections are available when the importer files are evaluated.
-
-::: tip
-If you share partials or sections across multiple files, always pass `--tsconfig`. Without it, cross-file partial/section references are silently skipped and you may end up with incomplete manifests.
-:::
+**Cross-file** partials and sections — where a partial defined in one file is imported and spread into a query in another file — are resolved via TypeScript module resolution. Files are processed in dependency order so that evaluated partials and sections are available when the importer files are evaluated.
 
 ### tsconfig requirements
 
-Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
+The `--tsconfig` flag is **required** for all extraction. Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
 
 ```json
 {
@@ -79,44 +85,55 @@ gazania extract [options]
 
 Options:
   -d, --dir <path>       Directory to scan (default: src)
-  -o, --output <path>    Output manifest file path (default: gazania-manifest.json)
+  -o, --output <path>    Output manifest file path, use - for stdout (default: stdout)
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
-  --tsconfig <path>      Path to tsconfig.json for cross-file partial/section resolution
-  --silent               Suppress output
+  --tsconfig <path>      (required) Path to tsconfig.json
+  --silent               Suppress progress output (errors still shown)
+  --ignore-unresolved    Skip unresolved reference errors
+  --ignore-analysis      Skip analysis failure errors
+  --ignore-circular      Skip circular reference errors
+  --ignore-all           Skip all extraction errors
+  --no-emit               Suppress manifest output (useful for validation)
   -h, --help             Show help
 ```
 
 ### Examples
 
-**Use defaults:**
+**Basic usage (outputs to stdout):**
 
 ```sh
-npx gazania extract
+npx gazania extract --tsconfig tsconfig.json
 ```
 
-**Scan a different directory:**
+**Write to a file:**
 
 ```sh
-npx gazania extract --dir app
+npx gazania extract --output dist/persisted-queries.json --tsconfig tsconfig.json
 ```
 
-**Custom output path:**
+**Scan the selected directory:**
 
 ```sh
-npx gazania extract --output dist/persisted-queries.json
+npx gazania extract --dir app --tsconfig tsconfig.json
 ```
 
 **Use SHA-512 hashes:**
 
 ```sh
-npx gazania extract --algorithm sha512
+npx gazania extract --algorithm sha512 --tsconfig tsconfig.json
 ```
 
-**Enable cross-file partial/section tracking:**
+**Ignore all extraction errors:**
 
 ```sh
-npx gazania extract --tsconfig tsconfig.json
+npx gazania extract --ignore-all --tsconfig tsconfig.json
+```
+
+**Validation only (no output):**
+
+```sh
+npx gazania extract --no-emit --tsconfig tsconfig.json
 ```
 
 ## Typical workflow
@@ -128,7 +145,7 @@ Run `gazania extract` as part of your CI or build pipeline, after TypeScript com
 ```json
 {
   "scripts": {
-    "build": "tsc && gazania extract",
+    "build": "tsc && gazania extract --tsconfig tsconfig.json --output dist/manifest.json",
     "generate": "gazania generate"
   }
 }
@@ -150,8 +167,8 @@ Each client has a different mechanism for persisted queries. Consult your client
 
 ## Behavior notes
 
-- **Static analysis only**: The extractor evaluates builder calls in a sandboxed VM. Builder chains that depend on runtime values are silently skipped.
-- **Partials and sections**: Same-file partials and sections are always resolved. Cross-file resolution requires `--tsconfig`.
+- **Type-aware detection**: The extractor uses type-aware detection to identify Gazania builders by their type (via the `~isGazania` marker). This means re-exported, aliased, and factory-created builders (`import { g } from './utils'`, `const g = createGazania()`) are all detected correctly.
+- **Static analysis only**: The extractor evaluates builders with static analysis. When a Gazania call cannot be statically evaluated (e.g., unresolved references, runtime-dependent values, circular partials), extraction fails by default. Use `--ignore-*` flags to suppress specific failure categories and allow extraction to continue.
 - **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
-- **Deduplication**: If the same operation name appears multiple times across files, the last one wins. Use unique operation names to avoid conflicts.
+- **Duplicate names**: If the same operation or fragment name is defined in multiple files with different bodies, extraction fails with an error. If the bodies are identical, the duplicate is silently skipped.

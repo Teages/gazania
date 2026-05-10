@@ -3,4 +3,5 @@
  */
 // #region Other
 export { extract }
+export { parseTSConfig }
 // #endregion

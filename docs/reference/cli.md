@@ -92,44 +92,75 @@ Extract all Gazania GraphQL operations and produce a persisted query manifest.
 gazania extract [options]
 ```
 
-The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode`, evaluates them at analysis time, and writes a JSON manifest with each operation's body and SHA-256 hash. Vue (`.vue`) and Svelte (`.svelte`) single-file components are supported — each `<script>` block is extracted and processed independently.
+The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode` using type-aware detection, evaluates them at analysis time, and outputs a JSON manifest with each operation's body and SHA-256 hash. Vue (`.vue`) and Svelte (`.svelte`) single-file components are supported — each `<script>` block is extracted and processed independently.
+
+A `tsconfig.json` is **required** — Gazania uses the type-aware detection to detect builder identifiers by type, supporting re-exported, aliased, and factory-created builders.
 
 #### Options
 
 | Option | Alias | Type | Default | Description |
 |---|---|---|---|---|
 | `--dir <path>` | `-d` | `string` | `src` | Directory to scan |
-| `--output <path>` | `-o` | `string` | `gazania-manifest.json` | Output manifest file path |
+| `--output <path>` | `-o` | `string` | stdout | Output file path. Use `-` for explicit stdout |
 | `--include <glob>` | | `string` | `**/*.{ts,tsx,js,jsx,vue,svelte}` | File pattern to include |
 | `--algorithm <alg>` | | `string` | `sha256` | Hash algorithm |
-| `--tsconfig <path>` | | `string` | | Path to TypeScript config file for cross-file partial/section resolution |
-| `--silent` | | `boolean` | `false` | Suppress output |
+| `--tsconfig <path>` | | `string` | | **(required)** Path to TypeScript config file |
+| `--silent` | | `boolean` | `false` | Suppress progress output (errors still shown) |
+| `--ignore-unresolved` | | `boolean` | `false` | Skip unresolved reference errors |
+| `--ignore-analysis` | | `boolean` | `false` | Skip analysis failure errors |
+| `--ignore-circular` | | `boolean` | `false` | Skip circular reference errors |
+| `--ignore-all` | | `boolean` | `false` | Skip all extraction errors |
+| `--no-emit` | | `boolean` | `false` | Suppress manifest output (useful for validation) |
 | `--help` | `-h` | | | Show help |
 
 #### Examples
 
-**Use defaults (scan `src/`, write `gazania-manifest.json`):**
+**Basic usage (stdout):**
 
 ```sh
-npx gazania extract
+npx gazania extract --tsconfig tsconfig.json
+```
+
+**Write to a file:**
+
+```sh
+npx gazania extract --output dist/persisted-queries.json --tsconfig tsconfig.json
 ```
 
 **Scan a custom directory:**
 
 ```sh
-npx gazania extract --dir app
+npx gazania extract --dir app --tsconfig tsconfig.json
 ```
 
-**Custom output path:**
+**Explicit stdout:**
 
 ```sh
-npx gazania extract --output dist/persisted-queries.json
+npx gazania extract --output - --tsconfig tsconfig.json
 ```
 
 **Use SHA-512 hashes:**
 
 ```sh
-npx gazania extract --algorithm sha512
+npx gazania extract --algorithm sha512 --tsconfig tsconfig.json
+```
+
+**Ignore unresolved references:**
+
+```sh
+npx gazania extract --ignore-unresolved --tsconfig tsconfig.json
+```
+
+**Ignore all extraction errors:**
+
+```sh
+npx gazania extract --ignore-all --tsconfig tsconfig.json
+```
+
+**Validation only (no output):**
+
+```sh
+npx gazania extract --no-emit --tsconfig tsconfig.json
 ```
 
 #### Manifest format
@@ -139,13 +170,21 @@ npx gazania extract --algorithm sha512
   "operations": {
     "FetchAnime": {
       "body": "query FetchAnime($id: Int = 127549) { ... }",
-      "hash": "sha256:a1b2c3d4..."
+      "hash": "sha256:a1b2c3d4...",
+      "loc": {
+        "start": { "line": 10, "column": 1, "offset": 245 },
+        "end": { "line": 15, "column": 2, "offset": 412 }
+      }
     }
   },
   "fragments": {
     "UserFields": {
       "body": "fragment UserFields on User { id name email }",
-      "hash": "sha256:e5f6a7b8..."
+      "hash": "sha256:e5f6a7b8...",
+      "loc": {
+        "start": { "line": 3, "column": 14, "offset": 88 },
+        "end": { "line": 3, "column": 52, "offset": 126 }
+      }
     }
   }
 }

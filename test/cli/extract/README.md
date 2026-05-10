@@ -31,10 +31,10 @@ export const GetUsers = gazania.query('GetUsers')
 
 ### 3. Extract the manifest
 
-Scans `src/` for all Gazania builder calls and writes `gazania-manifest.json`:
+Scans `src/` for all Gazania builder calls and writes `gazania-manifest.json`. Requires `--tsconfig`:
 
 ```sh
-pnpm extract
+pnpm extract -- --tsconfig tsconfig.json
 ```
 
 The manifest maps each operation name to its printed query body and SHA-256 hash:

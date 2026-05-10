@@ -25,13 +25,14 @@ export interface FragmentRef<Name extends string, _TypeName extends string> {
   readonly ' $fragmentRefs'?: { [K in Name]: true };
 }
 export interface Gazania {
-  query: (_?: string) => OperationBuilderWithoutVars;
-  mutation: (_?: string) => OperationBuilderWithoutVars;
-  subscription: (_?: string) => OperationBuilderWithoutVars;
-  fragment: (_: string) => FragmentBuilder;
-  partial: (_: string) => PartialBuilder;
-  section: (_: string) => SectionBuilder;
-  enum: EnumFunction$1;
+  readonly '~isGazania': true;
+  'query': (_?: string) => OperationBuilderWithoutVars;
+  'mutation': (_?: string) => OperationBuilderWithoutVars;
+  'subscription': (_?: string) => OperationBuilderWithoutVars;
+  'fragment': (_: string) => FragmentBuilder;
+  'partial': (_: string) => PartialBuilder;
+  'section': (_: string) => SectionBuilder;
+  'enum': EnumFunction$1;
 }
 export interface Input<T> {
   __define__?: () => T;
@@ -54,13 +55,14 @@ export interface TypedDocumentNode<Result = Record<string, any>, Variables = Rec
   __ensureTypesOfVariablesAndResultMatching?: (_: Variables) => Result;
 }
 export interface TypedGazania<Schema extends DefineSchema<any>> {
-  query: (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>;
-  mutation: (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>;
-  subscription: (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>;
-  fragment: (_: string) => TypedFragmentBuilder<Schema>;
-  partial: <Name extends string>(_: Name) => TypedPartialBuilder<Schema, Name>;
-  section: <Name extends string>(_: Name) => TypedSectionBuilder<Schema, Name>;
-  enum: EnumFunction;
+  readonly '~isGazania': true;
+  'query': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>;
+  'mutation': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>;
+  'subscription': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>;
+  'fragment': (_: string) => TypedFragmentBuilder<Schema>;
+  'partial': <Name extends string>(_: Name) => TypedPartialBuilder<Schema, Name>;
+  'section': <Name extends string>(_: Name) => TypedSectionBuilder<Schema, Name>;
+  'enum': EnumFunction;
 }
 export interface UnionType<Name extends string, Implements extends Record<string, BaseObject<any, any, any>>> extends BaseObject<Name, Record<string, never>, Implements> {
   __type__?: () => 'Union';

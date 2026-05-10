@@ -70,6 +70,7 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
 if (import.meta.vitest) {
   const { describe, it, expect, beforeEach, afterEach } = import.meta.vitest
   const { mkdir, rm, writeFile } = await import('node:fs/promises')
+  const { randomUUID } = await import('node:crypto')
   const { tmpdir } = await import('node:os')
   const { join } = await import('node:path')
 
@@ -79,7 +80,7 @@ if (import.meta.vitest) {
     let dir: string
 
     beforeEach(async () => {
-      dir = join(tmpdir(), `gazania-test-${Date.now()}`)
+      dir = join(tmpdir(), `gazania-test-${randomUUID()}`)
       await mkdir(dir, { recursive: true })
     })
 

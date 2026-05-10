@@ -12,26 +12,28 @@ import { createSectionBuilder } from './section'
 export type { PartialPackage, SectionPackage }
 
 export interface Gazania {
-  query: (name?: string) => OperationBuilderWithoutVars
-  mutation: (name?: string) => OperationBuilderWithoutVars
-  subscription: (name?: string) => OperationBuilderWithoutVars
-  fragment: (name: string) => FragmentBuilder
-  partial: (name: string) => PartialBuilder
-  section: (name: string) => SectionBuilder
-  enum: EnumFunction
+  readonly '~isGazania': true
+  'query': (name?: string) => OperationBuilderWithoutVars
+  'mutation': (name?: string) => OperationBuilderWithoutVars
+  'subscription': (name?: string) => OperationBuilderWithoutVars
+  'fragment': (name: string) => FragmentBuilder
+  'partial': (name: string) => PartialBuilder
+  'section': (name: string) => SectionBuilder
+  'enum': EnumFunction
 }
 
 function initGazania(): Gazania {
   const enumFn = createEnumFunction()
 
   return {
-    query: (name?: string) => createOperationBuilder('query', name),
-    mutation: (name?: string) => createOperationBuilder('mutation', name),
-    subscription: (name?: string) => createOperationBuilder('subscription', name),
-    fragment: (name: string) => createFragmentBuilder(name),
-    partial: (name: string) => createPartialBuilder(name),
-    section: (name: string) => createSectionBuilder(name),
-    enum: enumFn,
+    'query': (name?: string) => createOperationBuilder('query', name),
+    'mutation': (name?: string) => createOperationBuilder('mutation', name),
+    'subscription': (name?: string) => createOperationBuilder('subscription', name),
+    'fragment': (name: string) => createFragmentBuilder(name),
+    'partial': (name: string) => createPartialBuilder(name),
+    'section': (name: string) => createSectionBuilder(name),
+    'enum': enumFn,
+    '~isGazania': true as const,
   }
 }
 

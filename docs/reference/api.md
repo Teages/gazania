@@ -532,3 +532,192 @@ declare module 'gazania' {
   }
 }
 ```
+
+---
+
+## Extract API
+
+Use the extract API for programmatic access to static query extraction. Import it from `gazania/extract`.
+
+```ts
+import { extract } from 'gazania/extract'
+```
+
+### `extract(options)`
+
+Scans source files for Gazania operations and returns a persisted query manifest.
+
+```ts
+import { createHash } from 'node:crypto'
+import { resolve } from 'node:path'
+import { extract, parseTSConfig } from 'gazania/extract'
+import ts from 'typescript'
+
+const hash = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
+const parsed = parseTSConfig(ts, resolve('tsconfig.json'), ts.sys)
+
+const { manifest, skipped } = await extract({
+  dir: resolve('src'),
+  tsconfig: parsed,
+  hash,
+})
+```
+
+If a Gazania call cannot be statically evaluated, `extract()` throws an `ExtractionError`. You can suppress specific failure types by passing `ignoreCategories`:
+
+```ts
+const { manifest, skipped } = await extract({
+  dir: resolve('src'),
+  tsconfig: parsed,
+  hash,
+  ignoreCategories: ['unresolved', 'circular'],
+})
+```
+
+### `parseTSConfig(ts, tsconfigPath, system)`
+
+Parses a tsconfig file into a `ts.ParsedCommandLine`. Re-exported from `gazania/extract` for convenience.
+
+```ts
+import { parseTSConfig } from 'gazania/extract'
+import ts from 'typescript'
+
+const parsed = parseTSConfig(ts, '/path/to/tsconfig.json', ts.sys)
+```
+
+### `ExtractionError`
+
+Thrown when Gazania detects calls that it cannot statically evaluate.
+
+```ts
+try {
+  await extract({ dir: resolve('src'), tsconfig: parsed, hash })
+}
+catch (err) {
+  if (err instanceof ExtractionError) {
+    for (const entry of err.skipped) {
+      console.error(`${entry.file}:${entry.line}: ${entry.reason}`)
+    }
+  }
+}
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `skipped` | `SkippedExtraction[]` | Calls that failed extraction |
+
+### Types
+
+#### `ExtractOptions`
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `dir` | `string` | — | **(required)** Absolute path to directory to scan for source files |
+| `include` | `string` | `'**/*.{ts,tsx,js,jsx,vue,svelte}'` | Glob pattern for files to include |
+| `hash` | `(body: string) => string` | — | **(required)** Hash function for computing operation identifiers |
+| `tsconfig` | `ts.ParsedCommandLine` | — | **(required)** Parsed TypeScript configuration. Use `parseTSConfig()` to create |
+| `ignoreCategories` | `SkippedExtractionCategory[]` | `[]` | Categories of failures to suppress |
+| `logger` | `ExtractLogger` | — | Logger for extraction diagnostics |
+| `fs` | `ExtractFS` | `ts.sys` | File-system interface for all file operations |
+| `createHost` | `CreateHostFn` | — | Override the default CompilerHost construction |
+
+#### `ExtractFS`
+
+Minimal synchronous file-system interface. `ts.sys` satisfies this interface in Node.js environments. All methods must be synchronous — for async environments, preload files into memory before calling `extract()`.
+
+| Method | Required | Description |
+|---|---|---|
+| `readFile(path: string): string \| undefined` | Yes | Read file contents |
+| `readDirectory(path, extensions?, excludes?, includes?, depth?): string[]` | Yes | Recursively list files in a directory. Should exclude `node_modules` and `.git` |
+| `fileExists(path: string): boolean` | No | Check if a file exists. Falls back to `readFile(path) !== undefined` if not provided |
+
+```ts
+import { extract, parseTSConfig } from 'gazania/extract'
+import ts from 'typescript'
+
+// Use with a virtual file system
+const vfs: Map<string, string> = new Map([
+  ['/project/src/operations/GetUser.ts', '...'],
+  ['/project/tsconfig.json', '{"compilerOptions":{"target":"esnext","module":"esnext","moduleResolution":"bundler"}}'],
+])
+
+const parsed = parseTSConfig(ts, '/project/tsconfig.json', {
+  ...ts.sys,
+  readFile: path => vfs.get(path),
+  readDirectory: (dir, extensions) =>
+    [...vfs.keys()].filter(k => k.startsWith(dir) && extensions?.some(e => k.endsWith(e))),
+})
+
+await extract({
+  dir: '/project/src',
+  tsconfig: parsed,
+  hash,
+  fs: {
+    readFile: path => vfs.get(path),
+    readDirectory: (dir, extensions) =>
+      [...vfs.keys()].filter(k => k.startsWith(dir) && extensions?.some(e => k.endsWith(e))),
+  },
+})
+```
+
+#### `CreateHostFn`
+
+Override the default `ts.CompilerHost` construction. Receives the resolved `ts.System` (assembled from `fs` + `ts.sys` defaults) and the parsed compiler options from tsconfig.
+
+```ts
+type CreateHostFn = (
+  ts: typeof import('typescript'),
+  system: import('typescript').System,
+  compilerOptions: import('typescript').CompilerOptions,
+) => import('typescript').CompilerHost
+```
+
+#### `ExtractResult`
+
+| Property | Type | Description |
+|---|---|---|
+| `manifest` | `ExtractManifest` | The extracted manifest containing operations and fragments |
+| `skipped` | `SkippedExtraction[]` | Gazania calls that were detected but not extracted |
+
+#### `ManifestEntry`
+
+| Property | Type | Description |
+|---|---|---|
+| `body` | `string` | The GraphQL operation or fragment body |
+| `hash` | `string` | Body hash in `algorithm:hex` format |
+| `loc` | `SourceLoc` | Source location in the original file |
+
+#### `SourceLoc`
+
+| Property | Type | Description |
+|---|---|---|
+| `start` | `SourceLocation` | Start position of the operation |
+| `end` | `SourceLocation` | End position of the operation |
+
+#### `SourceLocation`
+
+| Property | Type | Description |
+|---|---|---|
+| `line` | `number` | 1-based line number |
+| `column` | `number` | 1-based column number |
+| `offset` | `number` | 0-based character offset from the start of the file |
+
+#### `SkippedExtraction`
+
+| Property | Type | Description |
+|---|---|---|
+| `file` | `string` | Absolute path of the file with the skipped call |
+| `line` | `number` | 1-based line number |
+| `reason` | `string` | Error message from the failed evaluation |
+| `category` | `SkippedExtractionCategory` | Failure category |
+
+#### `SkippedExtractionCategory`
+
+```ts
+type SkippedExtractionCategory = 'unresolved' | 'analysis' | 'circular'
+```
+
+- **`unresolved`** — A referenced partial, section, or variable could not be found.
+- **`analysis`** — The builder chain could not be statically evaluated. This often happens when it depends on runtime values.
+- **`circular`** — Circular reference detected between partials or sections.
+

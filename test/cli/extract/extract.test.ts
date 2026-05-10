@@ -1,12 +1,19 @@
+import { createHash, randomUUID } from 'node:crypto'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { runExtract } from '../../../src/cli/extract'
 import { extract } from '../../../src/extract'
+import { loadTS, parseTSConfig } from '../../../src/extract/ts-program'
+
+const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
 
 const fixtureDir = fileURLToPath(new URL('fixture', import.meta.url))
+const ts = await loadTS()
+const fixtureParsed = parseTSConfig(ts, join(fixtureDir, 'tsconfig.json'), ts.sys)
 
 async function getManifest() {
-  const { manifest } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json' })
+  const { manifest } = await extract({ dir: join(fixtureDir, 'src'), tsconfig: fixtureParsed, hash: sha256 })
   return manifest
 }
 
@@ -130,80 +137,41 @@ describe('cli: extract operations', () => {
 
 describe('feature: skipped call diagnostics', () => {
   it('produces no skipped entries when tsconfig is provided and all partials resolve', async () => {
-    const { skipped } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json' })
+    const { skipped } = await extract({ dir: join(fixtureDir, 'src'), tsconfig: fixtureParsed, hash: sha256 })
     expect(skipped).toHaveLength(0)
   })
 
-  it('produces skipped entries when cross-file partials are used without --tsconfig', async () => {
-    // Without tsconfig, cross-file partial/section references cannot be resolved.
-    // The *WithFragment queries in the fixture all spread cross-file partials, so
-    // they should appear in the skipped list.
-    const { manifest, skipped } = await extract({ dir: 'src', cwd: fixtureDir })
-
-    // The simple queries (no partials) still succeed
-    expect(manifest.operations).toHaveProperty('GetUsers')
-
-    // The cross-file fragment queries should be skipped
-    expect(skipped.length).toBeGreaterThan(0)
-    const reasons = skipped.map(s => s.reason)
-    expect(reasons.some(r => r.includes('is not defined'))).toBe(true)
+  it('throws when tsconfig is not provided', async () => {
+    // @ts-expect-error tsconfig is not provided to test error handling
+    await expect(extract({ dir: join(fixtureDir, 'src') }))
+      .rejects
+      .toThrow('tsconfig is required')
   })
 
-  it('skipped entries reference the correct source files from the fixture', async () => {
-    const { skipped } = await extract({ dir: 'src', cwd: fixtureDir })
-
-    for (const entry of skipped) {
-      // Every skipped entry must point to a real file inside the fixture
-      expect(entry.file).toContain(fixtureDir)
-      expect(entry.line).toBeGreaterThanOrEqual(1)
-    }
-  })
-
-  it('skipped entries from SFC files have line numbers > 1 (lineOffset applied)', async () => {
-    const { skipped } = await extract({ dir: 'src', cwd: fixtureDir })
-
-    // index.vue and index.svelte both have a <template> block before <script>,
-    // so the line number of the query inside the script block must be > 1.
-    const sfcSkipped = skipped.filter(s => s.file.endsWith('.vue') || s.file.endsWith('.svelte'))
-    for (const entry of sfcSkipped) {
-      expect(entry.line).toBeGreaterThan(1)
-    }
-  })
-
-  it('runExtract logs count and file:line for skipped calls to console.warn', async () => {
-    const { vi } = await import('vitest')
+  it('runExtract throws when tsconfig is not provided', async () => {
     const { join } = await import('node:path')
     const { mkdir, rm, writeFile } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
 
-    const dir = join(tmpdir(), `gazania-e2e-warn-${Date.now()}`)
+    const dir = join(tmpdir(), `gazania-e2e-warn-${randomUUID()}`)
     await mkdir(join(dir, 'src'), { recursive: true })
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('E2EFail').select($ => $.select([...e2eMissing({})]))`,
     )
 
-    const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-
     try {
-      await runExtract({
+      await expect(runExtract({
         dir: 'src',
         output: 'manifest.json',
+        noEmit: false,
         include: '**/*.{ts,tsx,js,jsx}',
         algorithm: 'sha256',
         silent: false,
         cwd: dir,
-      })
-
-      const warnOutput = mockWarn.mock.calls.map(c => c[0]).join('\n')
-      expect(warnOutput).toContain('1 Gazania call(s)')
-      expect(warnOutput).toContain('src/query.js:2')
-      expect(warnOutput).toContain('e2eMissing is not defined')
-      expect(warnOutput).toContain('--tsconfig')
+      })).rejects.toThrow('tsconfig is required')
     }
     finally {
-      mockWarn.mockRestore()
       await rm(dir, { recursive: true, force: true })
     }
   })
