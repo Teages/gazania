@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { staticExtractCrossFile } from '../../../src/extract/analyze/pipeline'
-import { loadTS } from '../../../src/extract/ts-program'
+import { loadTS, parseTSConfig } from '../../../src/extract/ts-program'
 
 const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
 
@@ -38,6 +38,10 @@ describe('staticExtractCrossFile: cross-file partial/section resolution', () => 
     await rm(dir, { recursive: true, force: true })
   })
 
+  async function getParsed() {
+    return parseTSConfig(ts, join(dir, 'tsconfig.json'), ts.sys)
+  }
+
   it('1. basic cross-file partial', async () => {
     await writeFile(
       join(dir, 'src', 'fragments', 'user.js'),
@@ -46,7 +50,6 @@ export const userPartial = gazania.partial('UserFields')
   .on('User')
   .select($ => $.select(['id', 'name']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'
@@ -59,11 +62,11 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
-
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserFields')
     expect(manifest.operations.GetUser.body).toContain('id')
@@ -78,7 +81,6 @@ export const userSection = gazania.section('UserFields')
   .on('User')
   .select($ => $.select(['id', 'name']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'
@@ -91,11 +93,11 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
-
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserFields')
     expect(manifest.operations.GetUser.body).toContain('fragment UserFields on User')
@@ -109,7 +111,6 @@ export const namePartial = gazania.partial('UserName')
   .on('User')
   .select($ => $.select(['name']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'fragments', 'email.js'),
       `import { gazania } from 'gazania'
@@ -117,7 +118,6 @@ export const emailPartial = gazania.partial('UserEmail')
   .on('User')
   .select($ => $.select(['email']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'
@@ -132,11 +132,11 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'name.js'), join(dir, 'src', 'fragments', 'email.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
-
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserName')
     expect(manifest.operations.GetUser.body).toContain('...UserEmail')
@@ -153,7 +153,6 @@ const _userPartial = gazania.partial('UserFields')
   .select($ => $.select(['id', 'name']))
 export { _userPartial as userPartial }`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'
@@ -166,11 +165,11 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
-
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserFields')
     expect(manifest.operations.GetUser.body).toContain('fragment UserFields on User')
@@ -195,11 +194,11 @@ export const userPartial = gazania.partial('UserFields')
   .select($ => $.select(['id', 'name']))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'index.ts'), join(dir, 'src', 'fragments.ts')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
-
     expect(manifest.operations).toHaveProperty('GetUsersWithFragment')
     expect(manifest.operations.GetUsersWithFragment.body).toContain('...UserFields')
     expect(manifest.operations.GetUsersWithFragment.body).toContain('fragment UserFields on User')
@@ -233,16 +232,16 @@ const SvelteQuery = gazania.query('GetUsers_Svelte').select($ => $.select(['id',
 const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', 'name']))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'index.ts'), join(dir, 'src', 'App.vue'), join(dir, 'src', 'App.svelte'), join(dir, 'src', 'react.tsx')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
     expect(manifest.operations).toHaveProperty('GetUsers_Svelte')
     expect(manifest.operations).toHaveProperty('GetUsers_React')
   })
 
   it('7. three-level chain: a uses b\'s partial, b\'s partial uses c\'s partial', async () => {
-    // c.js: defines postFields partial
     await writeFile(
       join(dir, 'src', 'fragments', 'post.js'),
       `import { gazania } from 'gazania'
@@ -250,8 +249,6 @@ export const postFields = gazania.partial('PostFields')
   .on('Post')
   .select($ => $.select(['title', 'content']))`,
     )
-
-    // b.js: defines userFields partial that internally uses postFields
     await writeFile(
       join(dir, 'src', 'fragments', 'user.js'),
       `import { gazania } from 'gazania'
@@ -264,8 +261,6 @@ export const userFields = gazania.partial('UserFields')
     ]),
   }]))`,
     )
-
-    // a.js: query that uses userFields (which transitively depends on postFields)
     await writeFile(
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'
@@ -278,22 +273,19 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [
         join(dir, 'src', 'fragments', 'post.js'),
         join(dir, 'src', 'fragments', 'user.js'),
         join(dir, 'src', 'query.js'),
       ],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
-
     expect(manifest.operations).toHaveProperty('GetUser')
-    // UserFields fragment should be included
     expect(manifest.operations.GetUser!.body).toContain('...UserFields')
     expect(manifest.operations.GetUser!.body).toContain('fragment UserFields on User')
-    // posts field inside UserFields should contain PostFields spread
     expect(manifest.operations.GetUser!.body).toContain('...PostFields')
-    // PostFields fragment definition should also be included
     expect(manifest.operations.GetUser!.body).toContain('fragment PostFields on Post')
     expect(manifest.operations.GetUser!.body).toContain('title')
     expect(manifest.operations.GetUser!.body).toContain('content')
@@ -306,11 +298,11 @@ const doc = gazania.query('GetUser')
 const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
     )
 
+    const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
     )
-
     expect(manifest.operations).toHaveProperty('SimpleQuery')
     expect(manifest.operations.SimpleQuery.body).toContain('query SimpleQuery')
     expect(manifest.operations.SimpleQuery.body).toContain('id')

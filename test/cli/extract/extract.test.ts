@@ -1,15 +1,19 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { runExtract } from '../../../src/cli/extract'
 import { extract } from '../../../src/extract'
+import { loadTS, parseTSConfig } from '../../../src/extract/ts-program'
 
 const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
 
 const fixtureDir = fileURLToPath(new URL('fixture', import.meta.url))
+const ts = await loadTS()
+const fixtureParsed = parseTSConfig(ts, join(fixtureDir, 'tsconfig.json'), ts.sys)
 
 async function getManifest() {
-  const { manifest } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json', hash: sha256 })
+  const { manifest } = await extract({ dir: join(fixtureDir, 'src'), tsconfig: fixtureParsed, hash: sha256 })
   return manifest
 }
 
@@ -133,13 +137,13 @@ describe('cli: extract operations', () => {
 
 describe('feature: skipped call diagnostics', () => {
   it('produces no skipped entries when tsconfig is provided and all partials resolve', async () => {
-    const { skipped } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json', hash: sha256 })
+    const { skipped } = await extract({ dir: join(fixtureDir, 'src'), tsconfig: fixtureParsed, hash: sha256 })
     expect(skipped).toHaveLength(0)
   })
 
   it('throws when tsconfig is not provided', async () => {
     // @ts-expect-error tsconfig is not provided to test error handling
-    await expect(extract({ dir: 'src', cwd: fixtureDir }))
+    await expect(extract({ dir: join(fixtureDir, 'src') }))
       .rejects
       .toThrow('tsconfig is required')
   })

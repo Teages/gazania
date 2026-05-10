@@ -16,10 +16,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { extract } from '../../../src/extract'
+import { loadTS, parseTSConfig } from '../../../src/extract/ts-program'
 
 const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
 
-async function createTempProject(): Promise<string> {
+async function createTempProject(): Promise<{ dir: string, getParsed: () => Promise<import('typescript').ParsedCommandLine> }> {
   const dir = join(tmpdir(), `gazania-type-aware-${randomUUID()}`)
   await mkdir(join(dir, 'src'), { recursive: true })
 
@@ -37,16 +38,23 @@ async function createTempProject(): Promise<string> {
     include: ['src'],
   }))
 
-  return dir
+  return {
+    dir,
+    async getParsed() {
+      const ts = await loadTS()
+      return parseTSConfig(ts, join(dir, 'tsconfig.json'), ts.sys)
+    },
+  }
 }
-
-// ─── Re-export / barrel file ────────────────────────────────────────────────
 
 describe('type-aware extract: re-export / barrel file', () => {
   let dir: string
+  let getParsed: () => Promise<import('typescript').ParsedCommandLine>
 
   beforeEach(async () => {
-    dir = await createTempProject()
+    const project = await createTempProject()
+    dir = project.dir
+    getParsed = project.getParsed
   })
 
   afterEach(async () => {
@@ -58,14 +66,13 @@ describe('type-aware extract: re-export / barrel file', () => {
       join(dir, 'src', 'barrel.ts'),
       `export { gazania } from 'gazania'`,
     )
-
     await writeFile(
       join(dir, 'src', 'consumer.ts'),
       `import { gazania } from './barrel'
 const doc = gazania.query('BarrelQuery').select($ => $.select(['id', 'name']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('BarrelQuery')
     expect(manifest.operations.BarrelQuery.body).toContain('query BarrelQuery')
     expect(manifest.operations.BarrelQuery.body).toContain('id')
@@ -86,8 +93,8 @@ const doc = gazania.query('BarrelQuery').select($ => $.select(['id', 'name']))`,
       `import { gazania } from './index'
 const doc = gazania.query('DeepBarrelQuery').select($ => $.select(['status']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('DeepBarrelQuery')
     expect(manifest.operations.DeepBarrelQuery.body).toContain('query DeepBarrelQuery')
     expect(manifest.operations.DeepBarrelQuery.body).toContain('status')
@@ -98,25 +105,25 @@ const doc = gazania.query('DeepBarrelQuery').select($ => $.select(['status']))`,
       join(dir, 'src', 'barrel.ts'),
       `export { gazania, createGazania } from 'gazania'`,
     )
-
     await writeFile(
       join(dir, 'src', 'consumer.ts'),
       `import { gazania } from './barrel'
 const doc = gazania.query('BarrelExportQuery').select($ => $.select(['id']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('BarrelExportQuery')
   })
 })
 
-// ─── Aliased factory (createGazania) ────────────────────────────────────────
-
 describe('type-aware extract: aliased factory', () => {
   let dir: string
+  let getParsed: () => Promise<import('typescript').ParsedCommandLine>
 
   beforeEach(async () => {
-    dir = await createTempProject()
+    const project = await createTempProject()
+    dir = project.dir
+    getParsed = project.getParsed
   })
 
   afterEach(async () => {
@@ -130,8 +137,8 @@ describe('type-aware extract: aliased factory', () => {
 const g = createGazania('https://api.example.com/graphql')
 const doc = g.query('FactoryQuery').select($ => $.select(['id', 'name']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('FactoryQuery')
     expect(manifest.operations.FactoryQuery.body).toContain('query FactoryQuery')
     expect(manifest.operations.FactoryQuery.body).toContain('id')
@@ -147,8 +154,8 @@ const doc = g.mutation('FactoryMutation')
   .vars({ input: 'String!' })
   .select(($, vars) => $.select([{ createUser: $ => $.args({ input: vars.input }).select(['id']) }]))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('FactoryMutation')
     expect(manifest.operations.FactoryMutation.body).toContain('mutation FactoryMutation')
   })
@@ -160,8 +167,8 @@ const doc = g.mutation('FactoryMutation')
 const g = createGazania('https://api.example.com/graphql')
 const doc = g.fragment('FactoryFragment').on('User').select($ => $.select(['id', 'email']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.fragments).toHaveProperty('FactoryFragment')
     expect(manifest.fragments.FactoryFragment.body).toContain('fragment FactoryFragment on User')
   })
@@ -172,14 +179,13 @@ const doc = g.fragment('FactoryFragment').on('User').select($ => $.select(['id',
       `import { createGazania } from 'gazania'
 export const gazania = createGazania('https://api.example.com/graphql')`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.ts'),
       `import { gazania } from './api'
 const doc = gazania.query('CrossFileFactoryQuery').select($ => $.select(['id']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('CrossFileFactoryQuery')
     expect(manifest.operations.CrossFileFactoryQuery.body).toContain('query CrossFileFactoryQuery')
   })
@@ -190,7 +196,6 @@ const doc = gazania.query('CrossFileFactoryQuery').select($ => $.select(['id']))
       `import { createGazania } from 'gazania'
 export const gazania = createGazania('https://api.example.com/graphql')`,
     )
-
     await writeFile(
       join(dir, 'src', 'partials.ts'),
       `import { gazania } from './api'
@@ -198,7 +203,6 @@ export const userFields = gazania.partial('FactoryUserFields')
   .on('User')
   .select($ => $.select(['id', 'name']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.ts'),
       `import { gazania } from './api'
@@ -208,21 +212,22 @@ const doc = gazania.query('FactoryWithPartial')
     user: $ => $.select([...userFields({})]),
   }]))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('FactoryWithPartial')
     expect(manifest.operations.FactoryWithPartial.body).toContain('...FactoryUserFields')
     expect(manifest.operations.FactoryWithPartial.body).toContain('fragment FactoryUserFields on User')
   })
 })
 
-// ─── Namespace import ────────────────────────────────────────────────────────
-
 describe('type-aware extract: namespace import', () => {
   let dir: string
+  let getParsed: () => Promise<import('typescript').ParsedCommandLine>
 
   beforeEach(async () => {
-    dir = await createTempProject()
+    const project = await createTempProject()
+    dir = project.dir
+    getParsed = project.getParsed
   })
 
   afterEach(async () => {
@@ -235,8 +240,8 @@ describe('type-aware extract: namespace import', () => {
       `import * as G from 'gazania'
 const doc = G.gazania.query('NsQuery').select($ => $.select(['id']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('NsQuery')
     expect(manifest.operations.NsQuery.body).toContain('query NsQuery')
     expect(manifest.operations.NsQuery.body).toContain('id')
@@ -250,8 +255,8 @@ const doc = G.gazania.mutation('NsMutation')
   .vars({ id: 'ID!' })
   .select(($, vars) => $.select([{ deleteUser: $ => $.args({ id: vars.id }).select(['success']) }]))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('NsMutation')
     expect(manifest.operations.NsMutation.body).toContain('mutation NsMutation')
   })
@@ -262,8 +267,8 @@ const doc = G.gazania.mutation('NsMutation')
       `import * as G from 'gazania'
 const doc = G.gazania.fragment('NsFragment').on('User').select($ => $.select(['name']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.fragments).toHaveProperty('NsFragment')
     expect(manifest.fragments.NsFragment.body).toContain('fragment NsFragment on User')
   })
@@ -276,7 +281,6 @@ export const userFields = G.gazania.partial('NsUserFields')
   .on('User')
   .select($ => $.select(['id', 'email']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.ts'),
       `import * as G from 'gazania'
@@ -286,21 +290,22 @@ const doc = G.gazania.query('NsPartialQuery')
     user: $ => $.select([...userFields({})]),
   }]))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('NsPartialQuery')
     expect(manifest.operations.NsPartialQuery.body).toContain('...NsUserFields')
     expect(manifest.operations.NsPartialQuery.body).toContain('fragment NsUserFields on User')
   })
 })
 
-// ─── Mixed patterns ──────────────────────────────────────────────────────────
-
 describe('type-aware extract: mixed patterns in a single project', () => {
   let dir: string
+  let getParsed: () => Promise<import('typescript').ParsedCommandLine>
 
   beforeEach(async () => {
-    dir = await createTempProject()
+    const project = await createTempProject()
+    dir = project.dir
+    getParsed = project.getParsed
   })
 
   afterEach(async () => {
@@ -313,21 +318,19 @@ describe('type-aware extract: mixed patterns in a single project', () => {
       `import { gazania } from 'gazania'
 const DirectQuery = gazania.query('DirectQuery').select($ => $.select(['id']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'factory.ts'),
       `import { createGazania } from 'gazania'
 const g = createGazania('https://api.example.com/graphql')
 const FactoryQuery = g.query('FactoryQuery').select($ => $.select(['name']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'namespace.ts'),
       `import * as NS from 'gazania'
 const NsQuery = NS.gazania.query('NsQuery').select($ => $.select(['email']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('DirectQuery')
     expect(manifest.operations).toHaveProperty('FactoryQuery')
     expect(manifest.operations).toHaveProperty('NsQuery')
@@ -339,19 +342,17 @@ const NsQuery = NS.gazania.query('NsQuery').select($ => $.select(['email']))`,
       `import { createGazania } from 'gazania'
 export const gazania = createGazania('https://api.example.com/graphql')`,
     )
-
     await writeFile(
       join(dir, 'src', 'index.ts'),
       `export { gazania } from './api'`,
     )
-
     await writeFile(
       join(dir, 'src', 'query.ts'),
       `import { gazania } from './index'
 const doc = gazania.query('BarrelFactoryQuery').select($ => $.select(['id', 'status']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('BarrelFactoryQuery')
     expect(manifest.operations.BarrelFactoryQuery.body).toContain('query BarrelFactoryQuery')
     expect(manifest.operations.BarrelFactoryQuery.body).toContain('status')
@@ -363,26 +364,22 @@ const doc = gazania.query('BarrelFactoryQuery').select($ => $.select(['id', 'sta
       `import { createGazania } from 'gazania'
 export const gazania = createGazania('https://api.example.com/graphql')`,
     )
-
     await writeFile(
       join(dir, 'src', 'consumer-factory.ts'),
       `import { gazania } from './api'
 const doc = gazania.query('MixedFactory').select($ => $.select(['id']))`,
     )
-
     await writeFile(
       join(dir, 'src', 'consumer-ns.ts'),
       `import * as G from 'gazania'
 const doc = G.gazania.query('MixedNs').select($ => $.select(['name']))`,
     )
-
-    const { manifest } = await extract({ dir: 'src', hash: sha256, cwd: dir, tsconfig: 'tsconfig.json' })
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('MixedFactory')
     expect(manifest.operations).toHaveProperty('MixedNs')
   })
 })
-
-// ─── Error path ──────────────────────────────────────────────────────────────
 
 describe('type-aware extract: error handling', () => {
   it('throws an error when tsconfig is not provided', async () => {
@@ -392,9 +389,9 @@ describe('type-aware extract: error handling', () => {
     ).rejects.toThrow(/tsconfig is required/)
   })
 
-  it('throws an error when tsconfig is an empty string', async () => {
+  it('throws an error when tsconfig is undefined', async () => {
     await expect(
-      extract({ dir: 'src', hash: sha256, tsconfig: '' }),
+      extract({ dir: 'src', hash: sha256, tsconfig: undefined as any }),
     ).rejects.toThrow(/tsconfig is required/)
   })
 })

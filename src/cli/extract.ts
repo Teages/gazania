@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative } from 'node:path'
 import { env, stderr, stdout } from 'node:process'
 import { extract } from '../extract'
 import { ExtractionError } from '../extract/manifest'
+import { loadTS, parseTSConfig } from '../extract/ts-program'
 
 export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction } from '../extract'
 
@@ -38,11 +39,14 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
   let manifest
   try {
+    const ts = await loadTS()
+    const tsconfigPath = join(cwd, tsconfig)
+    const parsed = parseTSConfig(ts, tsconfigPath, ts.sys)
     const hash = (body: string) => {
       const hex = createHash(algorithm).update(body).digest('hex')
       return `${algorithm}:${hex}`
     }
-    const result = await extract({ dir, include, hash, cwd, tsconfig, ignoreCategories, logger: { debug: env.GAZANIA_DEBUG === '1' ? (msg: any) => stderr.write(`${msg}\n`) : () => {}, warn: (msg: any) => stderr.write(`${msg}\n`), error: (msg: any) => stderr.write(`${msg}\n`) } })
+    const result = await extract({ dir: scanDir, include, hash, tsconfig: parsed, ignoreCategories, logger: { debug: env.GAZANIA_DEBUG === '1' ? (msg: any) => stderr.write(`${msg}\n`) : () => {}, warn: (msg: any) => stderr.write(`${msg}\n`), error: (msg: any) => stderr.write(`${msg}\n`) } })
     manifest = result.manifest
   }
   catch (err) {

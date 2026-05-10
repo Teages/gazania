@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { extract } from '../../src/extract'
+import { loadTS, parseTSConfig } from '../../src/extract/ts-program'
 
 const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
 
@@ -89,11 +90,12 @@ export const GetUsers = gazania.query('GetUsers')
   })
 
   it('rejects circular partial references and reports them as skipped', async () => {
+    const ts = await loadTS()
+    const parsed = parseTSConfig(ts, join(dir, 'tsconfig.json'), ts.sys)
     const { manifest, skipped } = await extract({
-      dir: 'src',
+      dir: join(dir, 'src'),
       hash: sha256,
-      cwd: dir,
-      tsconfig: 'tsconfig.json',
+      tsconfig: parsed,
       ignoreCategories: ['circular'],
     })
 
