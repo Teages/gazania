@@ -16,12 +16,14 @@
  * The extractor must reject this pattern and report it via the `skipped` array
  * rather than silently producing an incomplete document.
  */
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { extract } from '../../src/extract'
+
+const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
 
 describe('circular partial reference detection', () => {
   let dir: string
@@ -89,6 +91,7 @@ export const GetUsers = gazania.query('GetUsers')
   it('rejects circular partial references and reports them as skipped', async () => {
     const { manifest, skipped } = await extract({
       dir: 'src',
+      hash: sha256,
       cwd: dir,
       tsconfig: 'tsconfig.json',
       ignoreCategories: ['circular'],

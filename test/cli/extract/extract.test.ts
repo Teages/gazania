@@ -1,13 +1,15 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { runExtract } from '../../../src/cli/extract'
 import { extract } from '../../../src/extract'
 
+const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
+
 const fixtureDir = fileURLToPath(new URL('fixture', import.meta.url))
 
 async function getManifest() {
-  const { manifest } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json' })
+  const { manifest } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json', hash: sha256 })
   return manifest
 }
 
@@ -131,7 +133,7 @@ describe('cli: extract operations', () => {
 
 describe('feature: skipped call diagnostics', () => {
   it('produces no skipped entries when tsconfig is provided and all partials resolve', async () => {
-    const { skipped } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json' })
+    const { skipped } = await extract({ dir: 'src', cwd: fixtureDir, tsconfig: 'tsconfig.json', hash: sha256 })
     expect(skipped).toHaveLength(0)
   })
 
