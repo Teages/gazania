@@ -4,8 +4,10 @@ import process from 'node:process'
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
 import { ExtractionError } from './manifest'
+import { adaptToSystem, loadTS } from './ts-program'
 
 export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction } from './manifest'
+export type { CreateHostFn, ExtractFS } from './ts-program'
 
 export interface ExtractLogger {
   debug: (...args: any[]) => void
@@ -37,6 +39,23 @@ export interface ExtractOptions {
    */
   ignoreCategories?: SkippedExtractionCategory[]
   logger?: ExtractLogger
+  /**
+   * File-system interface for all file operations during extraction.
+   * Defaults to `ts.sys` (Node.js real filesystem).
+   *
+   * All methods must be synchronous. For async environments, preload
+   * files into an in-memory implementation before calling `extract()`.
+   */
+  fs?: import('./ts-program').ExtractFS
+  /**
+   * Override the default CompilerHost construction.
+   * Receives the resolved `ts.System` (assembled from `fs` + `ts.sys` defaults)
+   * and the parsed compiler options from tsconfig.
+   *
+   * Use this for advanced scenarios like custom module resolution,
+   * SourceFile caching, or integrating with existing TS service instances.
+   */
+  createHost?: import('./ts-program').CreateHostFn
 }
 
 /**
@@ -62,17 +81,27 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     tsconfig,
     ignoreCategories = [],
     logger,
+    fs,
+    createHost: createHostFn,
   } = options
 
   if (!tsconfig) {
     throw new Error('tsconfig is required for extraction. Provide it via extract({ tsconfig: "tsconfig.json" }) or CLI flag --tsconfig.')
   }
 
+  const ts = await loadTS()
+  const system = fs ? adaptToSystem(fs, ts) : ts.sys
   const scanDir = join(cwd, dir)
-  const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
-  const files = findFiles(scanDir, include, ts.sys)
+  const files = findFiles(scanDir, include, system)
 
-  const result = await staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), hash, logger })
+  const result = staticExtractCrossFile(files, {
+    tsconfigPath: join(cwd, tsconfig),
+    hash,
+    logger,
+    system,
+    createHost: createHostFn,
+    ts,
+  })
 
   const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))
 

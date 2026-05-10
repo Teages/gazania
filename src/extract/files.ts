@@ -1,4 +1,5 @@
 import type { Program } from 'estree'
+import type { ExtractFS } from './ts-program'
 import { parseSync } from 'oxc-parser'
 import { transformSync } from 'oxc-transform'
 import { getScriptBlocks } from './preprocess'
@@ -6,7 +7,6 @@ import { getScriptBlocks } from './preprocess'
 export interface ParsedBlock {
   code: string
   ast: Program
-  /** Line offset of this block within the original source file (see ScriptBlock.lineOffset) */
   lineOffset: number
 }
 
@@ -16,21 +16,12 @@ export interface ParseFileOptions {
 }
 
 /**
- * Minimal file-system host abstraction.
- * Satisfied by `ts.CompilerHost`, `ts.sys`, or any custom implementation.
- */
-export interface FileHost {
-  readFile: (fileName: string) => string | undefined
-  readDirectory?: (rootDir: string, extensions: readonly string[], excludes: readonly string[] | undefined, includes: readonly string[], depth?: number) => string[]
-}
-
-/**
  * Parse a file into one or more code blocks with their ASTs.
  * Handles Vue/Svelte SFCs and TypeScript stripping.
  *
  * Returns `null` if the file does not contain a `.select(` call or no blocks parse.
  */
-export function parseFile(filePath: string, options?: ParseFileOptions, host?: FileHost): ParsedBlock[] | null {
+export function parseFile(filePath: string, options?: ParseFileOptions, host?: ExtractFS): ParsedBlock[] | null {
   const rawCode = host?.readFile(filePath) ?? ''
 
   if (!options?.skipFilter && !rawCode.includes('.select(')) {
@@ -81,10 +72,7 @@ function debugLog(filePath: string, line: number, reason: string, options?: Pars
   options?.logger?.debug(`[gazania:extract] ${filePath}:${line} ${reason}`)
 }
 
-export function findFiles(dir: string, pattern: string, host: FileHost): string[] {
-  if (!host.readDirectory) {
-    throw new Error('FileHost.readDirectory is required for findFiles')
-  }
+export function findFiles(dir: string, pattern: string, host: ExtractFS): string[] {
   const extensions = parseExtensions(pattern)
   return host.readDirectory(dir, Array.from(extensions), ['node_modules', '.git'], [] as readonly string[])
 }

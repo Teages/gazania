@@ -2,6 +2,7 @@ import type { Program } from 'estree'
 import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
 import type { ExtractManifest, HashFn, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
+import type { CreateHostFn } from '../ts-program'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { parseSync } from 'oxc-parser'
 import { getFileImports, topologicalSort } from '../dependency-graph'
@@ -182,22 +183,28 @@ export function staticExtractWithPartials(
   return result.documents.map(d => d.doc)
 }
 
-export async function staticExtractCrossFile(
+export function staticExtractCrossFile(
   files: string[],
-  options: { tsconfigPath: string, hash: HashFn, logger?: { debug: (...args: any[]) => void, warn: (...args: any[]) => void, error: (...args: any[]) => void } },
-): Promise<{
+  options: {
+    tsconfigPath: string
+    hash: HashFn
+    logger?: { debug: (...args: any[]) => void, warn: (...args: any[]) => void, error: (...args: any[]) => void }
+    system: import('typescript').System
+    createHost?: CreateHostFn
+    ts: typeof import('typescript')
+  },
+): {
   manifest: ExtractManifest
   skipped: SkippedExtraction[]
-}> {
-  const { hash, logger } = options
-  const resolver = await createModuleResolver(options.tsconfigPath)
-  const { program, checker, host } = await createTypeCheckerProgram(options.tsconfigPath)
-  const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
+} {
+  const { hash, logger, system, createHost: createHostFn, ts } = options
+  const resolver = createModuleResolver(ts, options.tsconfigPath, system, createHostFn)
+  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfigPath, system, createHostFn)
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
   for (const file of files) {
-    const blocks = parseFile(file, { logger }, host)
+    const blocks = parseFile(file, { logger }, system)
     if (blocks) {
       parsedFiles.set(file, blocks)
     }
@@ -215,7 +222,7 @@ export async function staticExtractCrossFile(
     }
     const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
-      const blocks = parseFile(file, { skipFilter: true, logger }, host)
+      const blocks = parseFile(file, { skipFilter: true, logger }, system)
       if (blocks) {
         parsedFiles.set(file, blocks)
       }

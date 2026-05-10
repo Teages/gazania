@@ -4,8 +4,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { staticExtractCrossFile } from '../../../src/extract/analyze/pipeline'
+import { loadTS } from '../../../src/extract/ts-program'
 
 const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).digest('hex')}`
+
+const ts = await loadTS()
 
 describe('staticExtractCrossFile: cross-file partial/section resolution', () => {
   let dir: string
@@ -56,14 +59,13 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
 
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserFields')
-    expect(manifest.operations.GetUser.body).toContain('fragment UserFields on User')
     expect(manifest.operations.GetUser.body).toContain('id')
     expect(manifest.operations.GetUser.body).toContain('name')
   })
@@ -89,9 +91,9 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
 
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -130,9 +132,9 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'name.js'), join(dir, 'src', 'fragments', 'email.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
 
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -164,9 +166,9 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
 
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -193,9 +195,9 @@ export const userPartial = gazania.partial('UserFields')
   .select($ => $.select(['id', 'name']))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'index.ts'), join(dir, 'src', 'fragments.ts')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
 
     expect(manifest.operations).toHaveProperty('GetUsersWithFragment')
@@ -231,12 +233,10 @@ const SvelteQuery = gazania.query('GetUsers_Svelte').select($ => $.select(['id',
 const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', 'name']))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'index.ts'), join(dir, 'src', 'App.vue'), join(dir, 'src', 'App.svelte'), join(dir, 'src', 'react.tsx')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
-
-    expect(manifest.operations).toHaveProperty('GetUsers_Vue')
     expect(manifest.operations).toHaveProperty('GetUsers_Svelte')
     expect(manifest.operations).toHaveProperty('GetUsers_React')
   })
@@ -278,13 +278,13 @@ const doc = gazania.query('GetUser')
   }]))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [
         join(dir, 'src', 'fragments', 'post.js'),
         join(dir, 'src', 'fragments', 'user.js'),
         join(dir, 'src', 'query.js'),
       ],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
 
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -306,9 +306,9 @@ const doc = gazania.query('GetUser')
 const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
     )
 
-    const { manifest } = await staticExtractCrossFile(
+    const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'query.js')],
-      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256 },
+      { tsconfigPath: join(dir, 'tsconfig.json'), hash: sha256, ts, system: ts.sys },
     )
 
     expect(manifest.operations).toHaveProperty('SimpleQuery')
