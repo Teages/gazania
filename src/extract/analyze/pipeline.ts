@@ -186,7 +186,7 @@ export function staticExtractWithPartials(
 export function staticExtractCrossFile(
   files: string[],
   options: {
-    tsconfigPath: string
+    tsconfig: import('typescript').ParsedCommandLine
     hash: HashFn
     logger?: { debug: (...args: any[]) => void, warn: (...args: any[]) => void, error: (...args: any[]) => void }
     system: import('typescript').System
@@ -198,8 +198,8 @@ export function staticExtractCrossFile(
   skipped: SkippedExtraction[]
 } {
   const { hash, logger, system, createHost: createHostFn, ts } = options
-  const resolver = createModuleResolver(ts, options.tsconfigPath, system, createHostFn)
-  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfigPath, system, createHostFn)
+  const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn)
+  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn)
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()

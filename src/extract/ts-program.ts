@@ -1,5 +1,3 @@
-import { dirname, resolve } from 'node:path'
-
 /**
  * Minimal synchronous file-system interface for extract operations.
  * All methods are synchronous because TypeScript's compiler API is synchronous.
@@ -59,6 +57,34 @@ export async function loadTS(): Promise<typeof import('typescript')> {
 }
 
 /**
+ * Parse a tsconfig.json file into a ParsedCommandLine.
+ * Uses `ts.System.resolvePath` for path resolution and string operations
+ * for dirname extraction — no `node:path` dependency needed.
+ */
+export function parseTSConfig(
+  ts: typeof import('typescript'),
+  tsconfigPath: string,
+  system: import('typescript').System,
+): import('typescript').ParsedCommandLine {
+  const configPath = system.resolvePath(tsconfigPath)
+  const configFile = ts.readConfigFile(configPath, system.readFile)
+  if (configFile.error) {
+    const msg = ts.flattenDiagnosticMessageText(configFile.error.messageText, '\n')
+    throw new Error(`Failed to read tsconfig at "${configPath}": ${msg}`)
+  }
+  const dirPath = configPath.includes('/') ? configPath.substring(0, configPath.lastIndexOf('/')) : '.'
+  const parsed = ts.parseJsonConfigFileContent(configFile.config, system, dirPath)
+  if (parsed.errors.length > 0) {
+    const fatalErrors = parsed.errors.filter(e => e.code !== 18003)
+    if (fatalErrors.length > 0) {
+      const msg = ts.flattenDiagnosticMessageText(fatalErrors[0].messageText, '\n')
+      throw new Error(`Invalid tsconfig at "${configPath}": ${msg}`)
+    }
+  }
+  return parsed
+}
+
+/**
  * Adapt a user-provided ExtractFS into a ts.System.
  * FS methods (readFile, readDirectory, fileExists) come from user's fs.
  * Metadata methods (getCurrentDirectory, newLine, etc.) fallback to ts.sys.
@@ -98,36 +124,14 @@ export function createHostFromSystem(
 
 /**
  * Create a module resolver using TypeScript's module resolution algorithm.
- * Requires `typescript` to be pre-loaded and passed as the first argument.
+ * Accepts a pre-parsed `ParsedCommandLine` (from `parseTSConfig`).
  */
 export function createModuleResolver(
   ts: typeof import('typescript'),
-  tsconfigPath: string,
+  parsed: import('typescript').ParsedCommandLine,
   system: import('typescript').System,
   createHostFn?: CreateHostFn,
 ): ModuleResolver {
-  const configPath = resolve(tsconfigPath)
-  const configFile = ts.readConfigFile(configPath, system.readFile)
-
-  if (configFile.error) {
-    const msg = ts.flattenDiagnosticMessageText(configFile.error.messageText, '\n')
-    throw new Error(`Failed to read tsconfig at "${configPath}": ${msg}`)
-  }
-
-  const parsed = ts.parseJsonConfigFileContent(
-    configFile.config,
-    system,
-    dirname(configPath),
-  )
-
-  if (parsed.errors.length > 0) {
-    const fatalErrors = parsed.errors.filter(e => e.code !== 18003)
-    if (fatalErrors.length > 0) {
-      const msg = ts.flattenDiagnosticMessageText(fatalErrors[0].messageText, '\n')
-      throw new Error(`Invalid tsconfig at "${configPath}": ${msg}`)
-    }
-  }
-
   const host = createHostFn
     ? createHostFn(ts, system, parsed.options)
     : createHostFromSystem(ts, system, parsed.options)
@@ -146,34 +150,16 @@ export interface TypeCheckerProgram {
   host: import('typescript').CompilerHost
 }
 
+/**
+ * Create a TypeScript program with TypeChecker for builder name detection.
+ * Accepts a pre-parsed `ParsedCommandLine` (from `parseTSConfig`).
+ */
 export function createTypeCheckerProgram(
   ts: typeof import('typescript'),
-  tsconfigPath: string,
+  parsed: import('typescript').ParsedCommandLine,
   system: import('typescript').System,
   createHostFn?: CreateHostFn,
 ): TypeCheckerProgram {
-  const configPath = resolve(tsconfigPath)
-  const configFile = ts.readConfigFile(configPath, system.readFile)
-
-  if (configFile.error) {
-    const msg = ts.flattenDiagnosticMessageText(configFile.error.messageText, '\n')
-    throw new Error(`Failed to read tsconfig at "${configPath}": ${msg}`)
-  }
-
-  const parsed = ts.parseJsonConfigFileContent(
-    configFile.config,
-    system,
-    dirname(configPath),
-  )
-
-  if (parsed.errors.length > 0) {
-    const fatalErrors = parsed.errors.filter(e => e.code !== 18003)
-    if (fatalErrors.length > 0) {
-      const msg = ts.flattenDiagnosticMessageText(fatalErrors[0].messageText, '\n')
-      throw new Error(`Invalid tsconfig at "${configPath}": ${msg}`)
-    }
-  }
-
   const host = createHostFn
     ? createHostFn(ts, system, parsed.options)
     : createHostFromSystem(ts, system, parsed.options)
@@ -229,7 +215,8 @@ if (import.meta.vitest) {
       await writeFile(join(dir, 'src', 'fragments', 'user.ts'), `export const x = 1`)
       await writeFile(join(dir, 'src', 'index.ts'), `import { x } from './fragments/user'`)
 
-      const resolver = createModuleResolver(ts, join(dir, 'tsconfig.json'), ts.sys)
+      const parsed = parseTSConfig(ts, join(dir, 'tsconfig.json'), ts.sys)
+      const resolver = createModuleResolver(ts, parsed, ts.sys)
       const resolved = resolver.resolve('./fragments/user', join(dir, 'src', 'index.ts'))
 
       expect(resolved).toBe(join(dir, 'src', 'fragments', 'user.ts'))
@@ -247,7 +234,8 @@ if (import.meta.vitest) {
         include: ['src'],
       }))
 
-      const resolver = createModuleResolver(ts, join(dir, 'tsconfig.json'), ts.sys)
+      const parsed = parseTSConfig(ts, join(dir, 'tsconfig.json'), ts.sys)
+      const resolver = createModuleResolver(ts, parsed, ts.sys)
       const resolved = resolver.resolve('./nonexistent', join(dir, 'src', 'index.ts'))
 
       expect(resolved).toBeUndefined()
@@ -256,7 +244,7 @@ if (import.meta.vitest) {
     it('throws on invalid tsconfig path', async () => {
       const ts = await loadTS()
       expect(
-        () => createModuleResolver(ts, join(dir, 'nonexistent.json'), ts.sys),
+        () => parseTSConfig(ts, join(dir, 'nonexistent.json'), ts.sys),
       ).toThrow('Failed to read tsconfig')
     })
   })
@@ -264,7 +252,8 @@ if (import.meta.vitest) {
   describe('createTypeCheckerProgram', () => {
     it('returns program with TypeChecker', async () => {
       const ts = await loadTS()
-      const { program, checker } = createTypeCheckerProgram(ts, 'tsconfig.json', ts.sys)
+      const parsed = parseTSConfig(ts, 'tsconfig.json', ts.sys)
+      const { program, checker } = createTypeCheckerProgram(ts, parsed, ts.sys)
 
       expect(program).toBeDefined()
       expect(checker).toBeDefined()
@@ -273,7 +262,8 @@ if (import.meta.vitest) {
 
     it('has source files from the project', { timeout: 30_000 }, async () => {
       const ts = await loadTS()
-      const { program } = createTypeCheckerProgram(ts, 'tsconfig.node.json', ts.sys)
+      const parsed = parseTSConfig(ts, 'tsconfig.node.json', ts.sys)
+      const { program } = createTypeCheckerProgram(ts, parsed, ts.sys)
 
       expect(program.getSourceFiles().length).toBeGreaterThan(0)
     })
@@ -281,7 +271,7 @@ if (import.meta.vitest) {
     it('throws on invalid tsconfig path', async () => {
       const ts = await loadTS()
       expect(
-        () => createTypeCheckerProgram(ts, join(tmpdir(), 'nonexistent.json'), ts.sys),
+        () => parseTSConfig(ts, join(tmpdir(), 'nonexistent.json'), ts.sys),
       ).toThrow('Failed to read tsconfig')
     })
   })

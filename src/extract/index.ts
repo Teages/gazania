@@ -1,6 +1,4 @@
 import type { ExtractResult, HashFn, SkippedExtractionCategory } from './manifest'
-import { join } from 'node:path'
-import process from 'node:process'
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
 import { ExtractionError } from './manifest'
@@ -8,6 +6,7 @@ import { adaptToSystem, loadTS } from './ts-program'
 
 export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction } from './manifest'
 export type { CreateHostFn, ExtractFS } from './ts-program'
+export { parseTSConfig } from './ts-program'
 
 export interface ExtractLogger {
   debug: (...args: any[]) => void
@@ -16,23 +15,17 @@ export interface ExtractLogger {
 }
 
 export interface ExtractOptions {
-  /** Directory to scan for source files. */
+  /** Absolute path to directory to scan for source files. */
   dir: string
   /** Glob pattern for files to include. Defaults to `"**\/*.{ts,tsx,js,jsx,vue,svelte}"`. */
   include?: string
   /** Hash function for computing operation identifiers. */
   hash: HashFn
-  /** Working directory used to resolve `dir`. Defaults to `process.cwd()`. */
-  cwd?: string
   /**
-   * Path to tsconfig.json for cross-file partial/section resolution.
-   * TypeScript module resolution is used to trace imports of partials and
-   * sections across files, enabling extraction of operations that reference
-   * partials defined in other files.
-   *
-   * Requires `typescript` to be installed as a dev dependency.
+   * Parsed TypeScript configuration for cross-file partial/section resolution.
+   * Use `parseTSConfig()` to create this from a tsconfig.json path.
    */
-  tsconfig: string
+  tsconfig: import('typescript').ParsedCommandLine
   /**
    * Categories of skipped extractions to ignore (suppress from throwing).
    * By default, any skipped extraction causes extract() to throw ExtractionError.
@@ -67,9 +60,11 @@ export interface ExtractOptions {
  *
  * @example
  * ```ts
- * import { extract } from 'gazania/extract'
+ * import { extract, parseTSConfig } from 'gazania/extract'
+ * import ts from 'typescript'
  *
- * const { manifest } = await extract({ dir: 'src', tsconfig: 'tsconfig.json' })
+ * const parsed = parseTSConfig(ts, 'tsconfig.json', ts.sys)
+ * const { manifest } = await extract({ dir: '/project/src', tsconfig: parsed, hash })
  * ```
  */
 export async function extract(options: ExtractOptions): Promise<ExtractResult> {
@@ -77,7 +72,6 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     dir,
     include = '**/*.{ts,tsx,js,jsx,vue,svelte}',
     hash,
-    cwd = process.cwd(),
     tsconfig,
     ignoreCategories = [],
     logger,
@@ -86,16 +80,15 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   } = options
 
   if (!tsconfig) {
-    throw new Error('tsconfig is required for extraction. Provide it via extract({ tsconfig: "tsconfig.json" }) or CLI flag --tsconfig.')
+    throw new Error('tsconfig is required for extraction. Provide it via extract({ tsconfig: parsed }) or CLI flag --tsconfig.')
   }
 
   const ts = await loadTS()
   const system = fs ? adaptToSystem(fs, ts) : ts.sys
-  const scanDir = join(cwd, dir)
-  const files = findFiles(scanDir, include, system)
+  const files = findFiles(dir, include, system)
 
   const result = staticExtractCrossFile(files, {
-    tsconfigPath: join(cwd, tsconfig),
+    tsconfig,
     hash,
     logger,
     system,

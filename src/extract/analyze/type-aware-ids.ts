@@ -113,7 +113,7 @@ if (import.meta.vitest) {
 
   describe('type-aware-ids', async () => {
     const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
-    const { createTypeCheckerProgram, loadTS } = await import('../ts-program')
+    const { createTypeCheckerProgram, loadTS, parseTSConfig } = await import('../ts-program')
     const { mkdir, rm, writeFile } = await import('node:fs/promises')
     const { randomUUID } = await import('node:crypto')
     const { tmpdir } = await import('node:os')
@@ -141,7 +141,8 @@ if (import.meta.vitest) {
       }))
 
       const tsInstance = await loadTS()
-      const { program, checker } = createTypeCheckerProgram(tsInstance, join(dir, 'tsconfig.json'), tsInstance.sys)
+      const parsed = parseTSConfig(tsInstance, join(dir, 'tsconfig.json'), tsInstance.sys)
+      const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, tsInstance.sys)
       const sourceFile = program.getSourceFile(join(dir, 'test.ts'))!
       return { program, checker, sourceFile }
     }
@@ -252,7 +253,8 @@ if (import.meta.vitest) {
         }))
 
         const tsInstance = await loadTS()
-        const { program, checker } = createTypeCheckerProgram(tsInstance, join(dir, 'tsconfig.json'), tsInstance.sys)
+        const parsed = parseTSConfig(tsInstance, join(dir, 'tsconfig.json'), tsInstance.sys)
+        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, tsInstance.sys)
         const sourceFile = program.getSourceFile(join(dir, 'test.ts'))!
         const result = collectBuilderNamesByType(ts, program, checker, sourceFile)
         expect(result.builderNames).toEqual(['gazania'])
@@ -262,7 +264,8 @@ if (import.meta.vitest) {
     describe('collectBuilderNamesForFile', () => {
       it('returns empty for missing file', { timeout: 30_000 }, async () => {
         const tsInstance = await loadTS()
-        const { program, checker } = createTypeCheckerProgram(tsInstance, 'tsconfig.node.json', tsInstance.sys)
+        const parsed = parseTSConfig(tsInstance, 'tsconfig.node.json', tsInstance.sys)
+        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, tsInstance.sys)
         const result = collectBuilderNamesForFile(ts, program, checker, '/nonexistent/file.ts')
         expect(result.builderNames).toEqual([])
         expect(result.namespace).toBeUndefined()
