@@ -1,10 +1,8 @@
 import type { BuildConfig } from 'obuild/config'
-import { readFileSync } from 'node:fs'
 import { defineBuildConfig } from 'obuild/config'
+import { version } from './package.json' with { type: 'json' }
 
 type RolldownConfig = (Exclude<NonNullable<BuildConfig['entries']>[number], string> & { type: 'bundle' })['rolldown']
-
-const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 const rolldownConfig = {
   transform: {

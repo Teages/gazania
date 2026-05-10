@@ -9,5 +9,5 @@
     "skipLibCheck": true
   },
   "include": ["src"],
-  "exclude": ["src/cli", "src/codegen"]
+  "exclude": ["src/cli"]
 }
