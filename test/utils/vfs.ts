@@ -5,6 +5,18 @@
  * so it is dead-code eliminated from production bundles.
  */
 
+function globBase(pattern: string): string {
+  return pattern.replace(/\/?\*\*.*$/, '').replace(/\/?\*$/, '')
+}
+
+function matchesPattern(filePath: string, pattern: string): boolean {
+  const base = globBase(pattern)
+  if (!base) {
+    return true
+  }
+  return filePath === base || filePath.startsWith(`${base}/`)
+}
+
 /**
  * Create a virtual filesystem backed by an in-memory file map.
  *
@@ -29,16 +41,41 @@ export function createVFS(files: Record<string, string>) {
     readDirectory: (
       path: string,
       extensions?: readonly string[],
-      _excludes?: readonly string[] | undefined,
-      _includes?: readonly string[] | undefined,
-      _depth?: number,
+      excludes?: readonly string[] | undefined,
+      includes?: readonly string[] | undefined,
+      depth?: number,
     ): string[] => {
       const prefix = path.endsWith('/') ? path : `${path}/`
       return [...fileMap.keys()].filter((f) => {
         if (!f.startsWith(prefix)) {
           return false
         }
-        if (extensions && extensions.length > 0) {
+
+        const relative = f.substring(prefix.length)
+
+        if (depth !== undefined && depth >= 0) {
+          const segments = relative.split('/').length - 1
+          if (segments > depth) {
+            return false
+          }
+        }
+
+        if (excludes?.length) {
+          for (const pattern of excludes) {
+            if (matchesPattern(f, pattern)) {
+              return false
+            }
+          }
+        }
+
+        if (includes?.length) {
+          const included = includes.some(pattern => matchesPattern(f, pattern))
+          if (!included) {
+            return false
+          }
+        }
+
+        if (extensions?.length) {
           return extensions.some(ext => f.endsWith(ext))
         }
         return true
