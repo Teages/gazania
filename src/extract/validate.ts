@@ -6,12 +6,14 @@ import { Kind } from '../lib/graphql'
 
 export interface ValidationError {
   name: string
+  file: string
   line: number
   message: string
 }
 
 export interface ValidationWarning {
   name: string
+  file: string
   line: number
   message: string
 }
@@ -80,7 +82,6 @@ export function validateManifest(
 ): { errors: ValidationError[], warnings: ValidationWarning[] } {
   const errors: ValidationError[] = []
   const warnings: ValidationWarning[] = []
-  const seenWarnings = new Set<string>()
 
   for (const [opName, entry] of Object.entries(manifest.operations)) {
     const opDoc = parse(entry.body) as DocumentNode
@@ -109,6 +110,7 @@ export function validateManifest(
     for (const err of ruleErrors) {
       errors.push({
         name: opName,
+        file: opName,
         line: entry.loc.start.line,
         message: err.message,
       })
@@ -116,12 +118,9 @@ export function validateManifest(
 
     const depWarnings = validate(schema, mergedDoc, [NoDeprecatedCustomRule])
     for (const warn of depWarnings) {
-      if (seenWarnings.has(warn.message)) {
-        continue
-      }
-      seenWarnings.add(warn.message)
       warnings.push({
         name: opName,
+        file: opName,
         line: entry.loc.start.line,
         message: warn.message,
       })
@@ -328,19 +327,6 @@ if (import.meta.vitest) {
       const result = validateManifest(manifest, baseSchema)
       expect(result.errors).toEqual([])
       expect(result.warnings).toEqual([])
-    })
-
-    it('deduplicates identical deprecation warnings across operations', () => {
-      const depSchema = buildSchema(`
-        type Query { id: ID, oldField: String @deprecated(reason: "use id") }
-      `)
-      const manifest = makeManifest({
-        Op1: `{ id oldField }`,
-        Op2: `{ id oldField }`,
-      })
-      const result = validateManifest(manifest, depSchema)
-      expect(result.warnings.length).toBe(1)
-      expect(result.warnings[0].message).toContain('deprecated')
     })
   })
 }
