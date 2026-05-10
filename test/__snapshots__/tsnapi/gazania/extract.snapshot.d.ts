@@ -41,6 +41,19 @@ export interface SkippedExtraction {
   reason: string;
   category: SkippedExtractionCategory;
 }
+export interface SourceLoc {
+  file: string;
+  start: SourceLocation;
+  end: SourceLocation;
+}
+export interface ValidationError {
+  loc: SourceLoc;
+  message: string;
+}
+export interface ValidationWarning {
+  loc: SourceLoc;
+  message: string;
+}
 // #endregion
 
 // #region Types
@@ -51,4 +64,8 @@ export type HashFn = (_: string) => string;
 // #region Functions
 export declare function extract(_: ExtractOptions): Promise<ExtractResult>;
 export declare function parseTSConfig(_: typeof _$typescript, _: string, _: _$typescript.System): _$typescript.ParsedCommandLine;
+export declare function validateManifest(_: ExtractManifest, _: GraphQLSchema): {
+  errors: ValidationError[];
+  warnings: ValidationWarning[];
+};
 // #endregion

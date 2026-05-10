@@ -4,4 +4,5 @@
 // #region Other
 export { extract }
 export { parseTSConfig }
+export { validateManifest }
 // #endregion
