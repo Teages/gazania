@@ -35,7 +35,9 @@ export function createVFS(files: Record<string, string>) {
     ): string[] => {
       const prefix = path.endsWith('/') ? path : `${path}/`
       return [...fileMap.keys()].filter((f) => {
-        if (!f.startsWith(prefix)) return false
+        if (!f.startsWith(prefix)) {
+          return false
+        }
         if (extensions && extensions.length > 0) {
           return extensions.some(ext => f.endsWith(ext))
         }
@@ -47,10 +49,14 @@ export function createVFS(files: Record<string, string>) {
       const prefix = dir.endsWith('/') ? dir : `${dir}/`
       const result = new Set<string>()
       for (const d of dirSet) {
-        if (!d.startsWith(prefix)) continue
+        if (!d.startsWith(prefix)) {
+          continue
+        }
         const rest = d.substring(prefix.length)
         const firstPart = rest.split('/')[0]
-        if (firstPart) result.add(firstPart)
+        if (firstPart) {
+          result.add(firstPart)
+        }
       }
       return [...result]
     },
