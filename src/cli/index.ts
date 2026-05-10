@@ -49,6 +49,8 @@ Options:
   --ignore-circular      Ignore circular fragment reference errors
   --ignore-all           Ignore all extraction errors
   --no-emit              Suppress manifest output (useful for validation)
+  -s, --schema <path>    Schema file path, URL, or SDL string for query validation
+  --strict               Treat validation warnings (deprecated fields) as errors
   -h, --help             Show help
 `
 
@@ -110,6 +112,8 @@ else if (command === 'extract') {
       'ignore-circular': { type: 'boolean' },
       'ignore-all': { type: 'boolean' },
       'no-emit': { type: 'boolean' },
+      'schema': { type: 'string', short: 's' },
+      'strict': { type: 'boolean' },
       'help': { type: 'boolean', short: 'h' },
     },
     strict: true,
@@ -142,6 +146,8 @@ else if (command === 'extract') {
       cwd: getCwd(),
       tsconfig: values.tsconfig,
       ignoreCategories,
+      schema: values.schema,
+      strict: values.strict ?? false,
     })
   }
   catch (err) {

@@ -3,9 +3,12 @@ import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import { env, stderr, stdout } from 'node:process'
+import { buildASTSchema, parse } from 'graphql'
 import { extract } from '../extract'
 import { ExtractionError } from '../extract/manifest'
 import { loadTS, parseTSConfig } from '../extract/ts-program'
+import { validateManifest } from '../extract/validate'
+import { resolveSchema } from './loader'
 
 export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction } from '../extract'
 
@@ -19,6 +22,8 @@ export interface ExtractCommandOptions {
   cwd: string
   tsconfig?: string
   ignoreCategories?: SkippedExtractionCategory[]
+  schema?: string
+  strict?: boolean
 }
 
 /**
@@ -26,7 +31,7 @@ export interface ExtractCommandOptions {
  * Delegates to the core `extract()` function and writes the manifest to disk.
  */
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, noEmit, include, algorithm, silent, cwd, tsconfig, ignoreCategories } = options
+  const { dir, output, noEmit, include, algorithm, silent, cwd, tsconfig, ignoreCategories, schema, strict } = options
   const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
   const warn = (msg: string) => stderr.write(`${msg}\n`)
 
@@ -73,6 +78,27 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
       throw err
     }
     throw err
+  }
+
+  if (schema) {
+    const sdl = await resolveSchema(schema)
+    const gqlSchema = buildASTSchema(parse(sdl))
+    const { errors, warnings } = validateManifest(manifest, gqlSchema)
+
+    for (const w of warnings) {
+      warn(`⚠ ${w.name}:${w.line} ${w.message}`)
+    }
+
+    if (errors.length > 0) {
+      for (const e of errors) {
+        warn(`✗ ${e.name}:${e.line} ${e.message}`)
+      }
+      throw new Error(`GraphQL validation failed with ${errors.length} error(s)`)
+    }
+
+    if (strict && warnings.length > 0) {
+      throw new Error(`GraphQL validation failed with ${warnings.length} warning(s) in strict mode`)
+    }
   }
 
   const totalFound
@@ -355,6 +381,226 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
 
       const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
       expect(stderrCalls.some((msg: string) => msg.includes('compile-time constants'))).toBe(true)
+    })
+
+    describe('--schema validation', () => {
+      it('--schema with valid query → resolves without error', async () => {
+        mockStderr.mockClear()
+
+        await writeFileTest(join(dir, 'schema.graphql'), `
+          type Query {
+            id: ID
+            name: String
+          }
+        `)
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id', 'name']))`,
+        )
+
+        await expect(runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          schema: join(dir, 'schema.graphql'),
+          strict: false,
+        })).resolves.toBeUndefined()
+
+        const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+        expect(stderrCalls.some((msg: string) => msg.includes('✗'))).toBe(false)
+      })
+
+      it('--schema with invalid field → throws with error on stderr', async () => {
+        mockStderr.mockClear()
+
+        await writeFileTest(join(dir, 'schema.graphql'), `
+          type Query {
+            id: ID
+          }
+        `)
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id', 'name']))`,
+        )
+
+        await expect(runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          schema: join(dir, 'schema.graphql'),
+          strict: false,
+        })).rejects.toThrow()
+
+        const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+        expect(stderrCalls.some((msg: string) => msg.includes('✗'))).toBe(true)
+      })
+
+      it('--schema with deprecated field (no --strict) → warns but does not throw', async () => {
+        mockStderr.mockClear()
+
+        await writeFileTest(join(dir, 'schema.graphql'), `
+          type Query {
+            id: ID
+            oldField: String @deprecated(reason: "use id")
+          }
+        `)
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('DepQuery').select($ => $.select(['id', 'oldField']))`,
+        )
+
+        await expect(runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          schema: join(dir, 'schema.graphql'),
+          strict: false,
+        })).resolves.toBeUndefined()
+
+        const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+        expect(stderrCalls.some((msg: string) => msg.includes('⚠'))).toBe(true)
+      })
+
+      it('--schema + --strict with deprecated field → throws', async () => {
+        mockStderr.mockClear()
+
+        await writeFileTest(join(dir, 'schema.graphql'), `
+          type Query {
+            id: ID
+            oldField: String @deprecated(reason: "use id")
+          }
+        `)
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('DepQuery').select($ => $.select(['id', 'oldField']))`,
+        )
+
+        await expect(runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          schema: join(dir, 'schema.graphql'),
+          strict: true,
+        })).rejects.toThrow()
+      })
+
+      it('--schema with non-existent file → throws', async () => {
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id']))`,
+        )
+
+        await expect(runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          schema: join(dir, 'nonexistent.graphql'),
+          strict: false,
+        })).rejects.toThrow()
+      })
+
+      it('--noEmit + --schema → no file written, validation runs', async () => {
+        const { existsSync } = await import('node:fs')
+
+        await writeFileTest(join(dir, 'schema.graphql'), `
+          type Query { id: ID }
+        `)
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id']))`,
+        )
+
+        await runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          schema: join(dir, 'schema.graphql'),
+          strict: false,
+        })
+
+        expect(existsSync(join(dir, 'manifest.json'))).toBe(false)
+      })
+
+      it('--schema without --noEmit → manifest written AND validation runs', async () => {
+        const { existsSync } = await import('node:fs')
+
+        await writeFileTest(join(dir, 'schema.graphql'), `
+          type Query { id: ID }
+        `)
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id']))`,
+        )
+
+        await runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: false,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          schema: join(dir, 'schema.graphql'),
+          strict: false,
+        })
+
+        expect(existsSync(join(dir, 'manifest.json'))).toBe(true)
+      })
+
+      it('no --schema → existing behavior unchanged, no validation output', async () => {
+        mockStderr.mockClear()
+
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id']))`,
+        )
+
+        await runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+        })
+
+        const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
+        expect(stderrCalls.some((msg: string) => msg.includes('✗'))).toBe(false)
+        expect(stderrCalls.some((msg: string) => msg.includes('validation'))).toBe(false)
+      })
     })
   })
 }
