@@ -1,6 +1,6 @@
 import type { ExtractResult, HashFn, SkippedExtractionCategory } from './manifest'
 import { join } from 'node:path'
-import { cwd as getCwd } from 'node:process'
+import process from 'node:process'
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
 import { ExtractionError } from './manifest'
@@ -58,7 +58,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     dir,
     include = '**/*.{ts,tsx,js,jsx,vue,svelte}',
     hash,
-    cwd = getCwd(),
+    cwd = process.cwd(),
     tsconfig,
     ignoreCategories = [],
     logger,
@@ -69,7 +69,8 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   }
 
   const scanDir = join(cwd, dir)
-  const files = await findFiles(scanDir, include)
+  const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
+  const files = findFiles(scanDir, include, ts.sys)
 
   const result = await staticExtractCrossFile(files, { tsconfigPath: join(cwd, tsconfig), hash, logger })
 

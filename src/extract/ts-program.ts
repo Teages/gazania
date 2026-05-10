@@ -63,6 +63,7 @@ export async function createModuleResolver(tsconfigPath: string): Promise<Module
 export interface TypeCheckerProgram {
   program: import('typescript').Program
   checker: import('typescript').TypeChecker
+  host: import('typescript').CompilerHost
 }
 
 export async function createTypeCheckerProgram(tsconfigPath: string): Promise<TypeCheckerProgram> {
@@ -72,10 +73,7 @@ export async function createTypeCheckerProgram(tsconfigPath: string): Promise<Ty
     ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
   }
   catch {
-    throw new Error(
-      'TypeScript is required for cross-file extraction (--tsconfig). '
-      + 'Install it with: npm install -D typescript',
-    )
+    throw new Error('TypeScript is required for extraction. ')
   }
 
   const configPath = resolve(tsconfigPath)
@@ -110,6 +108,7 @@ export async function createTypeCheckerProgram(tsconfigPath: string): Promise<Ty
   return {
     program,
     checker: program.getTypeChecker(),
+    host,
   }
 }
 

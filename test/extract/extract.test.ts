@@ -106,7 +106,9 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
       join(dir, 'src', 'query.js'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('TestQuery').select($ => $.select(['id']))`,
     )
-    const brokenHash = () => { throw new Error('hash failed') }
+    const brokenHash = () => {
+      throw new Error('hash failed')
+    }
     await expect(extract({ dir: 'src', hash: brokenHash, cwd: dir, tsconfig: 'tsconfig.json' }))
       .rejects
       .toThrow('hash failed')

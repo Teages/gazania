@@ -191,13 +191,13 @@ export async function staticExtractCrossFile(
 }> {
   const { hash, logger } = options
   const resolver = await createModuleResolver(options.tsconfigPath)
-  const { program, checker } = await createTypeCheckerProgram(options.tsconfigPath)
+  const { program, checker, host } = await createTypeCheckerProgram(options.tsconfigPath)
   const ts = await import('typescript').then(m => ('default' in m ? m.default : m) as typeof import('typescript'))
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
   for (const file of files) {
-    const blocks = await parseFile(file, { logger })
+    const blocks = parseFile(file, { logger }, host)
     if (blocks) {
       parsedFiles.set(file, blocks)
     }
@@ -215,7 +215,7 @@ export async function staticExtractCrossFile(
     }
     const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
-      const blocks = await parseFile(file, { skipFilter: true, logger })
+      const blocks = parseFile(file, { skipFilter: true, logger }, host)
       if (blocks) {
         parsedFiles.set(file, blocks)
       }

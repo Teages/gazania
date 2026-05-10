@@ -1,8 +1,7 @@
 import type { Program } from 'estree'
-import { readdir, readFile } from 'node:fs/promises'
-import { basename, join } from 'node:path'
 import { parseSync } from 'oxc-parser'
 import { transformSync } from 'oxc-transform'
+import { getScriptBlocks } from './preprocess'
 
 export interface ParsedBlock {
   code: string
@@ -17,19 +16,26 @@ export interface ParseFileOptions {
 }
 
 /**
+ * Minimal file-system host abstraction.
+ * Satisfied by `ts.CompilerHost`, `ts.sys`, or any custom implementation.
+ */
+export interface FileHost {
+  readFile: (fileName: string) => string | undefined
+  readDirectory?: (rootDir: string, extensions: readonly string[], excludes: readonly string[] | undefined, includes: readonly string[], depth?: number) => string[]
+}
+
+/**
  * Parse a file into one or more code blocks with their ASTs.
  * Handles Vue/Svelte SFCs and TypeScript stripping.
  *
  * Returns `null` if the file does not contain a `.select(` call or no blocks parse.
  */
-export async function parseFile(filePath: string, options?: ParseFileOptions): Promise<ParsedBlock[] | null> {
-  const rawCode = await readFile(filePath, 'utf-8')
+export function parseFile(filePath: string, options?: ParseFileOptions, host?: FileHost): ParsedBlock[] | null {
+  const rawCode = host?.readFile(filePath) ?? ''
 
   if (!options?.skipFilter && !rawCode.includes('.select(')) {
     return null
   }
-
-  const { getScriptBlocks } = await import('./preprocess')
 
   const scriptBlocks = getScriptBlocks(rawCode, filePath)
   const blocks: ParsedBlock[] = []
@@ -44,7 +50,7 @@ export async function parseFile(filePath: string, options?: ParseFileOptions): P
 
     try {
       if (filePath.endsWith('.ts') || filePath.endsWith('.tsx') || isSFC) {
-        const tsBasename = isSFC ? 'block.ts' : basename(filePath)
+        const tsBasename = isSFC ? 'block.ts' : filePath.replace(/^.*[/\\]/, '')
         const transformed = transformSync(tsBasename, code)
         if (transformed.errors.length > 0) {
           debugLog(filePath, lineOffset, 'transform failed', options)
@@ -75,11 +81,12 @@ function debugLog(filePath: string, line: number, reason: string, options?: Pars
   options?.logger?.debug(`[gazania:extract] ${filePath}:${line} ${reason}`)
 }
 
-export async function findFiles(dir: string, pattern: string): Promise<string[]> {
+export function findFiles(dir: string, pattern: string, host: FileHost): string[] {
+  if (!host.readDirectory) {
+    throw new Error('FileHost.readDirectory is required for findFiles')
+  }
   const extensions = parseExtensions(pattern)
-  const results: string[] = []
-  await walkDir(dir, extensions, results)
-  return results
+  return host.readDirectory(dir, Array.from(extensions), ['node_modules', '.git'], [] as readonly string[])
 }
 
 export function staticOffsetToLine(code: string, offset: number): number {
@@ -101,30 +108,4 @@ function parseExtensions(pattern: string): Set<string> {
   }
   const exts = match[1]!.split(',').map(e => `.${e.trim()}`)
   return new Set(exts)
-}
-
-async function walkDir(dir: string, extensions: Set<string>, results: string[]): Promise<void> {
-  let entries
-  try {
-    entries = await readdir(dir, { withFileTypes: true })
-  }
-  catch {
-    return
-  }
-
-  for (const entry of entries) {
-    const fullPath = join(dir, entry.name)
-    if (entry.isDirectory()) {
-      if (entry.name === 'node_modules' || entry.name === '.git') {
-        continue
-      }
-      await walkDir(fullPath, extensions, results)
-    }
-    else if (entry.isFile()) {
-      const ext = entry.name.slice(entry.name.lastIndexOf('.'))
-      if (extensions.has(ext)) {
-        results.push(fullPath)
-      }
-    }
-  }
 }
