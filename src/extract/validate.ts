@@ -110,7 +110,7 @@ export function validateManifest(
     for (const err of ruleErrors) {
       errors.push({
         name: opName,
-        file: opName,
+        file: entry.loc.file,
         line: entry.loc.start.line,
         message: err.message,
       })
@@ -120,7 +120,7 @@ export function validateManifest(
     for (const warn of depWarnings) {
       warnings.push({
         name: opName,
-        file: opName,
+        file: entry.loc.file,
         line: entry.loc.start.line,
         message: warn.message,
       })
@@ -137,7 +137,7 @@ if (import.meta.vitest) {
     const { buildSchema } = await import('graphql')
 
     function makeLoc() {
-      return { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } }
+      return { file: 'test.ts', start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } }
     }
 
     function makeManifest(

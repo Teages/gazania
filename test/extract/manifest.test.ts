@@ -8,6 +8,7 @@ const sha256 = (body: string) => `sha256:${createHash('sha256').update(body).dig
 
 function makeLoc(line: number, column: number) {
   return {
+    file: 'test.ts',
     start: { line, column, offset: 0 },
     end: { line, column: column + 10, offset: 100 },
   }
