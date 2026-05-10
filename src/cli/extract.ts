@@ -39,6 +39,10 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
     throw new Error('--tsconfig is required. Usage: gazania extract --dir src --tsconfig tsconfig.json')
   }
 
+  if (strict && !schema) {
+    throw new Error('--strict requires --schema')
+  }
+
   const scanDir = join(cwd, dir)
   log(`Scanning ${relative(cwd, scanDir) || '.'}...`)
 
@@ -85,15 +89,18 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
     const gqlSchema = buildASTSchema(parse(sdl))
     const { errors, warnings } = validateManifest(manifest, gqlSchema)
 
-    for (const w of warnings) {
-      warn(`⚠ ${w.name}:${w.line} ${w.message}`)
-    }
-
     if (errors.length > 0) {
       for (const e of errors) {
         warn(`✗ ${e.name}:${e.line} ${e.message}`)
       }
+      for (const w of warnings) {
+        warn(`⚠ ${w.name}:${w.line} ${w.message}`)
+      }
       throw new Error(`GraphQL validation failed with ${errors.length} error(s)`)
+    }
+
+    for (const w of warnings) {
+      warn(`⚠ ${w.name}:${w.line} ${w.message}`)
     }
 
     if (strict && warnings.length > 0) {
@@ -600,6 +607,25 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
         const stderrCalls = mockStderr.mock.calls.map(c => c[0] as string)
         expect(stderrCalls.some((msg: string) => msg.includes('✗'))).toBe(false)
         expect(stderrCalls.some((msg: string) => msg.includes('validation'))).toBe(false)
+      })
+
+      it('--strict without --schema → throws', async () => {
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id']))`,
+        )
+
+        await expect(runExtract({
+          dir: 'src',
+          output: 'manifest.json',
+          noEmit: true,
+          include: '**/*.{ts,tsx,js,jsx}',
+          algorithm: 'sha256',
+          silent: true,
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+          strict: true,
+        })).rejects.toThrow('--strict requires --schema')
       })
     })
   })
