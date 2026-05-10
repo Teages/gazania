@@ -30,7 +30,7 @@ export interface UrlSource {
 // #endregion
 
 // #region Types
-export type GetterSource = () => string | Promise<string>;
+export type GetterSource = () => string | GraphQLSchema | Promise<string | GraphQLSchema>;
 export type SchemaLoader = string | UrlSource | SdlSource | JsonSource | GetterSource;
 export type SchemaSource = string | GraphQLSchema;
 export type UserConfig = Config | Config[];
