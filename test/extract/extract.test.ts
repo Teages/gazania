@@ -784,6 +784,89 @@ const doc = gazania.query('LineQuery').select($ => $.select(['id']))`,
     expect(entry).toBeDefined()
     expect(entry!.loc.start.line).toBeGreaterThanOrEqual(3)
   })
+
+  it('loc has exact line/column for a .ts file (SourceFile reuse path)', async () => {
+    // Line 1: import
+    // Line 2: const query = gazania.query('ExactLoc').select(...)
+    await writeFile(
+      join(dir, 'src', 'query.ts'),
+      `import { gazania } from 'gazania'
+const doc = gazania.query('ExactLoc').select($ => $.select(['id']))`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.ExactLoc
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(2)
+    expect(entry!.loc.start.column).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.end.line).toBe(2)
+    expect(entry!.loc.end.offset).toBeGreaterThan(entry!.loc.start.offset)
+    expect(entry!.loc.file).toContain('query.ts')
+  })
+
+  it('loc has exact line/column for a .vue SFC file (with lineOffset)', async () => {
+    // Line 1: <template><div/></template>
+    // Line 2: <script>
+    // Line 3:   (leading \n stripped → folded into lineOffset=2)
+    // Line 3 (effective): import { gazania } from 'gazania'
+    // Line 4 (effective): const doc = gazania.query('VueLoc').select(...)
+    await writeFile(
+      join(dir, 'src', 'Comp.vue'),
+      `<template><div/></template>
+<script>
+import { gazania } from 'gazania'
+const doc = gazania.query('VueLoc').select($ => $.select(['id']))
+</script>`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), include: '**/*.{vue}', hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.VueLoc
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(4)
+    expect(entry!.loc.start.column).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.end.line).toBe(4)
+    expect(entry!.loc.file).toContain('Comp.vue')
+  })
+
+  it('loc has exact line/column for a .svelte file (with lineOffset)', async () => {
+    // Line 1: <script>
+    // Line 2: import { gazania } from 'gazania'
+    // Line 3: const doc = gazania.query('SvelteLoc').select(...)
+    // Line 4: </script>
+    await writeFile(
+      join(dir, 'src', 'App.svelte'),
+      `<script>
+import { gazania } from 'gazania'
+const doc = gazania.query('SvelteLoc').select($ => $.select(['id']))
+</script>
+<main />`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), include: '**/*.{svelte}', hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.SvelteLoc
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(3)
+    expect(entry!.loc.start.column).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.end.line).toBe(3)
+    expect(entry!.loc.file).toContain('App.svelte')
+  })
+
+  it('loc end is after start for a multi-line chained call', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.ts'),
+      `import { gazania } from 'gazania'
+const doc = gazania
+  .query('MultiLine')
+  .select($ => $.select(['id']))`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.MultiLine
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(2)
+    expect(entry!.loc.end.line).toBe(4)
+    expect(entry!.loc.end.offset).toBeGreaterThan(entry!.loc.start.offset)
+  })
 })
 
 describe('typescript-estree parsing', () => {
