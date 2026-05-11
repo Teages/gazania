@@ -263,8 +263,8 @@ export function analyzeBuilderChain(
     selectCallback,
     callbackParams,
     loc: {
-      start: (node as any).start ?? 0,
-      end: (node as any).end ?? 0,
+      start: node.range?.[0] ?? 0,
+      end: node.range?.[1] ?? 0,
     },
   }
 }
@@ -273,8 +273,8 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   async function parseCode(code: string) {
-    const { parseSync } = await import('oxc-parser')
-    return parseSync('test.js', code).program as any
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    return parse(code, { range: true }) as any
   }
 
   async function getExpression(code: string) {

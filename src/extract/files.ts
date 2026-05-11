@@ -1,7 +1,6 @@
 import type { Program } from 'estree'
 import type { ExtractFS } from './ts-program'
-import { parseSync } from 'oxc-parser'
-import { transformSync } from 'oxc-transform'
+import { parse } from '@typescript-eslint/typescript-estree'
 import { getScriptBlocks } from './preprocess'
 
 export interface ParsedBlock {
@@ -36,31 +35,23 @@ export function parseFile(filePath: string, options?: ParseFileOptions, host?: E
       continue
     }
 
-    let evalCode = code
     const isSFC = filePath.endsWith('.vue') || filePath.endsWith('.svelte')
+    const isJSX = filePath.endsWith('.jsx') || filePath.endsWith('.tsx')
 
     try {
-      if (filePath.endsWith('.ts') || filePath.endsWith('.tsx') || isSFC) {
-        const tsBasename = isSFC ? 'block.ts' : filePath.replace(/^.*[/\\]/, '')
-        const transformed = transformSync(tsBasename, code)
-        if (transformed.errors.length > 0) {
-          debugLog(filePath, lineOffset, 'transform failed', options)
-          continue
-        }
-        evalCode = transformed.code
-      }
+      // Determine a filename hint for language detection.
+      // SFC script blocks use .ts; other files keep their original extension.
+      const parseFilename = isSFC ? 'block.ts' : filePath.replace(/^.*[/\\]/, '')
+      const ast = parse(code, {
+        range: true,
+        filePath: parseFilename,
+        jsx: isJSX,
+      })
 
-      const parseFilename = (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) ? 'eval.jsx' : 'eval.js'
-      const parseResult = parseSync(parseFilename, evalCode)
-      if (parseResult.errors.length > 0) {
-        debugLog(filePath, lineOffset, 'parse failed', options)
-        continue
-      }
-
-      blocks.push({ code: evalCode, ast: parseResult.program as unknown as Program, lineOffset })
+      blocks.push({ code, ast: ast as unknown as Program, lineOffset })
     }
     catch {
-      debugLog(filePath, lineOffset, 'unexpected parse exception', options)
+      debugLog(filePath, lineOffset, 'parse failed', options)
       continue
     }
   }

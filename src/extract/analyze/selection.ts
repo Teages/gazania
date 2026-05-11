@@ -91,7 +91,7 @@ function interpretSelectionArray(
           partialRefs.push({
             localName: calleeName,
             args: arg.arguments[0] ?? { type: 'ObjectExpression', properties: [] },
-            loc: { start: arg.start, end: arg.end },
+            loc: { start: arg.range?.[0] ?? 0, end: arg.range?.[1] ?? 0 },
           })
         }
       }
@@ -416,15 +416,15 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   async function parseExpr(code: string): Promise<any> {
-    const { parseSync } = await import('oxc-parser')
-    const ast = parseSync('test.js', `(${code})`).program as any
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`(${code})`, { range: true }) as any
     const node = ast.body[0].expression
     return node.type === 'ParenthesizedExpression' ? node.expression : node
   }
 
   async function _parseStatement(code: string): Promise<any> {
-    const { parseSync } = await import('oxc-parser')
-    const ast = parseSync('test.ts', code).program as any
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(code, { range: true, filePath: 'test.ts' }) as any
     return ast.body[0]
   }
 

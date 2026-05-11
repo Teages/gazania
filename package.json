@@ -74,9 +74,8 @@
     }
   },
   "dependencies": {
-    "graphql": "^16.13.2",
-    "oxc-parser": "^0.126.0",
-    "oxc-transform": "^0.126.0"
+    "@typescript-eslint/typescript-estree": "^8.59.2",
+    "graphql": "^16.13.2"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.2.0",
