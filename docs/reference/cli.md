@@ -168,7 +168,7 @@ npx gazania extract --no-emit --tsconfig tsconfig.json
 **Validate queries against a schema:**
 
 ```sh
-npx gazania extract --schema schema.graphql --no-mit --tsconfig tsconfig.json
+npx gazania extract --schema schema.graphql --no-emit --tsconfig tsconfig.json
 ```
 
 **Strict validation (deprecated fields cause errors):**
