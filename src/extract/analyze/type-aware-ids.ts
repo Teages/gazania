@@ -4,12 +4,7 @@ function hasGazaniaMarker(
   checker: ts.TypeChecker,
   type: ts.Type,
 ): boolean {
-  const marker = checker.getPropertyOfType(type, '~isGazania')
-  if (!marker) {
-    return false
-  }
-  const markerType = checker.getTypeOfSymbol(marker)
-  return checker.isTypeAssignableTo(markerType, checker.getTrueType())
+  return !!checker.getPropertyOfType(type, '~isGazania')
 }
 
 /**
