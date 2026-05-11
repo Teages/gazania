@@ -140,6 +140,7 @@ export function processFileStatic(
         const startPos = offsetToLineColumn(block.code, chain.loc.start)
         const endPos = offsetToLineColumn(block.code, chain.loc.end)
         const loc: SourceLoc = {
+          file,
           start: { line: startPos.line + block.lineOffset, column: startPos.column, offset: startPos.offset },
           end: { line: endPos.line + block.lineOffset, column: endPos.column, offset: endPos.offset },
         }

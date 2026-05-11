@@ -25,6 +25,7 @@ By default this scans `src/` and outputs the manifest to stdout. Use `--output <
       "body": "query FetchAnime($id: Int = 127549) {\n  Media(id: $id, type: ANIME) {\n    id\n    title {\n      romaji\n      english\n      native\n    }\n  }\n}",
       "hash": "sha256:a1b2c3d4...",
       "loc": {
+        "file": "/project/src/queries/anime.ts",
         "start": { "line": 10, "column": 1, "offset": 245 },
         "end": { "line": 15, "column": 2, "offset": 412 }
       }
@@ -33,6 +34,7 @@ By default this scans `src/` and outputs the manifest to stdout. Use `--output <
       "body": "mutation CreateUser($input: CreateUserInput!) { ... }",
       "hash": "sha256:e5f6a7b8...",
       "loc": {
+        "file": "/project/src/queries/create-user.ts",
         "start": { "line": 20, "column": 1, "offset": 600 },
         "end": { "line": 25, "column": 2, "offset": 820 }
       }
@@ -43,6 +45,7 @@ By default this scans `src/` and outputs the manifest to stdout. Use `--output <
       "body": "fragment UserFields on User {\n  id\n  name\n  email\n}",
       "hash": "sha256:c9d0e1f2...",
       "loc": {
+        "file": "/project/src/fragments/user.ts",
         "start": { "line": 3, "column": 14, "offset": 88 },
         "end": { "line": 3, "column": 52, "offset": 126 }
       }
@@ -51,7 +54,7 @@ By default this scans `src/` and outputs the manifest to stdout. Use `--output <
 }
 ```
 
-Each entry includes a `loc` field with `start` and `end` source positions. Each position contains `line` (1-based), `column` (1-based), and `offset` (0-based character offset from file start).
+Each entry includes a `loc` field with `file` (absolute source file path), `start` and `end` source positions. Each position contains `line` (1-based), `column` (1-based), and `offset` (0-based character offset from file start).
 
 Operations (queries, mutations, subscriptions) go into `operations`. Named fragments go into `fragments`.
 
@@ -94,6 +97,8 @@ Options:
   --ignore-analysis      Skip analysis failure errors
   --ignore-circular      Skip circular reference errors
   --ignore-all           Skip all extraction errors
+  -s, --schema <path>    Schema for query validation (file path, URL, or SDL string)
+  --strict               Treat validation warnings (deprecated fields) as errors
   --no-emit               Suppress manifest output (useful for validation)
   -h, --help             Show help
 ```
@@ -134,6 +139,18 @@ npx gazania extract --ignore-all --tsconfig tsconfig.json
 
 ```sh
 npx gazania extract --no-emit --tsconfig tsconfig.json
+```
+
+**Validate queries against a schema:**
+
+```sh
+npx gazania extract --schema schema.graphql --no-emit --tsconfig tsconfig.json
+```
+
+**Strict validation (deprecated fields cause errors):**
+
+```sh
+npx gazania extract --schema schema.graphql --strict --no-emit --tsconfig tsconfig.json
 ```
 
 ## Typical workflow

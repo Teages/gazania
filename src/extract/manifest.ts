@@ -8,6 +8,7 @@ export interface SourceLocation {
 }
 
 export interface SourceLoc {
+  file: string
   start: SourceLocation
   end: SourceLocation
 }

@@ -111,6 +111,8 @@ A `tsconfig.json` is **required** — Gazania uses the type-aware detection to d
 | `--ignore-circular` | | `boolean` | `false` | Skip circular reference errors |
 | `--ignore-all` | | `boolean` | `false` | Skip all extraction errors |
 | `--no-emit` | | `boolean` | `false` | Suppress manifest output (useful for validation) |
+| `--schema <path>` | `-s` | `string` | | Schema for query validation (file path, URL, or SDL string) |
+| `--strict` | | `boolean` | `false` | Treat validation warnings (deprecated fields) as errors |
 | `--help` | `-h` | | | Show help |
 
 #### Examples
@@ -163,6 +165,18 @@ npx gazania extract --ignore-all --tsconfig tsconfig.json
 npx gazania extract --no-emit --tsconfig tsconfig.json
 ```
 
+**Validate queries against a schema:**
+
+```sh
+npx gazania extract --schema schema.graphql --no-emit --tsconfig tsconfig.json
+```
+
+**Strict validation (deprecated fields cause errors):**
+
+```sh
+npx gazania extract --schema schema.graphql --strict --no-emit --tsconfig tsconfig.json
+```
+
 #### Manifest format
 
 ```json
@@ -172,6 +186,7 @@ npx gazania extract --no-emit --tsconfig tsconfig.json
       "body": "query FetchAnime($id: Int = 127549) { ... }",
       "hash": "sha256:a1b2c3d4...",
       "loc": {
+        "file": "/project/src/queries/FetchAnime.ts",
         "start": { "line": 10, "column": 1, "offset": 245 },
         "end": { "line": 15, "column": 2, "offset": 412 }
       }
@@ -182,6 +197,7 @@ npx gazania extract --no-emit --tsconfig tsconfig.json
       "body": "fragment UserFields on User { id name email }",
       "hash": "sha256:e5f6a7b8...",
       "loc": {
+        "file": "/project/src/fragments/UserFields.ts",
         "start": { "line": 3, "column": 14, "offset": 88 },
         "end": { "line": 3, "column": 52, "offset": 126 }
       }

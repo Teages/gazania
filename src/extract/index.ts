@@ -4,9 +4,11 @@ import { findFiles } from './files'
 import { ExtractionError } from './manifest'
 import { adaptToSystem, loadTS } from './ts-program'
 
-export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction } from './manifest'
+export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction, SourceLoc } from './manifest'
 export type { CreateHostFn, ExtractFS } from './ts-program'
 export { parseTSConfig } from './ts-program'
+export type { ValidationError, ValidationWarning } from './validate'
+export { validateManifest } from './validate'
 
 export interface ExtractLogger {
   debug: (...args: any[]) => void
