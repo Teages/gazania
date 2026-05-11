@@ -151,9 +151,10 @@ describe('type-aware extract: name shadowing (local var shadows global)', () => 
 const result = schema.select(() => ['field'])`,
     )
     const parsed = await getParsed()
-    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    const { manifest, skipped } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(Object.keys(manifest.operations)).toHaveLength(0)
     expect(Object.keys(manifest.fragments)).toHaveLength(0)
+    expect(skipped).toHaveLength(0)
   })
 
   it('still extracts gazania queries when global is not shadowed', async () => {
@@ -162,16 +163,20 @@ const result = schema.select(() => ['field'])`,
       `const doc = schema.query('GlobalQuery').select($ => $.select(['id']))`,
     )
     const parsed = await getParsed()
-    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    const { manifest, skipped } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('GlobalQuery')
+    expect(Object.keys(manifest.operations)).toHaveLength(1)
+    expect(skipped).toHaveLength(0)
   })
 
-  it('extracts gazania query and ignores shadowed variable in the same file', async () => {
+  it('extracts gazania query and ignores shadowed variable in a nested scope', async () => {
     await writeFile(
       join(dir, 'src', 'query.ts'),
       `const doc1 = schema.query('RealQuery').select($ => $.select(['id']))
-const schema = { select: (cb: any) => ({ type: 'custom' }) }
-const result = schema.select(() => ['field'])`,
+{
+  const schema = { select: (cb: any) => ({ type: 'custom' }) }
+  const result = schema.select(() => ['field'])
+}`,
     )
     const parsed = await getParsed()
     const { manifest, skipped } = await extract({
@@ -181,5 +186,7 @@ const result = schema.select(() => ['field'])`,
       ignoreCategories: ['analysis', 'unresolved'],
     })
     expect(manifest.operations).toHaveProperty('RealQuery')
+    expect(Object.keys(manifest.operations)).toHaveLength(1)
+    expect(skipped).toHaveLength(0)
   })
 })

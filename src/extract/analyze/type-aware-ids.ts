@@ -16,8 +16,10 @@ export function collectBuilderNamesByType(
   program: ts.Program,
   checker: ts.TypeChecker,
   sourceFile: ts.SourceFile,
-): { builderNames: string[], namespace: string | undefined } {
+  globalBuilderNames?: string[],
+): { builderNames: string[], namespace: string | undefined, shadowedGlobals: string[] } {
   const builderNames = new Set<string>()
+  const shadowedGlobals = new Set<string>()
   let namespace: string | undefined
 
   function visit(node: ts.Node): void {
@@ -74,17 +76,23 @@ export function collectBuilderNamesByType(
   }
 
   function detectVariableDeclaration(node: ts.VariableDeclaration): void {
-    if (!node.initializer || !ts.isIdentifier(node.name)) {
+    if (!ts.isIdentifier(node.name)) {
       return
     }
-    const type = checker.getTypeAtLocation(node.initializer)
+    const name = node.name.text
+    const type = node.initializer
+      ? checker.getTypeAtLocation(node.initializer)
+      : checker.getTypeAtLocation(node.name)
     if (hasGazaniaMarker(checker, type)) {
-      builderNames.add(node.name.text)
+      builderNames.add(name)
+    }
+    else if (globalBuilderNames?.includes(name)) {
+      shadowedGlobals.add(name)
     }
   }
 
   ts.forEachChild(sourceFile, visit)
-  return { builderNames: Array.from(builderNames), namespace }
+  return { builderNames: Array.from(builderNames), namespace, shadowedGlobals: Array.from(shadowedGlobals) }
 }
 
 /**
@@ -147,12 +155,13 @@ export function collectBuilderNamesForFile(
   program: ts.Program,
   checker: ts.TypeChecker,
   filePath: string,
-): { builderNames: string[], namespace: string | undefined } {
+  globalBuilderNames?: string[],
+): { builderNames: string[], namespace: string | undefined, shadowedGlobals: string[] } {
   const sourceFile = program.getSourceFile(filePath)
   if (!sourceFile) {
-    return { builderNames: [], namespace: undefined }
+    return { builderNames: [], namespace: undefined, shadowedGlobals: [] }
   }
-  return collectBuilderNamesByType(ts, program, checker, sourceFile)
+  return collectBuilderNamesByType(ts, program, checker, sourceFile, globalBuilderNames)
 }
 
 if (import.meta.vitest) {

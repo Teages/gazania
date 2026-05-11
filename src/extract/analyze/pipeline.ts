@@ -263,13 +263,10 @@ export function staticExtractCrossFile(
   function getBuilderInfoForFile(file: string, blocks: StaticParsedBlock[]): { builderNames: string[], namespace: string | undefined } {
     const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
     if (isSFC) {
-      // Use the virtual .vue.ts / .svelte.ts file for type-checker-based detection.
-      // Global builder names (e.g. Nuxt auto-imports) are merged in from globalBuilderNames.
-      const tcResult = collectBuilderNamesForFile(ts, program, checker, `${file}.ts`)
-      const builderNames = [...tcResult.builderNames, ...globalBuilderNames]
+      const tcResult = collectBuilderNamesForFile(ts, program, checker, `${file}.ts`, globalBuilderNames)
+      const filteredGlobals = globalBuilderNames.filter(g => !tcResult.shadowedGlobals.includes(g))
+      const builderNames = [...tcResult.builderNames, ...filteredGlobals]
       let namespace = tcResult.namespace
-      // If no virtual file exists for this SFC type (e.g. Svelte) or compilation
-      // failed, fall back to AST-based import scanning of the raw script blocks.
       if (builderNames.length === 0 && namespace === undefined) {
         for (const block of blocks) {
           const { builderNames: astNames, namespace: ns } = collectImports(block.ast, {})
@@ -281,11 +278,12 @@ export function staticExtractCrossFile(
       }
       return { builderNames, namespace }
     }
-    const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
+    const tcResult = collectBuilderNamesForFile(ts, program, checker, file, globalBuilderNames)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
       return tcResult
     }
-    const mergedBuilderNames: string[] = [...globalBuilderNames]
+    const filteredGlobals = globalBuilderNames.filter(g => !tcResult.shadowedGlobals.includes(g))
+    const mergedBuilderNames: string[] = [...filteredGlobals]
     let namespace: string | undefined
     for (const block of blocks) {
       const { builderNames, namespace: ns } = collectImports(block.ast, {})
