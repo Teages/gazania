@@ -8,7 +8,7 @@ export interface Svelte2TsxApi {
   }) => { code: string, map?: { version: number, sources: string[], mappings: string, names?: string[], sourcesContent?: (string | null)[] } }
 }
 
-export async function tryLoadSvelte2Tsx(): Promise<Svelte2TsxApi | null> {
+async function tryLoadSvelte2Tsx(): Promise<Svelte2TsxApi | null> {
   try {
     const mod = await import('svelte2tsx') as Svelte2TsxApi
     return { svelte2tsx: mod.svelte2tsx }
@@ -18,7 +18,11 @@ export async function tryLoadSvelte2Tsx(): Promise<Svelte2TsxApi | null> {
   }
 }
 
-export function createSvelteCompiler(api: Svelte2TsxApi): SFCCompiler {
+export async function createSvelteCompiler(): Promise<SFCCompiler | null> {
+  const api = await tryLoadSvelte2Tsx()
+  if (!api) {
+    return null
+  }
   return {
     extensions: ['.svelte'],
     compile(source, filename) {

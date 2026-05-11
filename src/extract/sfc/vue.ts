@@ -3,7 +3,7 @@ import type { SFCCompiler, VirtualFileEntry } from './types'
 
 export interface VueCompilerApi { parse: typeof vueParse, compileScript: typeof vueCompileScript }
 
-export async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
+async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
   try {
     const sfc = await import('vue/compiler-sfc') as VueCompilerApi
     return { parse: sfc.parse, compileScript: sfc.compileScript }
@@ -13,7 +13,11 @@ export async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
   }
 }
 
-export function createVueCompiler(api: VueCompilerApi): SFCCompiler {
+export async function createVueCompiler(): Promise<SFCCompiler | null> {
+  const api = await tryLoadVueCompiler()
+  if (!api) {
+    return null
+  }
   return {
     extensions: ['.vue'],
     compile(source, filename) {
@@ -49,20 +53,16 @@ if (import.meta.vitest) {
       const system = createTestingSystem({
         [`${dir}/Comp.vue`]: '<script>\nexport default {}\n</script>',
       }, ts)
-      const api = await tryLoadVueCompiler()
-      expect(api).not.toBeNull()
-      const compiler = createVueCompiler(api!)
+      const compiler = await createVueCompiler()
       const source = system.readFile(`${dir}/Comp.vue`)!
-      const result = compiler.compile(source, `${dir}/Comp.vue`)
+      const result = compiler!.compile(source, `${dir}/Comp.vue`)
       expect(result).toBeDefined()
       expect(result!.content).toBeTruthy()
     })
 
     it('returns undefined for template-only .vue files', async () => {
-      const api = await tryLoadVueCompiler()
-      expect(api).not.toBeNull()
-      const compiler = createVueCompiler(api!)
-      const result = compiler.compile('<template><div/></template>', 'Comp.vue')
+      const compiler = await createVueCompiler()
+      const result = compiler!.compile('<template><div/></template>', 'Comp.vue')
       expect(result).toBeUndefined()
     })
   })
