@@ -1,6 +1,6 @@
 import type { Program } from 'estree'
 import type { ExtractFS } from './ts-program'
-import { parse } from '@typescript-eslint/typescript-estree'
+import { parse, parseAndGenerateServices } from '@typescript-eslint/typescript-estree'
 import { getScriptBlocks } from './preprocess'
 
 export interface ParsedBlock {
@@ -14,17 +14,36 @@ export interface ParseFileOptions {
   logger?: { debug: (...args: any[]) => void, warn: (...args: any[]) => void, error: (...args: any[]) => void }
 }
 
+export interface ParseFileContext {
+  program?: import('typescript').Program
+}
+
 /**
  * Parse a file into one or more code blocks with their ASTs.
  * Handles Vue/Svelte SFCs and TypeScript stripping.
  *
+ * When a `ts.Program` is provided via `context`, regular `.ts`/`.tsx` files
+ * reuse the Program's already-parsed SourceFile instead of creating a new one.
+ * SFC script blocks always create fresh SourceFiles (content differs from
+ * the Program's virtual compiled files).
+ *
  * Returns `null` if the file does not contain a `.select(` call or no blocks parse.
  */
-export function parseFile(filePath: string, options?: ParseFileOptions, host?: ExtractFS): ParsedBlock[] | null {
+export function parseFile(filePath: string, options?: ParseFileOptions, host?: ExtractFS, context?: ParseFileContext): ParsedBlock[] | null {
   const rawCode = host?.readFile(filePath) ?? ''
 
   if (!options?.skipFilter && !rawCode.includes('.select(')) {
     return null
+  }
+
+  const isSFC = filePath.endsWith('.vue') || filePath.endsWith('.svelte')
+  const isJSX = filePath.endsWith('.jsx') || filePath.endsWith('.tsx')
+  const program = context?.program
+
+  // For non-SFC files with a Program, try to reuse its SourceFile.
+  let programSourceFile: import('typescript').SourceFile | undefined
+  if (!isSFC && program) {
+    programSourceFile = program.getSourceFile(filePath)
   }
 
   const scriptBlocks = getScriptBlocks(rawCode, filePath)
@@ -35,20 +54,25 @@ export function parseFile(filePath: string, options?: ParseFileOptions, host?: E
       continue
     }
 
-    const isSFC = filePath.endsWith('.vue') || filePath.endsWith('.svelte')
-    const isJSX = filePath.endsWith('.jsx') || filePath.endsWith('.tsx')
-
     try {
-      // Determine a filename hint for language detection.
-      // SFC script blocks use .ts; other files keep their original extension.
-      const parseFilename = isSFC ? 'block.ts' : filePath.replace(/^.*[/\\]/, '')
-      const ast = parse(code, {
-        range: true,
-        filePath: parseFilename,
-        jsx: isJSX,
-      })
+      let ast: Program
 
-      blocks.push({ code, ast: ast as unknown as Program, lineOffset })
+      if (programSourceFile) {
+        // Reuse the Program's already-parsed SourceFile — no re-parsing.
+        const result = parseAndGenerateServices(programSourceFile, { range: true, jsx: isJSX })
+        ast = result.ast as unknown as Program
+      }
+      else {
+        // SFC blocks or no Program available — create a fresh SourceFile.
+        const parseFilename = isSFC ? 'block.ts' : filePath.replace(/^.*[/\\]/, '')
+        ast = parse(code, {
+          range: true,
+          filePath: parseFilename,
+          jsx: isJSX,
+        }) as unknown as Program
+      }
+
+      blocks.push({ code, ast, lineOffset })
     }
     catch {
       debugLog(filePath, lineOffset, 'parse failed', options)

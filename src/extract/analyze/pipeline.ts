@@ -199,7 +199,7 @@ export function staticExtractCrossFile(
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
   for (const file of files) {
-    const blocks = parseFile(file, { logger }, system)
+    const blocks = parseFile(file, { logger }, system, { program })
     if (blocks) {
       parsedFiles.set(file, blocks)
     }
@@ -215,7 +215,7 @@ export function staticExtractCrossFile(
     const tcPath = (file.endsWith('.vue') || file.endsWith('.svelte')) ? `${file}.ts` : file
     const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
-      const blocks = parseFile(file, { skipFilter: true, logger }, system)
+      const blocks = parseFile(file, { skipFilter: true, logger }, system, { program })
       if (blocks) {
         parsedFiles.set(file, blocks)
       }
