@@ -786,52 +786,29 @@ const doc = gazania.query('LineQuery').select($ => $.select(['id']))`,
   })
 })
 
-describe('oxc parsing', () => {
+describe('typescript-estree parsing', () => {
   it('parses plain JavaScript', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.js', `const x = 1`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const x = 1`, { range: true })
+    expect(ast.type).toBe('Program')
   })
 
   it('parses JSX', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.jsx', `const App = () => <div>hello</div>`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const App = () => <div>hello</div>`, { range: true, jsx: true })
+    expect(ast.type).toBe('Program')
   })
 
   it('parses TypeScript directly', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.ts', `const x: string = 'hello'`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const x: string = 'hello'`, { range: true, filePath: 'test.ts' })
+    expect(ast.type).toBe('Program')
   })
 
   it('parses TypeScript + JSX', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.tsx', `const x: string = 'hello'; const App = () => <div />`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
-  })
-})
-
-describe('oxc-transform', () => {
-  it('strips TypeScript type annotations', async () => {
-    const { transformSync } = await import('oxc-transform')
-    const result = transformSync('test.ts', `const x: string = 'hello'\nfunction f(a: number): void {}`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.code).not.toContain(': string')
-    expect(result.code).not.toContain(': number')
-    expect(result.code).toContain('hello')
-  })
-
-  it('handles TSX', async () => {
-    const { transformSync } = await import('oxc-transform')
-    const result = transformSync('test.tsx', `interface User { id: string }\nfunction App() { return <div /> }`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.code).not.toContain('interface User')
-    expect(result.code).not.toContain(': string')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const x: string = 'hello'; const App = () => <div />`, { range: true, filePath: 'test.tsx' })
+    expect(ast.type).toBe('Program')
   })
 })
 

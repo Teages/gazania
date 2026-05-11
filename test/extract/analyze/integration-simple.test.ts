@@ -1,7 +1,7 @@
 import type { StaticBuilderChain, StaticDirectiveDef } from '../../../src/extract/analyze/types'
 import type { DocumentNode } from '../../../src/lib/graphql'
 import type { DirectiveInput } from '../../../src/runtime/directive'
-import { parseSync } from 'oxc-parser'
+import { parse } from '@typescript-eslint/typescript-estree'
 import { describe, expect, it } from 'vitest'
 import { analyzeBuilderChain, isGazaniaSelectCall } from '../../../src/extract/analyze/chain'
 import { collectImports } from '../../../src/extract/analyze/imports'
@@ -74,7 +74,7 @@ function interpretDirectiveCallback(def: StaticDirectiveDef): DirectiveInput[] {
  * interpret selections → construct DocumentNode[].
  */
 function staticExtract(code: string, filePath?: string): DocumentNode[] {
-  const ast = parseSync(filePath ?? 'test.js', code).program as any
+  const ast = parse(code, { range: true, filePath: filePath ?? 'test.js' }) as any
   const contextMap: Record<string, unknown> = {}
   const { builderNames, namespace } = collectImports(ast, contextMap)
 
