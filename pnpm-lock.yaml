@@ -90,6 +90,9 @@ importers:
 
   examples/nuxt:
     dependencies:
+      '@teages/oh-my-graphql':
+        specifier: ^0.1.4
+        version: 0.1.4(graphql@16.13.2)
       gazania:
         specifier: workspace:*
         version: link:../..
