@@ -14,10 +14,9 @@ const GAZANIA_SPECIFIERS = new Set(['gazania'])
 export function collectImports(
   ast: Program,
   contextMap: Record<string, unknown>,
-): { builderNames: string[], namespace: string | undefined, hasRelevantImport: boolean } {
+): { builderNames: string[], namespace: string | undefined } {
   const builderNames: string[] = []
   let namespace: string | undefined
-  let hasRelevantImport = false
 
   walkAST(ast, (node: Node) => {
     if (node.type !== 'ImportDeclaration') {
@@ -27,8 +26,6 @@ export function collectImports(
     if (typeof node.source.value !== 'string' || !GAZANIA_SPECIFIERS.has(node.source.value)) {
       return
     }
-
-    hasRelevantImport = true
 
     for (const spec of node.specifiers) {
       if (spec.type === 'ImportNamespaceSpecifier') {
@@ -50,7 +47,7 @@ export function collectImports(
     }
   })
 
-  return { builderNames, namespace, hasRelevantImport }
+  return { builderNames, namespace }
 }
 
 /**
@@ -97,33 +94,6 @@ export function collectExports(ast: Program): Map<string, string> {
   return exports
 }
 
-/**
- * Walk VariableDeclarations to find simple literal values.
- * Captures: const x = 'string', const x = 42, const x = true, const x = null
- * Returns a Map of variable name → literal value.
- */
-export function collectLiteralVariables(ast: Program): Map<string, unknown> {
-  const literals = new Map<string, unknown>()
-
-  walkAST(ast, (node: Node) => {
-    if (node.type !== 'VariableDeclaration' || node.kind !== 'const') {
-      return
-    }
-
-    for (const decl of node.declarations) {
-      if (decl.id.type !== 'Identifier' || !decl.init) {
-        continue
-      }
-
-      if (decl.init.type === 'Literal') {
-        literals.set(decl.id.name, decl.init.value)
-      }
-    }
-  })
-
-  return literals
-}
-
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
@@ -140,7 +110,6 @@ if (import.meta.vitest) {
 
       expect(result.builderNames).toEqual(['gazania'])
       expect(result.namespace).toBeUndefined()
-      expect(result.hasRelevantImport).toBe(true)
       expect(contextMap.gazania).toBe(true)
     })
 
@@ -150,7 +119,6 @@ if (import.meta.vitest) {
       const result = collectImports(ast, contextMap)
 
       expect(result.builderNames).toEqual(['createGazania'])
-      expect(result.hasRelevantImport).toBe(true)
     })
 
     it('handles namespace import', async () => {
@@ -160,7 +128,6 @@ if (import.meta.vitest) {
 
       expect(result.builderNames).toEqual([])
       expect(result.namespace).toBe('g')
-      expect(result.hasRelevantImport).toBe(true)
       expect(contextMap.g).toBe(true)
     })
 
@@ -181,7 +148,6 @@ if (import.meta.vitest) {
 
       expect(result.builderNames).toEqual([])
       expect(result.namespace).toBeUndefined()
-      expect(result.hasRelevantImport).toBe(false)
     })
 
     it('handles default import', async () => {
@@ -190,7 +156,6 @@ if (import.meta.vitest) {
       const result = collectImports(ast, contextMap)
 
       expect(result.builderNames).toEqual([])
-      expect(result.hasRelevantImport).toBe(true)
       expect(contextMap.gaz).toBe(true)
     })
   })
@@ -238,60 +203,6 @@ if (import.meta.vitest) {
 
       expect(exports.get('a')).toBe('a')
       expect(exports.get('b')).toBe('b')
-    })
-  })
-
-  describe('collectLiteralVariables', () => {
-    it('collects string literals', async () => {
-      const ast = await parseCode(`const API = 'https://example.com'`)
-      const vars = collectLiteralVariables(ast)
-
-      expect(vars.get('API')).toBe('https://example.com')
-    })
-
-    it('collects numeric literals', async () => {
-      const ast = await parseCode(`const MAX = 100`)
-      const vars = collectLiteralVariables(ast)
-
-      expect(vars.get('MAX')).toBe(100)
-    })
-
-    it('collects boolean literals', async () => {
-      const ast = await parseCode(`const FLAG = true`)
-      const vars = collectLiteralVariables(ast)
-
-      expect(vars.get('FLAG')).toBe(true)
-    })
-
-    it('collects null literal', async () => {
-      const ast = await parseCode(`const EMPTY = null`)
-      const vars = collectLiteralVariables(ast)
-
-      expect(vars.get('EMPTY')).toBe(null)
-    })
-
-    it('ignores non-literal initializers', async () => {
-      const ast = await parseCode(`const x = someFunction()`)
-      const vars = collectLiteralVariables(ast)
-
-      expect(vars.has('x')).toBe(false)
-    })
-
-    it('ignores destructured declarations', async () => {
-      const ast = await parseCode(`const { a } = obj`)
-      const vars = collectLiteralVariables(ast)
-
-      expect(vars.size).toBe(0)
-    })
-
-    it('collects multiple variables', async () => {
-      const ast = await parseCode(`const A = 'hello'\nconst B = 42\nconst C = true`)
-      const vars = collectLiteralVariables(ast)
-
-      expect(vars.get('A')).toBe('hello')
-      expect(vars.get('B')).toBe(42)
-      expect(vars.get('C')).toBe(true)
-      expect(vars.size).toBe(3)
     })
   })
 }
