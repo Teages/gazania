@@ -288,6 +288,122 @@ export function createTypeCheckerProgram(
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
+  describe('tryLoadVueCompiler', () => {
+    it('returns a VueCompilerApi when vue is installed', async () => {
+      const result = await tryLoadVueCompiler()
+      expect(result).not.toBeNull()
+      expect(typeof result!.parse).toBe('function')
+      expect(typeof result!.compileScript).toBe('function')
+    })
+  })
+
+  describe('buildVueVirtualFiles', async () => {
+    const { createTestingSystem } = await import('../../test/utils/vfs')
+
+    function makeMockCompiler(
+      compiled: string,
+      opts?: { errors?: any[], noScript?: boolean, throwOnCompile?: boolean },
+    ): VueCompilerApi {
+      return {
+        parse: (source, { filename }) => ({
+          descriptor: {
+            script: opts?.noScript ? null : { content: source },
+            scriptSetup: null,
+            filename,
+          },
+          errors: opts?.errors ?? [],
+        }),
+        compileScript: () => {
+          if (opts?.throwOnCompile) {
+            throw new Error('compile error')
+          }
+          return { content: compiled }
+        },
+      }
+    }
+
+    it('compiles .vue files into virtual .vue.ts entries', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/vue-virtual'
+      const system = createTestingSystem({
+        [`${dir}/Comp.vue`]: '<script>\nexport default {}\n</script>',
+      }, ts)
+      const mockCompiler = makeMockCompiler('export default {}')
+      const result = buildVueVirtualFiles([`${dir}/Comp.vue`], system, mockCompiler)
+      expect(result.has(`${dir}/Comp.vue.ts`)).toBe(true)
+      expect(result.get(`${dir}/Comp.vue.ts`)).toBe('export default {}')
+    })
+
+    it('skips non-.vue files in the input list', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/vue-virtual'
+      const system = createTestingSystem({
+        [`${dir}/App.svelte`]: '<script>\nexport let x = 1\n</script>',
+      }, ts)
+      const mockCompiler = makeMockCompiler('export let x = 1')
+      const result = buildVueVirtualFiles([`${dir}/App.svelte`], system, mockCompiler)
+      expect(result.size).toBe(0)
+    })
+
+    it('skips .vue files not present on the system', async () => {
+      const ts = await loadTS()
+      const system = createTestingSystem({}, ts)
+      const mockCompiler = makeMockCompiler('export default {}')
+      const result = buildVueVirtualFiles(['/nonexistent/Missing.vue'], system, mockCompiler)
+      expect(result.size).toBe(0)
+    })
+
+    it('skips files with parse errors', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/vue-virtual'
+      const system = createTestingSystem({
+        [`${dir}/Broken.vue`]: '<script>broken',
+      }, ts)
+      const mockCompiler = makeMockCompiler('', { errors: [new Error('parse error')] })
+      const result = buildVueVirtualFiles([`${dir}/Broken.vue`], system, mockCompiler)
+      expect(result.size).toBe(0)
+    })
+
+    it('skips files with no script or scriptSetup block', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/vue-virtual'
+      const system = createTestingSystem({
+        [`${dir}/TemplateOnly.vue`]: '<template><div/></template>',
+      }, ts)
+      const mockCompiler = makeMockCompiler('', { noScript: true })
+      const result = buildVueVirtualFiles([`${dir}/TemplateOnly.vue`], system, mockCompiler)
+      expect(result.size).toBe(0)
+    })
+
+    it('skips files where compileScript throws', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/vue-virtual'
+      const system = createTestingSystem({
+        [`${dir}/Throws.vue`]: '<script>export default {}</script>',
+      }, ts)
+      const mockCompiler = makeMockCompiler('', { throwOnCompile: true })
+      const result = buildVueVirtualFiles([`${dir}/Throws.vue`], system, mockCompiler)
+      expect(result.size).toBe(0)
+    })
+
+    it('handles multiple .vue files', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/vue-virtual'
+      const system = createTestingSystem({
+        [`${dir}/A.vue`]: '<script>export const a = 1</script>',
+        [`${dir}/B.vue`]: '<script>export const b = 2</script>',
+      }, ts)
+      const mockCompiler = makeMockCompiler('compiled')
+      const result = buildVueVirtualFiles(
+        [`${dir}/A.vue`, `${dir}/B.vue`],
+        system,
+        mockCompiler,
+      )
+      expect(result.has(`${dir}/A.vue.ts`)).toBe(true)
+      expect(result.has(`${dir}/B.vue.ts`)).toBe(true)
+    })
+  })
+
   describe('createModuleResolver', async () => {
     const { createTestingSystem } = await import('../../test/utils/vfs')
 
@@ -343,6 +459,33 @@ if (import.meta.vitest) {
         () => parseTSConfig(ts, '/vfs/nonexistent.json', createTestingSystem({}, ts)),
       ).toThrow('Failed to read tsconfig')
     })
+
+    it('resolves .vue imports to .vue path when virtual .vue.ts files are provided', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/ts-program-vue'
+      const virtualFiles = new Map([
+        [`${dir}/src/Comp.vue.ts`, 'export default {}'],
+      ])
+      const system = createTestingSystem({
+        [`${dir}/tsconfig.json`]: JSON.stringify({
+          compilerOptions: {
+            target: 'esnext',
+            module: 'esnext',
+            moduleResolution: 'bundler',
+            strict: true,
+          },
+          include: ['src'],
+        }),
+        [`${dir}/src/index.ts`]: 'import Comp from \'./Comp.vue\'',
+      }, ts)
+
+      const parsed = parseTSConfig(ts, `${dir}/tsconfig.json`, system)
+      const resolver = createModuleResolver(ts, parsed, system, undefined, virtualFiles)
+      const resolved = resolver.resolve('./Comp.vue', `${dir}/src/index.ts`)
+
+      // The resolved path should be the .vue path, not .vue.ts
+      expect(resolved).toBe(`${dir}/src/Comp.vue`)
+    })
   })
 
   describe('createTypeCheckerProgram', async () => {
@@ -385,6 +528,28 @@ if (import.meta.vitest) {
       expect(
         () => parseTSConfig(ts, '/vfs/nonexistent.json', createTestingSystem({}, ts)),
       ).toThrow('Failed to read tsconfig')
+    })
+
+    it('includes virtual files in the program when provided', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/ts-program-virtual'
+      const virtualContent = 'export const virtualVar = 42'
+      const virtualFiles = new Map([
+        [`${dir}/src/Comp.vue.ts`, virtualContent],
+      ])
+      const system = createTestingSystem({
+        [`${dir}/tsconfig.json`]: JSON.stringify({
+          compilerOptions: { target: 'esnext', module: 'esnext', moduleResolution: 'bundler', strict: true },
+          files: [`${dir}/src/index.ts`],
+        }),
+        [`${dir}/src/index.ts`]: 'export const x = 1',
+      }, ts)
+
+      const parsed = parseTSConfig(ts, `${dir}/tsconfig.json`, system)
+      const { program } = createTypeCheckerProgram(ts, parsed, system, undefined, virtualFiles)
+
+      const sourceFilePaths = program.getSourceFiles().map(f => f.fileName)
+      expect(sourceFilePaths).toContain(`${dir}/src/Comp.vue.ts`)
     })
   })
 }
