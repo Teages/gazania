@@ -1,6 +1,27 @@
 # Changelog
 
 
+## v0.13.0
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.12.0...v0.13.0)
+
+### 🚀 Enhancements
+
+- **extract:** Add --schema and --strict flags for GraphQL query validation ([#14](https://github.com/Teages/gazania/pull/14))
+
+### 💅 Refactors
+
+- **extract:** Remove node dependencies ([#12](https://github.com/Teages/gazania/pull/12))
+- **codegen:** ⚠️  Separate IO from codegen core, move loaders to CLI ([#13](https://github.com/Teages/gazania/pull/13))
+
+#### ⚠️ Breaking Changes
+
+- **codegen:** ⚠️  Separate IO from codegen core, move loaders to CLI ([#13](https://github.com/Teages/gazania/pull/13))
+
+### ❤️ Contributors
+
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.12.0
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.11.0...v0.12.0)
