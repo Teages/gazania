@@ -10,6 +10,8 @@ export interface ScriptBlock {
   lineOffset: number
 }
 
+const JS_EXT_RE = /\.[mc]?[jt]sx?$/
+
 /**
  * Extracts the JavaScript/TypeScript script content from framework-specific
  * single-file component (SFC) formats before passing to the evaluator.
@@ -22,7 +24,7 @@ export interface ScriptBlock {
  * blocks (common in Vue SFCs) do not cause parse errors.
  */
 export function getScriptBlocks(code: string, filePath: string): ScriptBlock[] {
-  if (!/\.[jt]sx?$/.test(filePath)) {
+  if (!JS_EXT_RE.test(filePath)) {
     return extractSFCScriptBlocks(code)
   }
   return [{ code, lineOffset: 0 }]
@@ -78,9 +80,35 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   describe('getScriptBlocks', () => {
+    it('matches JavaScript and TypeScript file extensions with JS_EXT_RE', () => {
+      expect(JS_EXT_RE.test('/src/file.js')).toBe(true)
+      expect(JS_EXT_RE.test('/src/file.cjs')).toBe(true)
+      expect(JS_EXT_RE.test('/src/file.mjs')).toBe(true)
+      expect(JS_EXT_RE.test('/src/file.ts')).toBe(true)
+      expect(JS_EXT_RE.test('/src/file.tsx')).toBe(true)
+      expect(JS_EXT_RE.test('/src/file.jsx')).toBe(true)
+      expect(JS_EXT_RE.test('/src/file.mts')).toBe(true)
+      expect(JS_EXT_RE.test('/src/file.cts')).toBe(true)
+    })
+
+    it('does not match non-JS/TS extensions with JS_EXT_RE', () => {
+      expect(JS_EXT_RE.test('/src/file.vue')).toBe(false)
+      expect(JS_EXT_RE.test('/src/file.svelte')).toBe(false)
+      expect(JS_EXT_RE.test('/src/file.txt')).toBe(false)
+      expect(JS_EXT_RE.test('/src/file.js.map')).toBe(false)
+    })
+
     it('returns the raw code as a single block for .ts files', () => {
       const code = `import { gazania } from 'gazania'\nconst q = gazania.query('A').select($ => $.select(['id']))`
       const result = getScriptBlocks(code, '/src/query.ts')
+      expect(result).toHaveLength(1)
+      expect(result[0]!.code).toBe(code)
+      expect(result[0]!.lineOffset).toBe(0)
+    })
+
+    it('returns the raw code as a single block for non-SFC files', () => {
+      const code = '<script>const a = 1</script>'
+      const result = getScriptBlocks(code, '/src/query.mjs')
       expect(result).toHaveLength(1)
       expect(result[0]!.code).toBe(code)
       expect(result[0]!.lineOffset).toBe(0)
