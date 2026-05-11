@@ -1,12 +1,14 @@
 shellEmulator: true
 
 trustPolicy: no-downgrade
-
 packages:
   - playground
   - docs
   - examples/*
 
 onlyBuiltDependencies:
+  - '@parcel/watcher'
   - esbuild
   - unrs-resolver
+
+trustPolicyIgnoreAfter: 10080
