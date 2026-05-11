@@ -124,6 +124,33 @@ export async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
 }
 
 /**
+ * Minimal API surface of `svelte2tsx` that Gazania needs.
+ * Loaded lazily so Svelte is not a hard dependency.
+ */
+export interface Svelte2TsxApi {
+  svelte2tsx: (source: string, options: {
+    filename?: string
+    mode?: 'ts' | 'dts'
+    isTsFile?: boolean
+  }) => { code: string, map?: { version: number, sources: string[], mappings: string, names?: string[], sourcesContent?: (string | null)[] } }
+}
+
+/**
+ * Try to load `svelte2tsx` from the user's project.
+ * Returns `null` if Svelte is not installed (e.g. non-Svelte projects).
+ */
+export async function tryLoadSvelte2Tsx(): Promise<Svelte2TsxApi | null> {
+  try {
+    const mod = await import('svelte2tsx') as Svelte2TsxApi | { default: Svelte2TsxApi }
+    const api = 'default' in mod ? mod.default : mod
+    return { svelte2tsx: api.svelte2tsx }
+  }
+  catch {
+    return null
+  }
+}
+
+/**
  * Compile Vue SFC files to virtual `.vue.ts` files using the Vue compiler.
  * Returns a map of `<original>.vue.ts` → compiled TypeScript content.
  *
@@ -158,6 +185,32 @@ export function buildVueVirtualFiles(
       }
       const result = vueCompiler.compileScript(descriptor, { id: file })
       virtualFiles.set(`${file}.ts`, { content: result.content, map: result.map ?? undefined })
+    }
+    catch {
+      // Skip files that cannot be compiled; they fall back to AST-only analysis.
+    }
+  }
+  return virtualFiles
+}
+
+export function buildSvelteVirtualFiles(
+  svelteFiles: string[],
+  system: import('typescript').System,
+  svelte2tsx: Svelte2TsxApi,
+): Map<string, VirtualFileEntry> {
+  const virtualFiles = new Map<string, VirtualFileEntry>()
+  for (const file of svelteFiles) {
+    if (!file.endsWith('.svelte')) {
+      continue
+    }
+    const source = system.readFile(file)
+    if (!source) {
+      continue
+    }
+    try {
+      const isTsFile = /<script[^>]*\blang\s*=\s*(['"])(ts|typescript)\1/.test(source)
+      const result = svelte2tsx.svelte2tsx(source, { filename: file, mode: 'ts', isTsFile })
+      virtualFiles.set(`${file}.ts`, { content: result.code, map: result.map ?? undefined })
     }
     catch {
       // Skip files that cannot be compiled; they fall back to AST-only analysis.

@@ -2,7 +2,7 @@ import type { ExtractResult, HashFn, SkippedExtractionCategory } from './manifes
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
 import { ExtractionError } from './manifest'
-import { adaptToSystem, loadTS, tryLoadVueCompiler } from './ts-program'
+import { adaptToSystem, loadTS, tryLoadSvelte2Tsx, tryLoadVueCompiler } from './ts-program'
 
 export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction, SourceLoc } from './manifest'
 export type { CreateHostFn, ExtractFS } from './ts-program'
@@ -89,6 +89,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const system = fs ? adaptToSystem(fs, ts) : ts.sys
   const files = findFiles(dir, include, system)
   const vueCompiler = await tryLoadVueCompiler()
+  const svelte2tsx = await tryLoadSvelte2Tsx()
 
   const result = staticExtractCrossFile(files, {
     tsconfig,
@@ -98,6 +99,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     createHost: createHostFn,
     ts,
     vueCompiler,
+    svelte2tsx,
   })
 
   const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))

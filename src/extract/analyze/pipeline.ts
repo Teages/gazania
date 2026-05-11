@@ -1,13 +1,13 @@
 import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
 import type { ExtractManifest, HashFn, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
-import type { CreateHostFn, VueCompilerApi } from '../ts-program'
+import type { CreateHostFn, Svelte2TsxApi, VueCompilerApi } from '../ts-program'
 import type { TypeContext } from './chain'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { getFileImports, topologicalSort } from '../dependency-graph'
 import { offsetToLineColumn, parseFile, staticOffsetToLine } from '../files'
 import { addDocumentToManifest } from '../manifest'
-import { buildVueVirtualFiles, createModuleResolver, createTypeCheckerProgram } from '../ts-program'
+import { buildSvelteVirtualFiles, buildVueVirtualFiles, createModuleResolver, createTypeCheckerProgram } from '../ts-program'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { buildDocumentFromChain } from './document'
@@ -185,16 +185,26 @@ export function staticExtractCrossFile(
     createHost?: CreateHostFn
     ts: typeof import('typescript')
     vueCompiler?: VueCompilerApi | null
+    svelte2tsx?: Svelte2TsxApi | null
   },
 ): {
   manifest: ExtractManifest
   skipped: SkippedExtraction[]
 } {
-  const { hash, logger, system, createHost: createHostFn, ts, vueCompiler } = options
+  const { hash, logger, system, createHost: createHostFn, ts, vueCompiler, svelte2tsx: svelte2tsxApi } = options
   const vueFiles = vueCompiler ? files.filter(f => f.endsWith('.vue')) : []
-  const virtualFiles = vueCompiler && vueFiles.length > 0
-    ? buildVueVirtualFiles(vueFiles, system, vueCompiler)
-    : new Map<string, import('../ts-program').VirtualFileEntry>()
+  const svelteFiles = svelte2tsxApi ? files.filter(f => f.endsWith('.svelte')) : []
+  const virtualFiles = new Map<string, import('../ts-program').VirtualFileEntry>()
+  if (vueCompiler && vueFiles.length > 0) {
+    for (const [k, v] of buildVueVirtualFiles(vueFiles, system, vueCompiler)) {
+      virtualFiles.set(k, v)
+    }
+  }
+  if (svelte2tsxApi && svelteFiles.length > 0) {
+    for (const [k, v] of buildSvelteVirtualFiles(svelteFiles, system, svelte2tsxApi)) {
+      virtualFiles.set(k, v)
+    }
+  }
 
   const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn, virtualFiles)
   const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn, virtualFiles)
