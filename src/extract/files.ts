@@ -1,5 +1,5 @@
 import type { Program } from 'estree'
-import type { ExtractFS } from './ts-program'
+import type { VirtualFileEntry } from './ts-program'
 import { parse, parseAndGenerateServices } from '@typescript-eslint/typescript-estree'
 import { getScriptBlocks } from './preprocess'
 
@@ -7,7 +7,6 @@ export interface ParsedBlock {
   code: string
   ast: Program
   lineOffset: number
-  /** ESTree → TS node mapping. Available when parsed via `parseAndGenerateServices`. */
   nodeMap?: WeakMap<any, import('typescript').Node>
 }
 
@@ -20,17 +19,6 @@ export interface ParseFileContext {
   program?: import('typescript').Program
 }
 
-/**
- * Parse a file into one or more code blocks with their ASTs.
- * Handles Vue/Svelte SFCs and TypeScript stripping.
- *
- * When a `ts.Program` is provided via `context`, regular `.ts`/`.tsx` files
- * reuse the Program's already-parsed SourceFile instead of creating a new one.
- * SFC script blocks always create fresh SourceFiles (content differs from
- * the Program's virtual compiled files).
- *
- * Returns `null` if the file does not contain a `.select(` call or no blocks parse.
- */
 export function parseFile(filePath: string, options?: ParseFileOptions, host?: ExtractFS, context?: ParseFileContext): ParsedBlock[] | null {
   const rawCode = host?.readFile(filePath) ?? ''
 
@@ -42,9 +30,8 @@ export function parseFile(filePath: string, options?: ParseFileOptions, host?: E
   const isJSX = filePath.endsWith('.jsx') || filePath.endsWith('.tsx')
   const program = context?.program
 
-  // For non-SFC files with a Program, try to reuse its SourceFile.
   let programSourceFile: import('typescript').SourceFile | undefined
-  if (!isSFC && program) {
+  if (program && !isSFC) {
     programSourceFile = program.getSourceFile(filePath)
   }
 
@@ -64,6 +51,27 @@ export function parseFile(filePath: string, options?: ParseFileOptions, host?: E
         const result = parseAndGenerateServices(programSourceFile, { range: true, jsx: isJSX })
         ast = result.ast as unknown as Program
         nodeMap = result.services.esTreeNodeToTSNodeMap as WeakMap<any, import('typescript').Node>
+      }
+      else if (isSFC && program) {
+        ast = parse(code, {
+          range: true,
+          filePath: 'block.ts',
+          jsx: isJSX,
+        }) as unknown as Program
+        const virtualSF = program.getSourceFile(`${filePath}.ts`)
+        if (virtualSF) {
+          try {
+            const virtualResult = parseAndGenerateServices(virtualSF, { range: true, jsx: isJSX })
+            nodeMap = buildProxyNodeMap(
+              ast,
+              virtualResult.ast as unknown as Program,
+              virtualResult.services.esTreeNodeToTSNodeMap as WeakMap<any, import('typescript').Node>,
+            )
+          }
+          catch {
+            // nodeMap stays undefined
+          }
+        }
       }
       else {
         const parseFilename = isSFC ? 'block.ts' : filePath.replace(/^.*[/\\]/, '')
@@ -113,4 +121,82 @@ function parseExtensions(pattern: string): Set<string> {
   }
   const exts = match[1]!.split(',').map(e => `.${e.trim()}`)
   return new Set(exts)
+}
+
+type AnyEstreeNode = Record<string, any>
+
+function buildProxyNodeMap(
+  originalAst: Program,
+  virtualAst: Program,
+  virtualNodeMap: WeakMap<AnyEstreeNode, import('typescript').Node>,
+): WeakMap<AnyEstreeNode, import('typescript').Node> {
+  const virtualNodeIndex = buildNodeIndex(virtualAst)
+
+  const proxyMap = new WeakMap<AnyEstreeNode, import('typescript').Node>()
+  linkOriginalToVirtual(originalAst, virtualNodeIndex, proxyMap, virtualNodeMap)
+  return proxyMap
+}
+
+type NodeKey = string
+
+function nodeKey(node: AnyEstreeNode): NodeKey {
+  if (node.type === 'Identifier') return `I:${node.name}`
+  if (node.type === 'Literal') return `L:${JSON.stringify(node.value)}`
+  if (node.type === 'MemberExpression' && node.property?.type === 'Identifier') {
+    return `M:${node.property.name}`
+  }
+  return node.type
+}
+
+function buildNodeIndex(ast: AnyEstreeNode): Map<NodeKey, AnyEstreeNode[]> {
+  const index = new Map<NodeKey, AnyEstreeNode[]>()
+  function walk(node: AnyEstreeNode) {
+    if (!node || typeof node !== 'object') return
+    if (node.range) {
+      const key = nodeKey(node)
+      let arr = index.get(key)
+      if (!arr) { arr = []; index.set(key, arr) }
+      arr.push(node)
+    }
+    for (const k of Object.keys(node)) {
+      if (k === 'parent' || k === 'loc') continue
+      const val = node[k]
+      if (Array.isArray(val)) val.forEach(walk)
+      else if (val && typeof val === 'object' && val.type) walk(val)
+    }
+  }
+  walk(ast)
+  return index
+}
+
+function linkOriginalToVirtual(
+  orig: AnyEstreeNode,
+  virtualIndex: Map<NodeKey, AnyEstreeNode[]>,
+  proxyMap: WeakMap<AnyEstreeNode, import('typescript').Node>,
+  virtualNodeMap: WeakMap<AnyEstreeNode, import('typescript').Node>,
+  usedVirtual = new Set<AnyEstreeNode>(),
+): void {
+  if (!orig || typeof orig !== 'object') return
+
+  const key = nodeKey(orig)
+  const candidates = virtualIndex.get(key)
+  if (candidates) {
+    for (const vNode of candidates) {
+      if (!usedVirtual.has(vNode)) {
+        const tsNode = virtualNodeMap.get(vNode)
+        if (tsNode) {
+          proxyMap.set(orig, tsNode)
+          usedVirtual.add(vNode)
+          break
+        }
+      }
+    }
+  }
+
+  for (const k of Object.keys(orig)) {
+    if (k === 'parent' || k === 'loc') continue
+    const val = orig[k]
+    if (Array.isArray(val)) val.forEach(v => linkOriginalToVirtual(v, virtualIndex, proxyMap, virtualNodeMap, usedVirtual))
+    else if (val && typeof val === 'object' && val.type) linkOriginalToVirtual(val, virtualIndex, proxyMap, virtualNodeMap, usedVirtual)
+  }
 }

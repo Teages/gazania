@@ -16,10 +16,8 @@ export function collectBuilderNamesByType(
   program: ts.Program,
   checker: ts.TypeChecker,
   sourceFile: ts.SourceFile,
-  globalBuilderNames?: string[],
-): { builderNames: string[], namespace: string | undefined, shadowedGlobals: string[] } {
+): { builderNames: string[], namespace: string | undefined } {
   const builderNames = new Set<string>()
-  const shadowedGlobals = new Set<string>()
   let namespace: string | undefined
 
   function visit(node: ts.Node): void {
@@ -86,82 +84,23 @@ export function collectBuilderNamesByType(
     if (hasGazaniaMarker(checker, type)) {
       builderNames.add(name)
     }
-    else if (globalBuilderNames?.includes(name)) {
-      shadowedGlobals.add(name)
-    }
   }
 
   ts.forEachChild(sourceFile, visit)
-  return { builderNames: Array.from(builderNames), namespace, shadowedGlobals: Array.from(shadowedGlobals) }
+  return { builderNames: Array.from(builderNames), namespace }
 }
 
-/**
- * Scan all declaration files (.d.ts) in the TypeScript program for
- * `declare global { const X: ... }` entries whose type carries the
- * ~isGazania marker and return their names.
- *
- * This handles frameworks like Nuxt that inject builder instances as
- * globals via generated `.d.ts` shims (e.g. `.nuxt/types/imports.d.ts`)
- * instead of explicit `import` statements.
- */
-export function collectGlobalBuilderNames(
-  ts: typeof import('typescript'),
-  program: ts.Program,
-  checker: ts.TypeChecker,
-): string[] {
-  const builderNames = new Set<string>()
-
-  for (const sourceFile of program.getSourceFiles()) {
-    if (!sourceFile.isDeclarationFile) {
-      continue
-    }
-
-    ts.forEachChild(sourceFile, (node) => {
-      if (!ts.isModuleDeclaration(node)) {
-        return
-      }
-      if (!(node.flags & ts.NodeFlags.GlobalAugmentation)) {
-        return
-      }
-      if (!node.body || !ts.isModuleBlock(node.body)) {
-        return
-      }
-
-      ts.forEachChild(node.body, (statement) => {
-        if (!ts.isVariableStatement(statement)) {
-          return
-        }
-        for (const decl of statement.declarationList.declarations) {
-          if (!ts.isIdentifier(decl.name)) {
-            continue
-          }
-          const type = checker.getTypeAtLocation(decl.name)
-          if (hasGazaniaMarker(checker, type)) {
-            builderNames.add(decl.name.text)
-          }
-        }
-      })
-    })
-  }
-
-  return Array.from(builderNames)
-}
-
-/**
- * Convenience wrapper: resolve SourceFile by path, then delegate.
- */
 export function collectBuilderNamesForFile(
   ts: typeof import('typescript'),
   program: ts.Program,
   checker: ts.TypeChecker,
   filePath: string,
-  globalBuilderNames?: string[],
-): { builderNames: string[], namespace: string | undefined, shadowedGlobals: string[] } {
+): { builderNames: string[], namespace: string | undefined } {
   const sourceFile = program.getSourceFile(filePath)
   if (!sourceFile) {
-    return { builderNames: [], namespace: undefined, shadowedGlobals: [] }
+    return { builderNames: [], namespace: undefined }
   }
-  return collectBuilderNamesByType(ts, program, checker, sourceFile, globalBuilderNames)
+  return collectBuilderNamesByType(ts, program, checker, sourceFile)
 }
 
 if (import.meta.vitest) {
@@ -331,160 +270,6 @@ if (import.meta.vitest) {
         const result = collectBuilderNamesForFile(ts, program, checker, '/nonexistent/file.ts')
         expect(result.builderNames).toEqual([])
         expect(result.namespace).toBeUndefined()
-      })
-    })
-
-    describe('collectGlobalBuilderNames', () => {
-      it('detects gazania builder declared inside declare global in a .d.ts', async () => {
-        const dir = '/vfs/type-aware-global'
-        const tsInstance = await loadTS()
-        const system = createTestingSystem({
-          [`${dir}/auto-imports.d.ts`]: [
-            `import type { gazania } from 'gazania'`,
-            `declare global {`,
-            `  const schema: typeof gazania`,
-            `}`,
-            `export {}`,
-          ].join('\n'),
-          [`${dir}/tsconfig.json`]: JSON.stringify({
-            compilerOptions: {
-              target: 'esnext',
-              module: 'esnext',
-              moduleResolution: 'bundler',
-              baseUrl: projectRoot,
-              paths: { gazania: ['src/index.ts'] },
-            },
-            files: ['auto-imports.d.ts'],
-          }),
-        }, tsInstance)
-        const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
-        const result = collectGlobalBuilderNames(ts, program, checker)
-        expect(result).toContain('schema')
-      })
-
-      it('returns empty array when no declaration files have gazania globals', async () => {
-        const dir = '/vfs/type-aware-global-empty'
-        const tsInstance = await loadTS()
-        const system = createTestingSystem({
-          [`${dir}/tsconfig.json`]: JSON.stringify({
-            compilerOptions: { target: 'esnext', module: 'esnext', moduleResolution: 'bundler' },
-            files: [`${dir}/a.ts`],
-          }),
-          [`${dir}/a.ts`]: 'export const x = 1',
-        }, tsInstance)
-        const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
-        const result = collectGlobalBuilderNames(ts, program, checker)
-        expect(result).toEqual([])
-      })
-
-      it('ignores non-gazania globals in .d.ts', async () => {
-        const dir = '/vfs/type-aware-global-non-gazania'
-        const tsInstance = await loadTS()
-        const system = createTestingSystem({
-          [`${dir}/types.d.ts`]: [
-            `declare global {`,
-            `  const someVar: string`,
-            `  const otherVar: number`,
-            `}`,
-            `export {}`,
-          ].join('\n'),
-          [`${dir}/tsconfig.json`]: JSON.stringify({
-            compilerOptions: { target: 'esnext', module: 'esnext', moduleResolution: 'bundler' },
-            files: ['types.d.ts'],
-          }),
-        }, tsInstance)
-        const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
-        const result = collectGlobalBuilderNames(ts, program, checker)
-        expect(result).toEqual([])
-      })
-
-      it('ignores regular .ts files even if they have declare global', async () => {
-        const dir = '/vfs/type-aware-global-ts'
-        const tsInstance = await loadTS()
-        const system = createTestingSystem({
-          [`${dir}/something.ts`]: [
-            `import { gazania } from 'gazania'`,
-            `declare global {`,
-            `  const schema: typeof gazania`,
-            `}`,
-            `export {}`,
-          ].join('\n'),
-          [`${dir}/tsconfig.json`]: JSON.stringify({
-            compilerOptions: {
-              target: 'esnext',
-              module: 'esnext',
-              moduleResolution: 'bundler',
-              baseUrl: projectRoot,
-              paths: { gazania: ['src/index.ts'] },
-            },
-            files: ['something.ts'],
-          }),
-        }, tsInstance)
-        const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
-        const result = collectGlobalBuilderNames(ts, program, checker)
-        expect(result).toEqual([])
-      })
-
-      it('detects multiple gazania globals declared in one .d.ts', async () => {
-        const dir = '/vfs/type-aware-global-multi'
-        const tsInstance = await loadTS()
-        const system = createTestingSystem({
-          [`${dir}/auto-imports.d.ts`]: [
-            `import type { gazania } from 'gazania'`,
-            `declare global {`,
-            `  const schema: typeof gazania`,
-            `  const anotherSchema: typeof gazania`,
-            `}`,
-            `export {}`,
-          ].join('\n'),
-          [`${dir}/tsconfig.json`]: JSON.stringify({
-            compilerOptions: {
-              target: 'esnext',
-              module: 'esnext',
-              moduleResolution: 'bundler',
-              baseUrl: projectRoot,
-              paths: { gazania: ['src/index.ts'] },
-            },
-            files: ['auto-imports.d.ts'],
-          }),
-        }, tsInstance)
-        const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
-        const result = collectGlobalBuilderNames(ts, program, checker)
-        expect(result).toContain('schema')
-        expect(result).toContain('anotherSchema')
-      })
-
-      it('ignores non-GlobalAugmentation module declarations', async () => {
-        const dir = '/vfs/type-aware-global-module'
-        const tsInstance = await loadTS()
-        const system = createTestingSystem({
-          [`${dir}/types.d.ts`]: [
-            `import type { gazania } from 'gazania'`,
-            `declare module 'some-module' {`,
-            `  const schema: typeof gazania`,
-            `}`,
-            `export {}`,
-          ].join('\n'),
-          [`${dir}/tsconfig.json`]: JSON.stringify({
-            compilerOptions: {
-              target: 'esnext',
-              module: 'esnext',
-              moduleResolution: 'bundler',
-              baseUrl: projectRoot,
-              paths: { gazania: ['src/index.ts'] },
-            },
-            files: ['types.d.ts'],
-          }),
-        }, tsInstance)
-        const parsed = parseTSConfig(tsInstance, `${dir}/tsconfig.json`, system)
-        const { program, checker } = createTypeCheckerProgram(tsInstance, parsed, system)
-        const result = collectGlobalBuilderNames(ts, program, checker)
-        expect(result).toEqual([])
       })
     })
   })

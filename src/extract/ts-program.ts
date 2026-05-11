@@ -102,10 +102,11 @@ export function adaptToSystem(fs: ExtractFS, ts: typeof import('typescript')): i
  * Minimal API surface of `vue/compiler-sfc` that Gazania needs.
  * Loaded lazily so Vue is not a hard dependency.
  */
-export interface VueCompilerApi {
-  parse: (source: string, options: { filename: string }) => { descriptor: any, errors: any[] }
-  compileScript: (descriptor: any, options: { id: string }) => { content: string }
-}
+import type _VueCompilerSfc from 'vue/compiler-sfc'
+
+type VueCompilerSfc = typeof _VueCompilerSfc
+
+export type VueCompilerApi = Pick<VueCompilerSfc, 'parse' | 'compileScript'>
 
 /**
  * Try to load `vue/compiler-sfc` from the user's project.
@@ -113,12 +114,9 @@ export interface VueCompilerApi {
  */
 export async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
   try {
-    const sfc = await import('vue/compiler-sfc')
-    const api: any = 'default' in sfc ? (sfc as any).default : sfc
-    return {
-      parse: api.parse ?? (sfc as any).parse,
-      compileScript: api.compileScript ?? (sfc as any).compileScript,
-    }
+    const sfc = await import('vue/compiler-sfc') as VueCompilerSfc | { default: VueCompilerSfc }
+    const api = 'default' in sfc ? sfc.default : sfc
+    return { parse: api.parse, compileScript: api.compileScript }
   }
   catch {
     return null
@@ -134,12 +132,17 @@ export async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
  * the TypeChecker full type information for SFC exports and auto-imported
  * globals (e.g. Nuxt's `declare global { const schema: ... }`).
  */
+export interface VirtualFileEntry {
+  content: string
+  map?: { version: number, sources: string[], mappings: string, names?: string[], sourcesContent?: (string | null)[] }
+}
+
 export function buildVueVirtualFiles(
   vueFiles: string[],
   system: import('typescript').System,
   vueCompiler: VueCompilerApi,
-): Map<string, string> {
-  const virtualFiles = new Map<string, string>()
+): Map<string, VirtualFileEntry> {
+  const virtualFiles = new Map<string, VirtualFileEntry>()
   for (const file of vueFiles) {
     if (!file.endsWith('.vue')) {
       continue
@@ -154,7 +157,7 @@ export function buildVueVirtualFiles(
         continue
       }
       const result = vueCompiler.compileScript(descriptor, { id: file })
-      virtualFiles.set(`${file}.ts`, result.content)
+      virtualFiles.set(`${file}.ts`, { content: result.content, map: result.map ?? undefined })
     }
     catch {
       // Skip files that cannot be compiled; they fall back to AST-only analysis.
@@ -172,11 +175,11 @@ export function buildVueVirtualFiles(
 function overlayVirtualFiles(
   host: import('typescript').CompilerHost,
   system: import('typescript').System,
-  virtualFiles: Map<string, string>,
+  virtualFiles: Map<string, VirtualFileEntry>,
 ): import('typescript').CompilerHost {
   const origReadFile = host.readFile.bind(host)
   const origFileExists = host.fileExists?.bind(host) ?? ((f: string) => system.fileExists(f))
-  host.readFile = f => virtualFiles.get(f) ?? origReadFile(f)
+  host.readFile = f => virtualFiles.get(f)?.content ?? origReadFile(f)
   host.fileExists = f => virtualFiles.has(f) || origFileExists(f)
   return host
 }
@@ -219,7 +222,7 @@ export function createModuleResolver(
   parsed: import('typescript').ParsedCommandLine,
   system: import('typescript').System,
   createHostFn?: CreateHostFn,
-  virtualFiles?: Map<string, string>,
+  virtualFiles?: Map<string, VirtualFileEntry>,
 ): ModuleResolver {
   const baseHost = createHostFn
     ? createHostFn(ts, system, parsed.options)
@@ -264,7 +267,7 @@ export function createTypeCheckerProgram(
   parsed: import('typescript').ParsedCommandLine,
   system: import('typescript').System,
   createHostFn?: CreateHostFn,
-  virtualFiles?: Map<string, string>,
+  virtualFiles?: Map<string, VirtualFileEntry>,
 ): TypeCheckerProgram {
   const baseHost = createHostFn
     ? createHostFn(ts, system, parsed.options)
@@ -331,7 +334,7 @@ if (import.meta.vitest) {
       const mockCompiler = makeMockCompiler('export default {}')
       const result = buildVueVirtualFiles([`${dir}/Comp.vue`], system, mockCompiler)
       expect(result.has(`${dir}/Comp.vue.ts`)).toBe(true)
-      expect(result.get(`${dir}/Comp.vue.ts`)).toBe('export default {}')
+      expect(result.get(`${dir}/Comp.vue.ts`)?.content).toBe('export default {}')
     })
 
     it('skips non-.vue files in the input list', async () => {
@@ -535,7 +538,7 @@ if (import.meta.vitest) {
       const dir = '/vfs/ts-program-virtual'
       const virtualContent = 'export const virtualVar = 42'
       const virtualFiles = new Map([
-        [`${dir}/src/Comp.vue.ts`, virtualContent],
+        [`${dir}/src/Comp.vue.ts`, { content: virtualContent }],
       ])
       const system = createTestingSystem({
         [`${dir}/tsconfig.json`]: JSON.stringify({

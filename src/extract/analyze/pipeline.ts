@@ -13,7 +13,7 @@ import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { buildDocumentFromChain } from './document'
 import { collectExports, collectImports } from './imports'
 import { collectPartialDefs, detectCircularPartialRefs, findUnresolvedSpreadRef } from './partial'
-import { collectBuilderNamesForFile, collectGlobalBuilderNames } from './type-aware-ids'
+import { collectBuilderNamesForFile } from './type-aware-ids'
 import { CircularPartialError } from './types'
 
 interface FileStaticBindings {
@@ -194,13 +194,10 @@ export function staticExtractCrossFile(
   const vueFiles = vueCompiler ? files.filter(f => f.endsWith('.vue')) : []
   const virtualFiles = vueCompiler && vueFiles.length > 0
     ? buildVueVirtualFiles(vueFiles, system, vueCompiler)
-    : new Map<string, string>()
+    : new Map<string, import('../ts-program').VirtualFileEntry>()
 
   const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn, virtualFiles)
   const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn, virtualFiles)
-
-  // Collect globally declared builder names (e.g. Nuxt auto-imports via `declare global {}`)
-  const globalBuilderNames = collectGlobalBuilderNames(ts, program, checker)
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
@@ -217,7 +214,6 @@ export function staticExtractCrossFile(
     if (parsedFiles.has(file)) {
       continue
     }
-    // For SFCs, query the virtual .vue.ts / .svelte.ts file in the TypeChecker
     const tcPath = (file.endsWith('.vue') || file.endsWith('.svelte')) ? `${file}.ts` : file
     const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
@@ -262,29 +258,13 @@ export function staticExtractCrossFile(
 
   function getBuilderInfoForFile(file: string, blocks: StaticParsedBlock[]): { builderNames: string[], namespace: string | undefined } {
     const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
-    if (isSFC) {
-      const tcResult = collectBuilderNamesForFile(ts, program, checker, `${file}.ts`, globalBuilderNames)
-      const filteredGlobals = globalBuilderNames.filter(g => !tcResult.shadowedGlobals.includes(g))
-      const builderNames = [...tcResult.builderNames, ...filteredGlobals]
-      let namespace = tcResult.namespace
-      if (builderNames.length === 0 && namespace === undefined) {
-        for (const block of blocks) {
-          const { builderNames: astNames, namespace: ns } = collectImports(block.ast, {})
-          builderNames.push(...astNames)
-          if (ns !== undefined) {
-            namespace = ns
-          }
-        }
-      }
-      return { builderNames, namespace }
-    }
-    const tcResult = collectBuilderNamesForFile(ts, program, checker, file, globalBuilderNames)
+    const tcPath = isSFC ? `${file}.ts` : file
+    const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
       return tcResult
     }
-    const filteredGlobals = globalBuilderNames.filter(g => !tcResult.shadowedGlobals.includes(g))
-    const mergedBuilderNames: string[] = [...filteredGlobals]
     let namespace: string | undefined
+    const mergedBuilderNames: string[] = []
     for (const block of blocks) {
       const { builderNames, namespace: ns } = collectImports(block.ast, {})
       mergedBuilderNames.push(...builderNames)
