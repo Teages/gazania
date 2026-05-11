@@ -2,6 +2,7 @@ import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
 import type { ExtractManifest, HashFn, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
 import type { CreateHostFn, VueCompilerApi } from '../ts-program'
+import type { TypeContext } from './chain'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { getFileImports, topologicalSort } from '../dependency-graph'
 import { offsetToLineColumn, parseFile, staticOffsetToLine } from '../files'
@@ -27,6 +28,7 @@ export function processFileStatic(
   crossFilePartials: Map<string, StaticPartialDef>,
   builderNames: string[],
   namespace: string | undefined,
+  checker?: import('typescript').TypeChecker,
 ): {
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
@@ -46,6 +48,10 @@ export function processFileStatic(
     const blockBuilderNames = [...builderNames]
 
     blockBuilderNames.push(...accumulatedBuilderNames)
+
+    const typeCtx: TypeContext | undefined = checker
+      ? { checker, nodeMap: block.nodeMap, builderNames: blockBuilderNames, namespace }
+      : undefined
 
     walkAST(block.ast, (node: any) => {
       if (node.type !== 'VariableDeclaration') {
@@ -67,7 +73,7 @@ export function processFileStatic(
       }
     })
 
-    const localPartials = collectPartialDefs(block.ast, blockBuilderNames, namespace)
+    const localPartials = collectPartialDefs(block.ast, blockBuilderNames, namespace, typeCtx)
     for (const [k, v] of localPartials) {
       mergedPartialDefs.set(k, v)
     }
@@ -97,10 +103,10 @@ export function processFileStatic(
 
     const chains: StaticBuilderChain[] = []
     walkAST(block.ast, (node: any) => {
-      if (!isGazaniaSelectCall(node, blockBuilderNames, namespace)) {
+      if (!isGazaniaSelectCall(node, blockBuilderNames, namespace, typeCtx)) {
         return
       }
-      const chain = analyzeBuilderChain(node, blockBuilderNames, namespace)
+      const chain = analyzeBuilderChain(node, blockBuilderNames, namespace, typeCtx)
       if (chain) {
         chains.push(chain)
       }
@@ -321,7 +327,7 @@ export function staticExtractCrossFile(
 
     const { builderNames, namespace } = getBuilderInfoForFile(file, blocks)
     const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
-    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace)
+    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace, checker)
 
     for (const { doc, loc } of result.documents) {
       addDocumentToManifest(manifest, doc, hash, loc)

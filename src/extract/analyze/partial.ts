@@ -1,14 +1,15 @@
 import type { Program } from 'estree'
 import type { StaticPartialDef } from './types'
+import type { TypeContext } from './chain'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { collectNestedPartialRefs, interpretSelectCallback } from './selection'
 
-/** Round 1: Collect all partial/section definitions from the AST. */
 export function collectPartialDefs(
   ast: Program,
   builderNames: string[],
   namespace: string | undefined,
+  typeCtx?: TypeContext,
 ): Map<string, StaticPartialDef> {
   const partialDefs = new Map<string, StaticPartialDef>()
 
@@ -27,11 +28,11 @@ export function collectPartialDefs(
         continue
       }
 
-      if (!isGazaniaSelectCall(init, builderNames, namespace)) {
+      if (!isGazaniaSelectCall(init, builderNames, namespace, typeCtx)) {
         continue
       }
 
-      const chain = analyzeBuilderChain(init, builderNames, namespace)
+      const chain = analyzeBuilderChain(init, builderNames, namespace, typeCtx)
       if (!chain) {
         continue
       }

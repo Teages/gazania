@@ -7,6 +7,8 @@ export interface ParsedBlock {
   code: string
   ast: Program
   lineOffset: number
+  /** ESTree → TS node mapping. Available when parsed via `parseAndGenerateServices`. */
+  nodeMap?: WeakMap<any, import('typescript').Node>
 }
 
 export interface ParseFileOptions {
@@ -56,14 +58,14 @@ export function parseFile(filePath: string, options?: ParseFileOptions, host?: E
 
     try {
       let ast: Program
+      let nodeMap: WeakMap<any, import('typescript').Node> | undefined
 
       if (programSourceFile) {
-        // Reuse the Program's already-parsed SourceFile — no re-parsing.
         const result = parseAndGenerateServices(programSourceFile, { range: true, jsx: isJSX })
         ast = result.ast as unknown as Program
+        nodeMap = result.services.esTreeNodeToTSNodeMap as WeakMap<any, import('typescript').Node>
       }
       else {
-        // SFC blocks or no Program available — create a fresh SourceFile.
         const parseFilename = isSFC ? 'block.ts' : filePath.replace(/^.*[/\\]/, '')
         ast = parse(code, {
           range: true,
@@ -72,7 +74,7 @@ export function parseFile(filePath: string, options?: ParseFileOptions, host?: E
         }) as unknown as Program
       }
 
-      blocks.push({ code, ast, lineOffset })
+      blocks.push({ code, ast, lineOffset, nodeMap })
     }
     catch {
       debugLog(filePath, lineOffset, 'parse failed', options)
