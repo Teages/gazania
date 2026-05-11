@@ -98,8 +98,8 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   async function parseCode(code: string) {
-    const { parseSync } = await import('oxc-parser')
-    return parseSync('test.js', code).program as any
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    return parse(code, { range: true }) as any
   }
 
   describe('collectImports', () => {

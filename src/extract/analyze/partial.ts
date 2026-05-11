@@ -140,11 +140,11 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   describe('partial-resolver: same-file partial/section resolution', async () => {
-    const { parseSync } = await import('oxc-parser')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
     const { collectImports } = await import('./imports')
 
     async function parseCode(code: string) {
-      return parseSync('test.js', code).program as any
+      return parse(code, { range: true }) as any
     }
 
     it('7. collectPartialDefs returns empty map when no partials', async () => {

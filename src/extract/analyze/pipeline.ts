@@ -407,10 +407,10 @@ if (import.meta.vitest) {
 
   describe('partial-resolver: same-file partial/section resolution', async () => {
     const { print } = await import('graphql')
-    const { parseSync } = await import('oxc-parser')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
 
     function extractCode(code: string) {
-      const ast = parseSync('test.js', code).program as any
+      const ast = parse(code, { range: true }) as any
       const { builderNames, namespace } = collectImports(ast, {})
       const blocks: StaticParsedBlock[] = [{ code, ast, lineOffset: 0 }]
       const result = processFileStatic(blocks, 'test.js', new Map(), builderNames, namespace)
