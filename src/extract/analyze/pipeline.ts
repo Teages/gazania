@@ -1,13 +1,15 @@
 import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
 import type { ExtractManifest, HashFn, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
-import type { CreateHostFn, Svelte2TsxApi, VueCompilerApi } from '../ts-program'
+import type { SFCCompiler } from '../sfc'
+import type { CreateHostFn } from '../ts-program'
 import type { TypeContext } from './chain'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { getFileImports, topologicalSort } from '../dependency-graph'
 import { offsetToLineColumn, parseFile, staticOffsetToLine } from '../files'
 import { addDocumentToManifest } from '../manifest'
-import { buildSvelteVirtualFiles, buildVueVirtualFiles, createModuleResolver, createTypeCheckerProgram } from '../ts-program'
+import { buildSFCVirtualFiles } from '../sfc'
+import { createModuleResolver, createTypeCheckerProgram } from '../ts-program'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { buildDocumentFromChain } from './document'
@@ -184,27 +186,17 @@ export function staticExtractCrossFile(
     system: import('typescript').System
     createHost?: CreateHostFn
     ts: typeof import('typescript')
-    vueCompiler?: VueCompilerApi | null
-    svelte2tsx?: Svelte2TsxApi | null
+    compilers: readonly SFCCompiler[]
   },
 ): {
   manifest: ExtractManifest
   skipped: SkippedExtraction[]
 } {
-  const { hash, logger, system, createHost: createHostFn, ts, vueCompiler, svelte2tsx: svelte2tsxApi } = options
-  const vueFiles = vueCompiler ? files.filter(f => f.endsWith('.vue')) : []
-  const svelteFiles = svelte2tsxApi ? files.filter(f => f.endsWith('.svelte')) : []
-  const virtualFiles = new Map<string, import('../ts-program').VirtualFileEntry>()
-  if (vueCompiler && vueFiles.length > 0) {
-    for (const [k, v] of buildVueVirtualFiles(vueFiles, system, vueCompiler)) {
-      virtualFiles.set(k, v)
-    }
-  }
-  if (svelte2tsxApi && svelteFiles.length > 0) {
-    for (const [k, v] of buildSvelteVirtualFiles(svelteFiles, system, svelte2tsxApi)) {
-      virtualFiles.set(k, v)
-    }
-  }
+  const { hash, logger, system, createHost: createHostFn, ts, compilers } = options
+  const sfcExtensions = new Set(compilers.flatMap(c => c.extensions))
+  const virtualFiles = compilers.length > 0
+    ? buildSFCVirtualFiles(files, system, compilers)
+    : new Map<string, import('../sfc').VirtualFileEntry>()
 
   const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn, virtualFiles)
   const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn, virtualFiles)
@@ -224,7 +216,8 @@ export function staticExtractCrossFile(
     if (parsedFiles.has(file)) {
       continue
     }
-    const tcPath = (file.endsWith('.vue') || file.endsWith('.svelte')) ? `${file}.ts` : file
+    const ext = file.includes('.') ? file.slice(file.lastIndexOf('.')) : ''
+    const tcPath = sfcExtensions.has(ext) ? `${file}.ts` : file
     const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
       const blocks = parseFile(file, { skipFilter: true, logger }, system, { program })
@@ -267,7 +260,8 @@ export function staticExtractCrossFile(
   const filesNeedingSecondPass = new Set<string>()
 
   function getBuilderInfoForFile(file: string, blocks: StaticParsedBlock[]): { builderNames: string[], namespace: string | undefined } {
-    const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
+    const ext = file.includes('.') ? file.slice(file.lastIndexOf('.')) : ''
+    const isSFC = sfcExtensions.has(ext)
     const tcPath = isSFC ? `${file}.ts` : file
     const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MediaContentFragment } from '~/components/MediaContent.vue';
+import { MediaContentFragment } from '~/components/MediaContent.vue'
 
 const query = schema.query('FetchAnime')
   .vars({ id: 'Int = 127549' })
@@ -17,7 +17,9 @@ const { data, error } = useAsyncData(() => client.request(query, { }))
 <template>
   <div>
     Media:
-    <div v-if="error">{{ error.message }}</div>
+    <div v-if="error">
+      {{ error.message }}
+    </div>
     <MediaContent v-else-if="data?.Media" :media="data.Media" />
     <div v-else>
       Loading...

@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { UserPartial, UserSection } from './fragments'
 import { client, gazania } from './index'
 
-const users = ref<Array<{ id: string; name: string }>>([])
+const users = ref<Array<{ id: string, name: string }>>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 
@@ -26,10 +26,12 @@ const _WithFragmentQuery = gazania.query('GetUsersWithFragment_Vue')
 onMounted(async () => {
   try {
     const data = await client.request(GetUsersQuery)
-    users.value = (data as { users?: Array<{ id: string; name: string }> }).users ?? []
-  } catch (err) {
+    users.value = (data as { users?: Array<{ id: string, name: string }> }).users ?? []
+  }
+  catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
-  } finally {
+  }
+  finally {
     loading.value = false
   }
 })
@@ -39,8 +41,12 @@ onMounted(async () => {
   <main>
     <h1>Gazania Persisted Queries (Vue)</h1>
     <section>
-      <p v-if="loading">Loading users…</p>
-      <p v-else-if="error" class="error">{{ error }}</p>
+      <p v-if="loading">
+        Loading users…
+      </p>
+      <p v-else-if="error" class="error">
+        {{ error }}
+      </p>
       <ul v-else>
         <li v-for="user in users" :key="user.id">
           {{ user.name }} <small>({{ user.id }})</small>

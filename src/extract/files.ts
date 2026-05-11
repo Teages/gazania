@@ -1,5 +1,5 @@
 import type { Program } from 'estree'
-import type { VirtualFileEntry } from './ts-program'
+import type { ExtractFS } from './ts-program'
 import { parse, parseAndGenerateServices } from '@typescript-eslint/typescript-estree'
 import { getScriptBlocks } from './preprocess'
 
@@ -26,11 +26,13 @@ export function parseFile(filePath: string, options?: ParseFileOptions, host?: E
     return null
   }
 
-  const isSFC = filePath.endsWith('.vue') || filePath.endsWith('.svelte')
   const isJSX = filePath.endsWith('.jsx') || filePath.endsWith('.tsx')
   const program = context?.program
 
   let programSourceFile: import('typescript').SourceFile | undefined
+  const isSFC = program
+    ? !program.getSourceFile(filePath) && !!program.getSourceFile(`${filePath}.ts`)
+    : false
   if (program && !isSFC) {
     programSourceFile = program.getSourceFile(filePath)
   }
@@ -140,8 +142,12 @@ function buildProxyNodeMap(
 type NodeKey = string
 
 function nodeKey(node: AnyEstreeNode): NodeKey {
-  if (node.type === 'Identifier') return `I:${node.name}`
-  if (node.type === 'Literal') return `L:${JSON.stringify(node.value)}`
+  if (node.type === 'Identifier') {
+    return `I:${node.name}`
+  }
+  if (node.type === 'Literal') {
+    return `L:${JSON.stringify(node.value)}`
+  }
   if (node.type === 'MemberExpression' && node.property?.type === 'Identifier') {
     return `M:${node.property.name}`
   }
@@ -151,18 +157,29 @@ function nodeKey(node: AnyEstreeNode): NodeKey {
 function buildNodeIndex(ast: AnyEstreeNode): Map<NodeKey, AnyEstreeNode[]> {
   const index = new Map<NodeKey, AnyEstreeNode[]>()
   function walk(node: AnyEstreeNode) {
-    if (!node || typeof node !== 'object') return
+    if (!node || typeof node !== 'object') {
+      return
+    }
     if (node.range) {
       const key = nodeKey(node)
       let arr = index.get(key)
-      if (!arr) { arr = []; index.set(key, arr) }
+      if (!arr) {
+        arr = []
+        index.set(key, arr)
+      }
       arr.push(node)
     }
     for (const k of Object.keys(node)) {
-      if (k === 'parent' || k === 'loc') continue
+      if (k === 'parent' || k === 'loc') {
+        continue
+      }
       const val = node[k]
-      if (Array.isArray(val)) val.forEach(walk)
-      else if (val && typeof val === 'object' && val.type) walk(val)
+      if (Array.isArray(val)) {
+        val.forEach(walk)
+      }
+      else if (val && typeof val === 'object' && val.type) {
+        walk(val)
+      }
     }
   }
   walk(ast)
@@ -176,7 +193,9 @@ function linkOriginalToVirtual(
   virtualNodeMap: WeakMap<AnyEstreeNode, import('typescript').Node>,
   usedVirtual = new Set<AnyEstreeNode>(),
 ): void {
-  if (!orig || typeof orig !== 'object') return
+  if (!orig || typeof orig !== 'object') {
+    return
+  }
 
   const key = nodeKey(orig)
   const candidates = virtualIndex.get(key)
@@ -194,9 +213,15 @@ function linkOriginalToVirtual(
   }
 
   for (const k of Object.keys(orig)) {
-    if (k === 'parent' || k === 'loc') continue
+    if (k === 'parent' || k === 'loc') {
+      continue
+    }
     const val = orig[k]
-    if (Array.isArray(val)) val.forEach(v => linkOriginalToVirtual(v, virtualIndex, proxyMap, virtualNodeMap, usedVirtual))
-    else if (val && typeof val === 'object' && val.type) linkOriginalToVirtual(val, virtualIndex, proxyMap, virtualNodeMap, usedVirtual)
+    if (Array.isArray(val)) {
+      val.forEach(v => linkOriginalToVirtual(v, virtualIndex, proxyMap, virtualNodeMap, usedVirtual))
+    }
+    else if (val && typeof val === 'object' && val.type) {
+      linkOriginalToVirtual(val, virtualIndex, proxyMap, virtualNodeMap, usedVirtual)
+    }
   }
 }

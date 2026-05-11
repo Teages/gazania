@@ -1,6 +1,6 @@
 import type { Program } from 'estree'
-import type { StaticPartialDef } from './types'
 import type { TypeContext } from './chain'
+import type { StaticPartialDef } from './types'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { collectNestedPartialRefs, interpretSelectCallback } from './selection'

@@ -11,7 +11,6 @@ export const MediaContentFragment = schema.partial('MediaContent_Media')
       ]),
     },
   ]))
-
 </script>
 
 <script setup lang="ts">

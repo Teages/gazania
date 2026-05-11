@@ -5,6 +5,8 @@
  * `ts.sys` satisfies this interface in Node.js environments.
  * For virtual/test environments, preload files into memory before passing.
  */
+import type { VirtualFileEntry } from './sfc'
+
 export interface ExtractFS {
   /** Read file contents. Return `undefined` if file doesn't exist. */
   readFile: (path: string) => string | undefined
@@ -98,133 +100,8 @@ export function adaptToSystem(fs: ExtractFS, ts: typeof import('typescript')): i
   }
 }
 
-/**
- * Minimal API surface of `vue/compiler-sfc` that Gazania needs.
- * Loaded lazily so Vue is not a hard dependency.
- */
-import type _VueCompilerSfc from 'vue/compiler-sfc'
+export type { VirtualFileEntry } from './sfc'
 
-type VueCompilerSfc = typeof _VueCompilerSfc
-
-export type VueCompilerApi = Pick<VueCompilerSfc, 'parse' | 'compileScript'>
-
-/**
- * Try to load `vue/compiler-sfc` from the user's project.
- * Returns `null` if Vue is not installed (e.g. non-Vue projects).
- */
-export async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
-  try {
-    const sfc = await import('vue/compiler-sfc') as VueCompilerSfc | { default: VueCompilerSfc }
-    const api = 'default' in sfc ? sfc.default : sfc
-    return { parse: api.parse, compileScript: api.compileScript }
-  }
-  catch {
-    return null
-  }
-}
-
-/**
- * Minimal API surface of `svelte2tsx` that Gazania needs.
- * Loaded lazily so Svelte is not a hard dependency.
- */
-export interface Svelte2TsxApi {
-  svelte2tsx: (source: string, options: {
-    filename?: string
-    mode?: 'ts' | 'dts'
-    isTsFile?: boolean
-  }) => { code: string, map?: { version: number, sources: string[], mappings: string, names?: string[], sourcesContent?: (string | null)[] } }
-}
-
-/**
- * Try to load `svelte2tsx` from the user's project.
- * Returns `null` if Svelte is not installed (e.g. non-Svelte projects).
- */
-export async function tryLoadSvelte2Tsx(): Promise<Svelte2TsxApi | null> {
-  try {
-    const mod = await import('svelte2tsx') as Svelte2TsxApi | { default: Svelte2TsxApi }
-    const api = 'default' in mod ? mod.default : mod
-    return { svelte2tsx: api.svelte2tsx }
-  }
-  catch {
-    return null
-  }
-}
-
-/**
- * Compile Vue SFC files to virtual `.vue.ts` files using the Vue compiler.
- * Returns a map of `<original>.vue.ts` → compiled TypeScript content.
- *
- * These virtual files are injected into the TypeScript CompilerHost so that
- * imports like `'./Comp.vue'` resolve naturally to `'./Comp.vue.ts'`, giving
- * the TypeChecker full type information for SFC exports and auto-imported
- * globals (e.g. Nuxt's `declare global { const schema: ... }`).
- */
-export interface VirtualFileEntry {
-  content: string
-  map?: { version: number, sources: string[], mappings: string, names?: string[], sourcesContent?: (string | null)[] }
-}
-
-export function buildVueVirtualFiles(
-  vueFiles: string[],
-  system: import('typescript').System,
-  vueCompiler: VueCompilerApi,
-): Map<string, VirtualFileEntry> {
-  const virtualFiles = new Map<string, VirtualFileEntry>()
-  for (const file of vueFiles) {
-    if (!file.endsWith('.vue')) {
-      continue
-    }
-    const source = system.readFile(file)
-    if (!source) {
-      continue
-    }
-    try {
-      const { descriptor, errors } = vueCompiler.parse(source, { filename: file })
-      if (errors.length > 0 || (!descriptor.script && !descriptor.scriptSetup)) {
-        continue
-      }
-      const result = vueCompiler.compileScript(descriptor, { id: file })
-      virtualFiles.set(`${file}.ts`, { content: result.content, map: result.map ?? undefined })
-    }
-    catch {
-      // Skip files that cannot be compiled; they fall back to AST-only analysis.
-    }
-  }
-  return virtualFiles
-}
-
-export function buildSvelteVirtualFiles(
-  svelteFiles: string[],
-  system: import('typescript').System,
-  svelte2tsx: Svelte2TsxApi,
-): Map<string, VirtualFileEntry> {
-  const virtualFiles = new Map<string, VirtualFileEntry>()
-  for (const file of svelteFiles) {
-    if (!file.endsWith('.svelte')) {
-      continue
-    }
-    const source = system.readFile(file)
-    if (!source) {
-      continue
-    }
-    try {
-      const isTsFile = /<script[^>]*\blang\s*=\s*(['"])(ts|typescript)\1/.test(source)
-      const result = svelte2tsx.svelte2tsx(source, { filename: file, mode: 'ts', isTsFile })
-      virtualFiles.set(`${file}.ts`, { content: result.code, map: result.map ?? undefined })
-    }
-    catch {
-      // Skip files that cannot be compiled; they fall back to AST-only analysis.
-    }
-  }
-  return virtualFiles
-}
-
-/**
- * Overlay virtual files onto a CompilerHost.
- * Mutates the host in-place (rather than spreading) to preserve the prototype
- * chain — `ts.createCompilerHost` puts methods like `getCanonicalFileName` on
- * the prototype, which a spread `{ ...host }` would silently drop.
- */
 function overlayVirtualFiles(
   host: import('typescript').CompilerHost,
   system: import('typescript').System,
@@ -265,7 +142,7 @@ export function createHostFromSystem(
  * Create a module resolver using TypeScript's module resolution algorithm.
  * Accepts a pre-parsed `ParsedCommandLine` (from `parseTSConfig`).
  *
- * When virtual `.vue.ts` files are provided (via `buildVueVirtualFiles`),
+ * When virtual SFC files are provided (via `buildSFCVirtualFiles`),
  * TypeScript's Bundler-mode resolution naturally resolves `'./Comp.vue'` to
  * `'./Comp.vue.ts'`.  The resolved path is stripped back to `'./Comp.vue'`
  * so that dependency-graph keys stay consistent with the scanned file list.
@@ -292,8 +169,8 @@ export function createModuleResolver(
         return undefined
       }
       // TypeScript (Bundler mode) resolves './Comp.vue' → 'Comp.vue.ts'.
-      // Strip the extra '.ts' suffix so dependency-graph keys stay as '.vue' paths.
-      if (resolved.endsWith('.vue.ts') || resolved.endsWith('.svelte.ts')) {
+      // Strip the extra '.ts' suffix if the resolved path is a known virtual file.
+      if (virtualFiles?.has(resolved)) {
         return resolved.slice(0, -3)
       }
       return resolved
@@ -311,7 +188,7 @@ export interface TypeCheckerProgram {
  * Create a TypeScript program with TypeChecker for builder name detection.
  * Accepts a pre-parsed `ParsedCommandLine` (from `parseTSConfig`).
  *
- * When `virtualFiles` are provided (compiled Vue SFC scripts), they are
+ * When `virtualFiles` are provided (compiled SFC scripts), they are
  * overlaid on the CompilerHost and their paths are added to `rootNames` so
  * the TypeChecker can resolve types across SFC boundaries.
  */
@@ -343,122 +220,6 @@ export function createTypeCheckerProgram(
 
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
-
-  describe('tryLoadVueCompiler', () => {
-    it('returns a VueCompilerApi when vue is installed', async () => {
-      const result = await tryLoadVueCompiler()
-      expect(result).not.toBeNull()
-      expect(typeof result!.parse).toBe('function')
-      expect(typeof result!.compileScript).toBe('function')
-    })
-  })
-
-  describe('buildVueVirtualFiles', async () => {
-    const { createTestingSystem } = await import('../../test/utils/vfs')
-
-    function makeMockCompiler(
-      compiled: string,
-      opts?: { errors?: any[], noScript?: boolean, throwOnCompile?: boolean },
-    ): VueCompilerApi {
-      return {
-        parse: (source, { filename }) => ({
-          descriptor: {
-            script: opts?.noScript ? null : { content: source },
-            scriptSetup: null,
-            filename,
-          },
-          errors: opts?.errors ?? [],
-        }),
-        compileScript: () => {
-          if (opts?.throwOnCompile) {
-            throw new Error('compile error')
-          }
-          return { content: compiled }
-        },
-      }
-    }
-
-    it('compiles .vue files into virtual .vue.ts entries', async () => {
-      const ts = await loadTS()
-      const dir = '/vfs/vue-virtual'
-      const system = createTestingSystem({
-        [`${dir}/Comp.vue`]: '<script>\nexport default {}\n</script>',
-      }, ts)
-      const mockCompiler = makeMockCompiler('export default {}')
-      const result = buildVueVirtualFiles([`${dir}/Comp.vue`], system, mockCompiler)
-      expect(result.has(`${dir}/Comp.vue.ts`)).toBe(true)
-      expect(result.get(`${dir}/Comp.vue.ts`)?.content).toBe('export default {}')
-    })
-
-    it('skips non-.vue files in the input list', async () => {
-      const ts = await loadTS()
-      const dir = '/vfs/vue-virtual'
-      const system = createTestingSystem({
-        [`${dir}/App.svelte`]: '<script>\nexport let x = 1\n</script>',
-      }, ts)
-      const mockCompiler = makeMockCompiler('export let x = 1')
-      const result = buildVueVirtualFiles([`${dir}/App.svelte`], system, mockCompiler)
-      expect(result.size).toBe(0)
-    })
-
-    it('skips .vue files not present on the system', async () => {
-      const ts = await loadTS()
-      const system = createTestingSystem({}, ts)
-      const mockCompiler = makeMockCompiler('export default {}')
-      const result = buildVueVirtualFiles(['/nonexistent/Missing.vue'], system, mockCompiler)
-      expect(result.size).toBe(0)
-    })
-
-    it('skips files with parse errors', async () => {
-      const ts = await loadTS()
-      const dir = '/vfs/vue-virtual'
-      const system = createTestingSystem({
-        [`${dir}/Broken.vue`]: '<script>broken',
-      }, ts)
-      const mockCompiler = makeMockCompiler('', { errors: [new Error('parse error')] })
-      const result = buildVueVirtualFiles([`${dir}/Broken.vue`], system, mockCompiler)
-      expect(result.size).toBe(0)
-    })
-
-    it('skips files with no script or scriptSetup block', async () => {
-      const ts = await loadTS()
-      const dir = '/vfs/vue-virtual'
-      const system = createTestingSystem({
-        [`${dir}/TemplateOnly.vue`]: '<template><div/></template>',
-      }, ts)
-      const mockCompiler = makeMockCompiler('', { noScript: true })
-      const result = buildVueVirtualFiles([`${dir}/TemplateOnly.vue`], system, mockCompiler)
-      expect(result.size).toBe(0)
-    })
-
-    it('skips files where compileScript throws', async () => {
-      const ts = await loadTS()
-      const dir = '/vfs/vue-virtual'
-      const system = createTestingSystem({
-        [`${dir}/Throws.vue`]: '<script>export default {}</script>',
-      }, ts)
-      const mockCompiler = makeMockCompiler('', { throwOnCompile: true })
-      const result = buildVueVirtualFiles([`${dir}/Throws.vue`], system, mockCompiler)
-      expect(result.size).toBe(0)
-    })
-
-    it('handles multiple .vue files', async () => {
-      const ts = await loadTS()
-      const dir = '/vfs/vue-virtual'
-      const system = createTestingSystem({
-        [`${dir}/A.vue`]: '<script>export const a = 1</script>',
-        [`${dir}/B.vue`]: '<script>export const b = 2</script>',
-      }, ts)
-      const mockCompiler = makeMockCompiler('compiled')
-      const result = buildVueVirtualFiles(
-        [`${dir}/A.vue`, `${dir}/B.vue`],
-        system,
-        mockCompiler,
-      )
-      expect(result.has(`${dir}/A.vue.ts`)).toBe(true)
-      expect(result.has(`${dir}/B.vue.ts`)).toBe(true)
-    })
-  })
 
   describe('createModuleResolver', async () => {
     const { createTestingSystem } = await import('../../test/utils/vfs')
@@ -519,8 +280,8 @@ if (import.meta.vitest) {
     it('resolves .vue imports to .vue path when virtual .vue.ts files are provided', async () => {
       const ts = await loadTS()
       const dir = '/vfs/ts-program-vue'
-      const virtualFiles = new Map([
-        [`${dir}/src/Comp.vue.ts`, 'export default {}'],
+      const virtualFiles = new Map<string, VirtualFileEntry>([
+        [`${dir}/src/Comp.vue.ts`, { content: 'export default {}' }],
       ])
       const system = createTestingSystem({
         [`${dir}/tsconfig.json`]: JSON.stringify({

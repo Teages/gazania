@@ -19,9 +19,13 @@ function isGazaniaNode(
   node: Node,
   ctx: TypeContext,
 ): boolean {
-  if (!ctx.nodeMap) return false
+  if (!ctx.nodeMap) {
+    return false
+  }
   const tsNode = ctx.nodeMap.get(node)
-  if (!tsNode) return false
+  if (!tsNode) {
+    return false
+  }
   const type = ctx.checker.getTypeAtLocation(tsNode)
   return hasGazaniaMarker(ctx.checker, type)
 }

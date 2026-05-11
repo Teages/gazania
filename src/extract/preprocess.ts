@@ -22,7 +22,7 @@ export interface ScriptBlock {
  * blocks (common in Vue SFCs) do not cause parse errors.
  */
 export function getScriptBlocks(code: string, filePath: string): ScriptBlock[] {
-  if (filePath.endsWith('.vue') || filePath.endsWith('.svelte')) {
+  if (!/\.[jt]sx?$/.test(filePath)) {
     return extractSFCScriptBlocks(code)
   }
   return [{ code, lineOffset: 0 }]
