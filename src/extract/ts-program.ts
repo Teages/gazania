@@ -99,6 +99,89 @@ export function adaptToSystem(fs: ExtractFS, ts: typeof import('typescript')): i
 }
 
 /**
+ * Minimal API surface of `vue/compiler-sfc` that Gazania needs.
+ * Loaded lazily so Vue is not a hard dependency.
+ */
+export interface VueCompilerApi {
+  parse: (source: string, options: { filename: string }) => { descriptor: any, errors: any[] }
+  compileScript: (descriptor: any, options: { id: string }) => { content: string }
+}
+
+/**
+ * Try to load `vue/compiler-sfc` from the user's project.
+ * Returns `null` if Vue is not installed (e.g. non-Vue projects).
+ */
+export async function tryLoadVueCompiler(): Promise<VueCompilerApi | null> {
+  try {
+    const sfc = await import('vue/compiler-sfc')
+    const api: any = 'default' in sfc ? (sfc as any).default : sfc
+    return {
+      parse: api.parse ?? (sfc as any).parse,
+      compileScript: api.compileScript ?? (sfc as any).compileScript,
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * Compile Vue SFC files to virtual `.vue.ts` files using the Vue compiler.
+ * Returns a map of `<original>.vue.ts` → compiled TypeScript content.
+ *
+ * These virtual files are injected into the TypeScript CompilerHost so that
+ * imports like `'./Comp.vue'` resolve naturally to `'./Comp.vue.ts'`, giving
+ * the TypeChecker full type information for SFC exports and auto-imported
+ * globals (e.g. Nuxt's `declare global { const schema: ... }`).
+ */
+export function buildVueVirtualFiles(
+  vueFiles: string[],
+  system: import('typescript').System,
+  vueCompiler: VueCompilerApi,
+): Map<string, string> {
+  const virtualFiles = new Map<string, string>()
+  for (const file of vueFiles) {
+    if (!file.endsWith('.vue')) {
+      continue
+    }
+    const source = system.readFile(file)
+    if (!source) {
+      continue
+    }
+    try {
+      const { descriptor, errors } = vueCompiler.parse(source, { filename: file })
+      if (errors.length > 0 || (!descriptor.script && !descriptor.scriptSetup)) {
+        continue
+      }
+      const result = vueCompiler.compileScript(descriptor, { id: file })
+      virtualFiles.set(`${file}.ts`, result.content)
+    }
+    catch {
+      // Skip files that cannot be compiled; they fall back to AST-only analysis.
+    }
+  }
+  return virtualFiles
+}
+
+/**
+ * Overlay virtual files onto a CompilerHost.
+ * Mutates the host in-place (rather than spreading) to preserve the prototype
+ * chain — `ts.createCompilerHost` puts methods like `getCanonicalFileName` on
+ * the prototype, which a spread `{ ...host }` would silently drop.
+ */
+function overlayVirtualFiles(
+  host: import('typescript').CompilerHost,
+  system: import('typescript').System,
+  virtualFiles: Map<string, string>,
+): import('typescript').CompilerHost {
+  const origReadFile = host.readFile.bind(host)
+  const origFileExists = host.fileExists?.bind(host) ?? ((f: string) => system.fileExists(f))
+  host.readFile = f => virtualFiles.get(f) ?? origReadFile(f)
+  host.fileExists = f => virtualFiles.has(f) || origFileExists(f)
+  return host
+}
+
+/**
  * Create a CompilerHost that delegates FS operations to the given System.
  * Used when user provides a custom fs but not a custom createHost.
  */
@@ -125,21 +208,39 @@ export function createHostFromSystem(
 /**
  * Create a module resolver using TypeScript's module resolution algorithm.
  * Accepts a pre-parsed `ParsedCommandLine` (from `parseTSConfig`).
+ *
+ * When virtual `.vue.ts` files are provided (via `buildVueVirtualFiles`),
+ * TypeScript's Bundler-mode resolution naturally resolves `'./Comp.vue'` to
+ * `'./Comp.vue.ts'`.  The resolved path is stripped back to `'./Comp.vue'`
+ * so that dependency-graph keys stay consistent with the scanned file list.
  */
 export function createModuleResolver(
   ts: typeof import('typescript'),
   parsed: import('typescript').ParsedCommandLine,
   system: import('typescript').System,
   createHostFn?: CreateHostFn,
+  virtualFiles?: Map<string, string>,
 ): ModuleResolver {
-  const host = createHostFn
+  const baseHost = createHostFn
     ? createHostFn(ts, system, parsed.options)
     : createHostFromSystem(ts, system, parsed.options)
+  const host = virtualFiles && virtualFiles.size > 0
+    ? overlayVirtualFiles(baseHost, system, virtualFiles)
+    : baseHost
 
   return {
     resolve(modulePath: string, fromFile: string): string | undefined {
       const result = ts.resolveModuleName(modulePath, fromFile, parsed.options, host)
-      return result.resolvedModule?.resolvedFileName
+      const resolved = result.resolvedModule?.resolvedFileName
+      if (!resolved) {
+        return undefined
+      }
+      // TypeScript (Bundler mode) resolves './Comp.vue' → 'Comp.vue.ts'.
+      // Strip the extra '.ts' suffix so dependency-graph keys stay as '.vue' paths.
+      if (resolved.endsWith('.vue.ts') || resolved.endsWith('.svelte.ts')) {
+        return resolved.slice(0, -3)
+      }
+      return resolved
     },
   }
 }
@@ -153,21 +254,29 @@ export interface TypeCheckerProgram {
 /**
  * Create a TypeScript program with TypeChecker for builder name detection.
  * Accepts a pre-parsed `ParsedCommandLine` (from `parseTSConfig`).
+ *
+ * When `virtualFiles` are provided (compiled Vue SFC scripts), they are
+ * overlaid on the CompilerHost and their paths are added to `rootNames` so
+ * the TypeChecker can resolve types across SFC boundaries.
  */
 export function createTypeCheckerProgram(
   ts: typeof import('typescript'),
   parsed: import('typescript').ParsedCommandLine,
   system: import('typescript').System,
   createHostFn?: CreateHostFn,
+  virtualFiles?: Map<string, string>,
 ): TypeCheckerProgram {
-  const host = createHostFn
+  const baseHost = createHostFn
     ? createHostFn(ts, system, parsed.options)
     : createHostFromSystem(ts, system, parsed.options)
-  const program = ts.createProgram({
-    rootNames: parsed.fileNames,
-    options: parsed.options,
-    host,
-  })
+  const host = virtualFiles && virtualFiles.size > 0
+    ? overlayVirtualFiles(baseHost, system, virtualFiles)
+    : baseHost
+  const rootNames = [
+    ...parsed.fileNames,
+    ...(virtualFiles ? [...virtualFiles.keys()] : []),
+  ]
+  const program = ts.createProgram({ rootNames, options: parsed.options, host })
 
   return {
     program,

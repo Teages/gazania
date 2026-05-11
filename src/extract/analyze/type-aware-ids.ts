@@ -93,6 +93,58 @@ export function collectBuilderNamesByType(
 }
 
 /**
+ * Scan all declaration files (.d.ts) in the TypeScript program for
+ * `declare global { const X: ... }` entries whose type carries the
+ * ~isGazania marker and return their names.
+ *
+ * This handles frameworks like Nuxt that inject builder instances as
+ * globals via generated `.d.ts` shims (e.g. `.nuxt/types/imports.d.ts`)
+ * instead of explicit `import` statements.
+ */
+export function collectGlobalBuilderNames(
+  ts: typeof import('typescript'),
+  program: ts.Program,
+  checker: ts.TypeChecker,
+): string[] {
+  const builderNames = new Set<string>()
+
+  for (const sourceFile of program.getSourceFiles()) {
+    if (!sourceFile.isDeclarationFile) {
+      continue
+    }
+
+    ts.forEachChild(sourceFile, (node) => {
+      if (!ts.isModuleDeclaration(node)) {
+        return
+      }
+      if (!(node.flags & ts.NodeFlags.GlobalAugmentation)) {
+        return
+      }
+      if (!node.body || !ts.isModuleBlock(node.body)) {
+        return
+      }
+
+      ts.forEachChild(node.body, (statement) => {
+        if (!ts.isVariableStatement(statement)) {
+          return
+        }
+        for (const decl of statement.declarationList.declarations) {
+          if (!ts.isIdentifier(decl.name)) {
+            continue
+          }
+          const type = checker.getTypeAtLocation(decl.name)
+          if (hasGazaniaMarker(checker, type)) {
+            builderNames.add(decl.name.text)
+          }
+        }
+      })
+    })
+  }
+
+  return Array.from(builderNames)
+}
+
+/**
  * Convenience wrapper: resolve SourceFile by path, then delegate.
  */
 export function collectBuilderNamesForFile(

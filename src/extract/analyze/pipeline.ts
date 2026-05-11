@@ -2,19 +2,19 @@ import type { Program } from 'estree'
 import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
 import type { ExtractManifest, HashFn, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
-import type { CreateHostFn } from '../ts-program'
+import type { CreateHostFn, VueCompilerApi } from '../ts-program'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { parseSync } from 'oxc-parser'
 import { getFileImports, topologicalSort } from '../dependency-graph'
 import { offsetToLineColumn, parseFile, staticOffsetToLine } from '../files'
 import { addDocumentToManifest } from '../manifest'
-import { createModuleResolver, createTypeCheckerProgram } from '../ts-program'
+import { buildVueVirtualFiles, createModuleResolver, createTypeCheckerProgram } from '../ts-program'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { buildDocumentFromChain } from './document'
 import { collectExports, collectImports } from './imports'
 import { collectPartialDefs, detectCircularPartialRefs, findUnresolvedSpreadRef } from './partial'
-import { collectBuilderNamesForFile } from './type-aware-ids'
+import { collectBuilderNamesForFile, collectGlobalBuilderNames } from './type-aware-ids'
 import { CircularPartialError } from './types'
 
 interface FileStaticBindings {
@@ -193,14 +193,23 @@ export function staticExtractCrossFile(
     system: import('typescript').System
     createHost?: CreateHostFn
     ts: typeof import('typescript')
+    vueCompiler?: VueCompilerApi | null
   },
 ): {
   manifest: ExtractManifest
   skipped: SkippedExtraction[]
 } {
-  const { hash, logger, system, createHost: createHostFn, ts } = options
-  const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn)
-  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn)
+  const { hash, logger, system, createHost: createHostFn, ts, vueCompiler } = options
+  const vueFiles = vueCompiler ? files.filter(f => f.endsWith('.vue')) : []
+  const virtualFiles = vueCompiler && vueFiles.length > 0
+    ? buildVueVirtualFiles(vueFiles, system, vueCompiler)
+    : new Map<string, string>()
+
+  const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn, virtualFiles)
+  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn, virtualFiles)
+
+  // Collect globally declared builder names (e.g. Nuxt auto-imports via `declare global {}`)
+  const globalBuilderNames = collectGlobalBuilderNames(ts, program, checker)
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
@@ -217,11 +226,9 @@ export function staticExtractCrossFile(
     if (parsedFiles.has(file)) {
       continue
     }
-    const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
-    if (isSFC) {
-      continue
-    }
-    const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
+    // For SFCs, query the virtual .vue.ts / .svelte.ts file in the TypeChecker
+    const tcPath = (file.endsWith('.vue') || file.endsWith('.svelte')) ? `${file}.ts` : file
+    const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
       const blocks = parseFile(file, { skipFilter: true, logger }, system)
       if (blocks) {
@@ -265,22 +272,29 @@ export function staticExtractCrossFile(
   function getBuilderInfoForFile(file: string, blocks: StaticParsedBlock[]): { builderNames: string[], namespace: string | undefined } {
     const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
     if (isSFC) {
-      const mergedBuilderNames: string[] = []
-      let namespace: string | undefined
-      for (const block of blocks) {
-        const { builderNames, namespace: ns } = collectImports(block.ast, {})
-        mergedBuilderNames.push(...builderNames)
-        if (ns) {
-          namespace = ns
+      // Use the virtual .vue.ts / .svelte.ts file for type-checker-based detection.
+      // Global builder names (e.g. Nuxt auto-imports) are merged in from globalBuilderNames.
+      const tcResult = collectBuilderNamesForFile(ts, program, checker, `${file}.ts`)
+      const builderNames = [...tcResult.builderNames, ...globalBuilderNames]
+      let namespace = tcResult.namespace
+      // If no virtual file exists for this SFC type (e.g. Svelte) or compilation
+      // failed, fall back to AST-based import scanning of the raw script blocks.
+      if (builderNames.length === 0 && namespace === undefined) {
+        for (const block of blocks) {
+          const { builderNames: astNames, namespace: ns } = collectImports(block.ast, {})
+          builderNames.push(...astNames)
+          if (ns !== undefined) {
+            namespace = ns
+          }
         }
       }
-      return { builderNames: mergedBuilderNames, namespace }
+      return { builderNames, namespace }
     }
     const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
       return tcResult
     }
-    const mergedBuilderNames: string[] = []
+    const mergedBuilderNames: string[] = [...globalBuilderNames]
     let namespace: string | undefined
     for (const block of blocks) {
       const { builderNames, namespace: ns } = collectImports(block.ast, {})
