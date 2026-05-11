@@ -23,7 +23,7 @@ export function buildSFCVirtualFiles(
       continue
     }
     const source = system.readFile(file)
-    if (!source) {
+    if (source === undefined) {
       continue
     }
     try {
@@ -105,6 +105,17 @@ if (import.meta.vitest) {
       const compiler = makeMockCompiler('.vue', '', { throwOnCompile: true })
       const result = buildSFCVirtualFiles([`${dir}/Broken.vue`], system, [compiler])
       expect(result.size).toBe(0)
+    })
+
+    it('compiles files with empty source text', async () => {
+      const ts = await loadTS()
+      const dir = '/vfs/sfc-virtual'
+      const system = createTestingSystem({
+        [`${dir}/Empty.vue`]: '',
+      }, ts)
+      const compiler = makeMockCompiler('.vue', 'compiled-empty')
+      const result = buildSFCVirtualFiles([`${dir}/Empty.vue`], system, [compiler])
+      expect(result.get(`${dir}/Empty.vue.ts`)?.content).toBe('compiled-empty')
     })
 
     it('skips files where compile returns undefined', async () => {
