@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.13.1
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.13.0...v0.13.1)
+
+### 🚀 Enhancements
+
+- **extract:** SFC compiler support & type-aware analysis for Vue/Svelte ([#15](https://github.com/Teages/gazania/pull/15))
+
+### ❤️ Contributors
+
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.13.0
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.12.0...v0.13.0)
