@@ -2,10 +2,10 @@ import type { Node } from 'estree'
 import type { ArgumentMap } from '../../runtime/argument'
 import type { DirectiveInput } from '../../runtime/directive'
 import type { SelectionInput, SelectionObject } from '../../runtime/dollar'
-import type { StaticPartialDef, StaticPartialRef, StaticSelectionResult } from './types'
 import type { TypeContext } from './chain'
-import { resolvePartialFragmentName } from './chain'
+import type { StaticPartialDef, StaticPartialRef, StaticSelectionResult } from './types'
 import { Variable } from '../../runtime/variable'
+import { resolvePartialFragmentName } from './chain'
 
 /**
  * Interpret a $.select() callback AST to extract selection data statically.
@@ -468,7 +468,9 @@ if (import.meta.vitest) {
     const fakeTSNode = {}
 
     function walk(n: any): void {
-      if (!n || typeof n !== 'object') return
+      if (!n || typeof n !== 'object') {
+        return
+      }
       if (
         n.type === 'SpreadElement'
         && n.argument?.type === 'CallExpression'
@@ -478,7 +480,9 @@ if (import.meta.vitest) {
       }
       for (const val of Object.values(n)) {
         if (Array.isArray(val)) {
-          for (const item of val) walk(item)
+          for (const item of val) {
+            walk(item)
+          }
         }
         else if (val && typeof val === 'object') {
           walk(val)
