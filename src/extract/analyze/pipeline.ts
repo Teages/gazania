@@ -130,7 +130,7 @@ export function processFileStatic(
         continue
       }
 
-      const unresolvedRef = findUnresolvedSpreadRef(chain.selectCallback, mergedPartialDefs, declaredNames)
+      const unresolvedRef = findUnresolvedSpreadRef(chain.selectCallback, mergedPartialDefs, declaredNames, typeCtx)
       if (unresolvedRef) {
         skipped.push({
           file,
@@ -142,7 +142,7 @@ export function processFileStatic(
       }
 
       try {
-        const doc = buildDocumentFromChain(chain, mergedPartialDefs)
+        const doc = buildDocumentFromChain(chain, mergedPartialDefs, undefined, typeCtx)
         const startPos = offsetToLineColumn(block.code, chain.loc.start)
         const endPos = offsetToLineColumn(block.code, chain.loc.end)
         const loc: SourceLoc = {
@@ -300,10 +300,8 @@ export function staticExtractCrossFile(
         crossFileBuilderNames.push(imp.localName)
       }
 
-      const localName = sourceBindings.exportMap.get(imp.importedName) || imp.importedName
-      const partialDef = sourceBindings.partialDefs.get(localName)
-      if (partialDef) {
-        crossFilePartials.set(imp.localName, partialDef)
+      for (const [fragmentName, def] of sourceBindings.partialDefs) {
+        crossFilePartials.set(fragmentName, def)
       }
     }
 
@@ -372,7 +370,7 @@ export function staticExtractCrossFile(
     }
   }
 
-  const cycles = detectCircularPartialRefs(allPartialDefs)
+  const cycles = detectCircularPartialRefs(allPartialDefs, checker)
   if (cycles.size > 0) {
     const allSkipped = [...fileSkipped.values()].flat()
     for (const [cyclePath] of cycles) {
@@ -400,9 +398,81 @@ if (import.meta.vitest) {
     function extractCode(code: string) {
       const ast = parse(code, { range: true }) as any
       const { builderNames, namespace } = collectImports(ast, {})
-      const blocks: StaticParsedBlock[] = [{ code, ast, lineOffset: 0 }]
-      const result = processFileStatic(blocks, 'test.js', new Map(), builderNames, namespace)
+      const { checker, nodeMap } = makeMockPipelineCtx(ast)
+      const blocks: StaticParsedBlock[] = [{ code, ast, lineOffset: 0, nodeMap }]
+      const result = processFileStatic(blocks, 'test.js', new Map(), builderNames, namespace, checker)
       return result.documents.map(d => d.doc)
+    }
+
+    function makeMockPipelineCtx(ast: any): { checker: any, nodeMap: WeakMap<any, any> } {
+      const varToFrag = new Map<string, string>()
+      for (const stmt of ast.body) {
+        if (stmt.type !== 'VariableDeclaration') continue
+        for (const decl of stmt.declarations) {
+          if (decl.id.type !== 'Identifier' || !decl.init) continue
+          if (decl.init.type !== 'CallExpression') continue
+          let fragName: string | undefined
+          let cur: any = decl.init
+          while (cur?.type === 'CallExpression' && cur.callee?.type === 'MemberExpression') {
+            const method = cur.callee.property?.name
+            if ((method === 'partial' || method === 'section') && cur.arguments[0]?.type === 'Literal' && typeof cur.arguments[0].value === 'string') {
+              fragName = cur.arguments[0].value
+              break
+            }
+            cur = cur.callee.object
+          }
+          if (fragName) varToFrag.set(decl.id.name, fragName)
+        }
+      }
+
+      const nodeMap = new WeakMap<any, any>()
+      const tsNodeToFragName = new WeakMap<any, string>()
+
+      function walk(n: any): void {
+        if (!n || typeof n !== 'object') return
+        if (
+          n.type === 'SpreadElement'
+          && n.argument?.type === 'CallExpression'
+          && n.argument.callee?.type === 'Identifier'
+        ) {
+          const fragName = varToFrag.get(n.argument.callee.name)
+          if (fragName) {
+            const fakeTSNode = {}
+            nodeMap.set(n.argument.callee, fakeTSNode)
+            tsNodeToFragName.set(fakeTSNode, fragName)
+          }
+        }
+        for (const val of Object.values(n)) {
+          if (Array.isArray(val)) {
+            for (const item of val) walk(item)
+          }
+          else if (val && typeof val === 'object') {
+            walk(val)
+          }
+        }
+      }
+      walk(ast)
+
+      let currentFragmentName: string | null = null
+      const mockSymbol = {}
+      const mockType = { isUnion: () => false }
+
+      const checker = {
+        getTypeAtLocation: (tsNode: any) => {
+          currentFragmentName = tsNodeToFragName.get(tsNode) ?? null
+          return mockType
+        },
+        getPropertyOfType: (_t: any, name: string) =>
+          (name === ' $fragmentOf' || name === ' $fragmentRefs') ? mockSymbol : undefined,
+        getTypeOfSymbol: () => mockType,
+        getPropertiesOfType: () => {
+          const name = currentFragmentName
+          currentFragmentName = null
+          return name ? [{ name }] : []
+        },
+      }
+
+      return { checker, nodeMap }
     }
 
     it('1. single same-file partial', () => {

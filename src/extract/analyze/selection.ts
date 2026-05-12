@@ -3,6 +3,8 @@ import type { ArgumentMap } from '../../runtime/argument'
 import type { DirectiveInput } from '../../runtime/directive'
 import type { SelectionInput, SelectionObject } from '../../runtime/dollar'
 import type { StaticPartialDef, StaticPartialRef, StaticSelectionResult } from './types'
+import type { TypeContext } from './chain'
+import { resolvePartialFragmentName } from './chain'
 import { Variable } from '../../runtime/variable'
 
 /**
@@ -18,6 +20,7 @@ export function interpretSelectCallback(
   varsParam?: string,
   knownPartials?: Map<string, StaticPartialDef>,
   literalScope?: Map<string, unknown>,
+  typeCtx?: TypeContext,
 ): StaticSelectionResult {
   const body = getCallbackBody(callbackNode)
   const selectCall = findSelectCall(body, dollarParam)
@@ -31,7 +34,7 @@ export function interpretSelectCallback(
     return { selection: [], partialRefs: [] }
   }
 
-  return interpretSelectionArray(selectionArray, dollarParam, varsParam, knownPartials, literalScope)
+  return interpretSelectionArray(selectionArray, dollarParam, varsParam, knownPartials, literalScope, typeCtx)
 }
 
 /**
@@ -43,6 +46,7 @@ function interpretSelectionArray(
   varsParam?: string,
   knownPartials?: Map<string, StaticPartialDef>,
   literalScope?: Map<string, unknown>,
+  typeCtx?: TypeContext,
 ): StaticSelectionResult {
   const selection: SelectionInput = []
   const partialRefs: StaticPartialRef[] = []
@@ -77,7 +81,7 @@ function interpretSelectionArray(
           value.type === 'ArrowFunctionExpression'
           || value.type === 'FunctionExpression'
         ) {
-          obj[key] = interpretFieldCallback(value, dollarParam, varsParam, knownPartials, literalScope)
+          obj[key] = interpretFieldCallback(value, dollarParam, varsParam, knownPartials, literalScope, typeCtx)
         }
       }
 
@@ -86,10 +90,18 @@ function interpretSelectionArray(
     else if (element.type === 'SpreadElement') {
       const arg = element.argument
       if (arg.type === 'CallExpression' && arg.callee.type === 'Identifier') {
-        const calleeName = arg.callee.name
-        if (knownPartials?.has(calleeName)) {
+        let fragmentName: string | null = null
+
+        if (typeCtx?.nodeMap) {
+          const tsCallee = typeCtx.nodeMap.get(arg.callee)
+          if (tsCallee) {
+            fragmentName = resolvePartialFragmentName(typeCtx.checker, tsCallee)
+          }
+        }
+
+        if (fragmentName) {
           partialRefs.push({
-            localName: calleeName,
+            fragmentName,
             args: arg.arguments[0] ?? { type: 'ObjectExpression', properties: [] },
             loc: { start: arg.range?.[0] ?? 0, end: arg.range?.[1] ?? 0 },
           })
@@ -112,6 +124,7 @@ function interpretFieldCallback(
   varsParam?: string,
   knownPartials?: Map<string, StaticPartialDef>,
   literalScope?: Map<string, unknown>,
+  typeCtx?: TypeContext,
 ): (dollar: any) => any {
   const body = getCallbackBody(callbackNode)
   const innerDollarParam = callbackNode.params?.[0]?.name ?? dollarParam
@@ -130,7 +143,7 @@ function interpretFieldCallback(
     else if (methodName === 'select') {
       const selArray = callNode.arguments[0]
       if (selArray?.type === 'ArrayExpression') {
-        nestedSelection = interpretSelectionArray(selArray, innerDollarParam, varsParam, knownPartials, literalScope)
+        nestedSelection = interpretSelectionArray(selArray, innerDollarParam, varsParam, knownPartials, literalScope, typeCtx)
       }
     }
     else if (methodName === 'directives') {
@@ -445,6 +458,52 @@ if (import.meta.vitest) {
     }
   }
 
+  /**
+   * Build a mock TypeContext whose nodeMap maps every SpreadElement callee
+   * Identifier found inside `callbackNode` to a fake TS node, and whose
+   * checker returns `fragmentName` through the resolvePartialFragmentName chain.
+   */
+  function makeTypeCtxForSpread(callbackNode: any, fragmentName: string): TypeContext {
+    const nodeMap = new WeakMap<any, any>()
+    const fakeTSNode = {}
+
+    function walk(n: any): void {
+      if (!n || typeof n !== 'object') return
+      if (
+        n.type === 'SpreadElement'
+        && n.argument?.type === 'CallExpression'
+        && n.argument.callee?.type === 'Identifier'
+      ) {
+        nodeMap.set(n.argument.callee, fakeTSNode)
+      }
+      for (const val of Object.values(n)) {
+        if (Array.isArray(val)) {
+          for (const item of val) walk(item)
+        }
+        else if (val && typeof val === 'object') {
+          walk(val)
+        }
+      }
+    }
+    walk(callbackNode)
+
+    const mockSymbol = {}
+    const mockType = { isUnion: () => false }
+
+    return {
+      checker: {
+        getTypeAtLocation: () => mockType,
+        getPropertyOfType: (_t: any, name: string) =>
+          (name === ' $fragmentOf' || name === ' $fragmentRefs') ? mockSymbol : undefined,
+        getTypeOfSymbol: () => mockType,
+        getPropertiesOfType: () => [{ name: fragmentName }],
+      } as any,
+      nodeMap,
+      builderNames: [],
+      namespace: undefined,
+    }
+  }
+
   describe('interpretSelectCallback', () => {
     it('1. simple string fields: $.select(["id", "name"])', async () => {
       const { callback, dollarParam } = await getCallbackFromSelect(
@@ -563,11 +622,12 @@ if (import.meta.vitest) {
 
       const code = `gazania.query('Test').select($ => $.select(['id', ...userPartial({})]))`
       const { callback, dollarParam } = await getCallbackFromSelect(code)
-      const result = interpretSelectCallback(callback, dollarParam, undefined, partials)
+      const typeCtx = makeTypeCtxForSpread(callback, 'userPartial')
+      const result = interpretSelectCallback(callback, dollarParam, undefined, partials, undefined, typeCtx)
 
       expect(result.selection).toEqual(['id'])
       expect(result.partialRefs).toHaveLength(1)
-      expect(result.partialRefs[0].localName).toBe('userPartial')
+      expect(result.partialRefs[0].fragmentName).toBe('userPartial')
     })
 
     it('10. partial with vars: ...partialRef(vars)', async () => {
@@ -576,11 +636,12 @@ if (import.meta.vitest) {
 
       const code = `gazania.query('Test').vars({ id: 'ID!' }).select(($, vars) => $.select(['id', ...userPartial(vars)]))`
       const { callback, dollarParam, varsParam } = await getCallbackFromSelect(code, '$', 'vars')
-      const result = interpretSelectCallback(callback, dollarParam, varsParam, partials)
+      const typeCtx = makeTypeCtxForSpread(callback, 'userPartial')
+      const result = interpretSelectCallback(callback, dollarParam, varsParam, partials, undefined, typeCtx)
 
       expect(result.selection).toEqual(['id'])
       expect(result.partialRefs).toHaveLength(1)
-      expect(result.partialRefs[0].localName).toBe('userPartial')
+      expect(result.partialRefs[0].fragmentName).toBe('userPartial')
     })
 
     it('11. skipped patterns — unknown spread does not crash', async () => {
@@ -636,13 +697,14 @@ if (import.meta.vitest) {
       const code = `gazania.query('Test').select($ => $.select(['id', { active: true }, ...nameFields({})]))`
       const expr = await parseExpr(code)
       const callback = expr.arguments[0]
-      const result = interpretSelectCallback(callback, '$', undefined, partials)
+      const typeCtx = makeTypeCtxForSpread(callback, 'nameFields')
+      const result = interpretSelectCallback(callback, '$', undefined, partials, undefined, typeCtx)
 
       expect(result.selection).toHaveLength(2)
       expect(result.selection[0]).toBe('id')
       expect((result.selection[1] as any).active).toBe(true)
       expect(result.partialRefs).toHaveLength(1)
-      expect(result.partialRefs[0].localName).toBe('nameFields')
+      expect(result.partialRefs[0].fragmentName).toBe('nameFields')
     })
   })
 
@@ -729,11 +791,12 @@ if (import.meta.vitest) {
       const code = `gazania.query('Test').select($ => $.select([{ user: $ => $.select([...nestedPartial({})]) }]))`
       const expr = await parseExpr(code)
       const callback = expr.arguments[0]
-      const result = interpretSelectCallback(callback, '$', undefined, partials)
+      const typeCtx = makeTypeCtxForSpread(callback, 'nestedPartial')
+      const result = interpretSelectCallback(callback, '$', undefined, partials, undefined, typeCtx)
 
       const nestedRefs = collectNestedPartialRefs(result.selection)
       expect(nestedRefs).toHaveLength(1)
-      expect(nestedRefs[0].localName).toBe('nestedPartial')
+      expect(nestedRefs[0].fragmentName).toBe('nestedPartial')
     })
 
     it('returns empty array for plain selection', () => {

@@ -2,7 +2,7 @@ import type { Program } from 'estree'
 import type { TypeContext } from './chain'
 import type { StaticPartialDef } from './types'
 import { walkAST } from '../walk'
-import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
+import { analyzeBuilderChain, isGazaniaSelectCall, resolvePartialFragmentName } from './chain'
 import { collectNestedPartialRefs, interpretSelectCallback } from './selection'
 
 export function collectPartialDefs(
@@ -40,13 +40,14 @@ export function collectPartialDefs(
         continue
       }
 
-      partialDefs.set(decl.id.name, {
+      partialDefs.set(chain.name, {
         name: chain.name,
         typeName: chain.typeName!,
         variableDefs: chain.variableDefs,
         directives: chain.directives,
         selectCallback: chain.selectCallback,
         callbackParams: chain.callbackParams,
+        nodeMap: typeCtx?.nodeMap,
       })
     }
   })
@@ -63,6 +64,7 @@ export function findUnresolvedSpreadRef(
   callbackNode: any,
   knownPartials: Map<string, StaticPartialDef>,
   declaredNames?: Set<string>,
+  typeCtx?: TypeContext,
 ): { name: string, reason: string, category: 'unresolved' } | null {
   let result: { name: string, reason: string, category: 'unresolved' } | null = null
   walkAST(callbackNode, (node: any) => {
@@ -75,10 +77,22 @@ export function findUnresolvedSpreadRef(
       && node.argument.callee?.type === 'Identifier'
     ) {
       const name = node.argument.callee.name
-      if (!knownPartials.has(name)) {
+
+      let resolved = false
+      if (typeCtx?.nodeMap) {
+        const tsCallee = typeCtx.nodeMap.get(node.argument.callee)
+        if (tsCallee) {
+          const fragmentName = resolvePartialFragmentName(typeCtx.checker, tsCallee)
+          if (fragmentName && knownPartials.has(fragmentName)) {
+            resolved = true
+          }
+        }
+      }
+
+      if (!resolved) {
         const reason = declaredNames?.has(name)
-          ? `${name} is not a function`
-          : `${name} is not defined`
+          ? `${name} is not a partial or section (type check failed)`
+          : `${name} is not defined or not imported`
         result = { name, reason, category: 'unresolved' }
       }
     }
@@ -88,8 +102,12 @@ export function findUnresolvedSpreadRef(
 
 export function detectCircularPartialRefs(
   partialDefs: Map<string, StaticPartialDef>,
+  checker?: import('typescript').TypeChecker,
 ): Map<string, string> {
   const cycles = new Map<string, string>()
+  // Track canonical cycle signatures to deduplicate the same cycle found
+  // from different starting points (e.g. "A → B → A" vs "B → A → B").
+  const seenCycles = new Set<string>()
 
   for (const [_localName, def] of partialDefs) {
     const visited = new Set<string>()
@@ -98,22 +116,34 @@ export function detectCircularPartialRefs(
     function visit(name: string, def: StaticPartialDef): void {
       if (visited.has(name)) {
         const cycleStart = path.indexOf(name)
-        const cyclePath = [...path.slice(cycleStart), name].join(' → ')
-        cycles.set(cyclePath, name)
+        const cycleMembers = path.slice(cycleStart)
+        // Canonical key: sorted names so A↔B and B↔A map to the same key
+        const canonicalKey = [...cycleMembers].sort().join(',')
+        if (!seenCycles.has(canonicalKey)) {
+          seenCycles.add(canonicalKey)
+          const cyclePath = [...cycleMembers, name].join(' → ')
+          cycles.set(cyclePath, name)
+        }
         return
       }
       visited.add(name)
       path.push(name)
 
+      const typeCtx = (def.nodeMap && checker)
+        ? { checker, nodeMap: def.nodeMap, builderNames: [], namespace: undefined }
+        : undefined
+
       const result = interpretSelectCallback(
         def.selectCallback,
         def.callbackParams.dollar,
         def.callbackParams.vars,
-        def.scopedDeps || partialDefs,
+        partialDefs,
+        undefined,
+        typeCtx,
       )
 
       for (const ref of result.partialRefs) {
-        const refDef = (def.scopedDeps || partialDefs).get(ref.localName)
+        const refDef = partialDefs.get(ref.fragmentName)
         if (refDef) {
           visit(refDef.name, refDef)
         }
@@ -121,7 +151,7 @@ export function detectCircularPartialRefs(
 
       const nestedRefs = collectNestedPartialRefs(result.selection)
       for (const ref of nestedRefs) {
-        const refDef = (def.scopedDeps || partialDefs).get(ref.localName)
+        const refDef = partialDefs.get(ref.fragmentName)
         if (refDef) {
           visit(refDef.name, refDef)
         }
@@ -173,12 +203,12 @@ if (import.meta.vitest) {
       const partialDefs = collectPartialDefs(ast, builderNames, namespace)
 
       expect(partialDefs.size).toBe(2)
-      expect(partialDefs.has('p')).toBe(true)
-      expect(partialDefs.has('s')).toBe(true)
-      expect(partialDefs.get('p')!.name).toBe('P')
-      expect(partialDefs.get('p')!.typeName).toBe('T')
-      expect(partialDefs.get('s')!.name).toBe('S')
-      expect(partialDefs.get('s')!.typeName).toBe('U')
+      expect(partialDefs.has('P')).toBe(true)
+      expect(partialDefs.has('S')).toBe(true)
+      expect(partialDefs.get('P')!.name).toBe('P')
+      expect(partialDefs.get('P')!.typeName).toBe('T')
+      expect(partialDefs.get('S')!.name).toBe('S')
+      expect(partialDefs.get('S')!.typeName).toBe('U')
     })
   })
 }
