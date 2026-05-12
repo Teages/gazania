@@ -1,0 +1,6 @@
+export { buildSFCVirtualFiles } from './build'
+export { createSvelteCompiler } from './svelte'
+export type { Svelte2TsxApi } from './svelte'
+export type { SFCCompiler, VirtualFileEntry } from './types'
+export { createVueCompiler } from './vue'
+export type { VueCompilerApi } from './vue'

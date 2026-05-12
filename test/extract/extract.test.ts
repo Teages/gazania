@@ -784,53 +784,238 @@ const doc = gazania.query('LineQuery').select($ => $.select(['id']))`,
     expect(entry).toBeDefined()
     expect(entry!.loc.start.line).toBeGreaterThanOrEqual(3)
   })
+
+  it('loc has exact line/column for a .ts file (SourceFile reuse path)', async () => {
+    // Line 1: import
+    // Line 2: const query = gazania.query('ExactLoc').select(...)
+    await writeFile(
+      join(dir, 'src', 'query.ts'),
+      `import { gazania } from 'gazania'
+const doc = gazania.query('ExactLoc').select($ => $.select(['id']))`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.ExactLoc
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(2)
+    expect(entry!.loc.start.column).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.end.line).toBe(2)
+    expect(entry!.loc.end.offset).toBeGreaterThan(entry!.loc.start.offset)
+    expect(entry!.loc.file).toContain('query.ts')
+  })
+
+  it('loc has exact line/column for a .vue SFC file (with lineOffset)', async () => {
+    // Line 1: <template><div/></template>
+    // Line 2: <script>
+    // Line 3:   (leading \n stripped → folded into lineOffset=2)
+    // Line 3 (effective): import { gazania } from 'gazania'
+    // Line 4 (effective): const doc = gazania.query('VueLoc').select(...)
+    await writeFile(
+      join(dir, 'src', 'Comp.vue'),
+      `<template><div/></template>
+<script>
+import { gazania } from 'gazania'
+const doc = gazania.query('VueLoc').select($ => $.select(['id']))
+</script>`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), include: '**/*.{vue}', hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.VueLoc
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(4)
+    expect(entry!.loc.start.column).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.end.line).toBe(4)
+    expect(entry!.loc.file).toContain('Comp.vue')
+  })
+
+  it('loc has exact line/column for a .svelte file (with lineOffset)', async () => {
+    // Line 1: <script>
+    // Line 2: import { gazania } from 'gazania'
+    // Line 3: const doc = gazania.query('SvelteLoc').select(...)
+    // Line 4: </script>
+    await writeFile(
+      join(dir, 'src', 'App.svelte'),
+      `<script>
+import { gazania } from 'gazania'
+const doc = gazania.query('SvelteLoc').select($ => $.select(['id']))
+</script>
+<main />`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), include: '**/*.{svelte}', hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.SvelteLoc
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(3)
+    expect(entry!.loc.start.column).toBeGreaterThanOrEqual(1)
+    expect(entry!.loc.end.line).toBe(3)
+    expect(entry!.loc.file).toContain('App.svelte')
+  })
+
+  it('loc end is after start for a multi-line chained call', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.ts'),
+      `import { gazania } from 'gazania'
+const doc = gazania
+  .query('MultiLine')
+  .select($ => $.select(['id']))`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    const entry = manifest.operations.MultiLine
+    expect(entry).toBeDefined()
+    expect(entry!.loc.start.line).toBe(2)
+    expect(entry!.loc.end.line).toBe(4)
+    expect(entry!.loc.end.offset).toBeGreaterThan(entry!.loc.start.offset)
+  })
 })
 
-describe('oxc parsing', () => {
+describe('typescript-estree parsing', () => {
   it('parses plain JavaScript', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.js', `const x = 1`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const x = 1`, { range: true })
+    expect(ast.type).toBe('Program')
   })
 
   it('parses JSX', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.jsx', `const App = () => <div>hello</div>`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const App = () => <div>hello</div>`, { range: true, jsx: true })
+    expect(ast.type).toBe('Program')
   })
 
   it('parses TypeScript directly', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.ts', `const x: string = 'hello'`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const x: string = 'hello'`, { range: true, filePath: 'test.ts' })
+    expect(ast.type).toBe('Program')
   })
 
   it('parses TypeScript + JSX', async () => {
-    const { parseSync } = await import('oxc-parser')
-    const result = parseSync('test.tsx', `const x: string = 'hello'; const App = () => <div />`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.program.type).toBe('Program')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    const ast = parse(`const x: string = 'hello'; const App = () => <div />`, { range: true, filePath: 'test.tsx' })
+    expect(ast.type).toBe('Program')
   })
 })
 
-describe('oxc-transform', () => {
-  it('strips TypeScript type annotations', async () => {
-    const { transformSync } = await import('oxc-transform')
-    const result = transformSync('test.ts', `const x: string = 'hello'\nfunction f(a: number): void {}`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.code).not.toContain(': string')
-    expect(result.code).not.toContain(': number')
-    expect(result.code).toContain('hello')
+describe('extract: auto-import (declare global)', () => {
+  let dir: string
+  const { getParsed } = setupDescribe(() => dir)
+
+  beforeEach(async () => {
+    dir = join(tmpdir(), `gazania-auto-import-test-${randomUUID()}`)
+    await mkdir(dir, { recursive: true })
+    await mkdir(join(dir, 'src'), { recursive: true })
+
+    await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
+      compilerOptions: {
+        target: 'esnext',
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        strict: true,
+        baseUrl: resolve(process.cwd()),
+        paths: {
+          gazania: ['src/index.ts'],
+        },
+      },
+      include: ['src'],
+    }))
+
+    // Simulates the `.d.ts` shim generated by framework auto-import tools (e.g. Nuxt).
+    // The `schema` global gets the same type as `gazania`, so the extractor can
+    // identify it via the `~isGazania` marker even without an explicit import.
+    await writeFile(join(dir, 'src', 'auto-imports.d.ts'), [
+      `import type { gazania } from 'gazania'`,
+      `declare global {`,
+      `  const schema: typeof gazania`,
+      `}`,
+      `export {}`,
+    ].join('\n'))
   })
 
-  it('handles TSX', async () => {
-    const { transformSync } = await import('oxc-transform')
-    const result = transformSync('test.tsx', `interface User { id: string }\nfunction App() { return <div /> }`)
-    expect(result.errors).toHaveLength(0)
-    expect(result.code).not.toContain('interface User')
-    expect(result.code).not.toContain(': string')
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('extracts a query from a .ts file using an auto-imported builder', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.ts'),
+      // `schema` is not imported — it is declared globally in auto-imports.d.ts
+      `const doc = schema.query('AutoImportTs').select($ => $.select(['id']))`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    expect(manifest.operations).toHaveProperty('AutoImportTs')
+    expect(manifest.operations.AutoImportTs!.body).toContain('query AutoImportTs')
+  })
+
+  it('extracts a query from a .vue file using an auto-imported builder', async () => {
+    await writeFile(
+      join(dir, 'src', 'Comp.vue'),
+      `<template><div /></template>\n<script setup lang="ts">\nconst doc = schema.query('AutoImportVue').select($ => $.select(['id']))\n</script>`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    expect(manifest.operations).toHaveProperty('AutoImportVue')
+    expect(manifest.operations.AutoImportVue!.body).toContain('query AutoImportVue')
+  })
+
+  it('extracts a query from a .svelte file using an auto-imported builder', async () => {
+    await writeFile(
+      join(dir, 'src', 'Comp.svelte'),
+      `<script lang="ts">\nconst doc = schema.query('AutoImportSvelte').select($ => $.select(['id']))\n</script>\n<main />`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    expect(manifest.operations).toHaveProperty('AutoImportSvelte')
+    expect(manifest.operations.AutoImportSvelte!.body).toContain('query AutoImportSvelte')
+  })
+
+  it('extracts queries from .ts, .vue, and .svelte files simultaneously', async () => {
+    await writeFile(
+      join(dir, 'src', 'query.ts'),
+      `const doc = schema.query('AutoImportTs').select($ => $.select(['id']))`,
+    )
+    await writeFile(
+      join(dir, 'src', 'Comp.vue'),
+      `<template><div /></template>\n<script setup lang="ts">\nconst doc = schema.query('AutoImportVue').select($ => $.select(['name']))\n</script>`,
+    )
+    await writeFile(
+      join(dir, 'src', 'Comp.svelte'),
+      `<script lang="ts">\nconst doc = schema.query('AutoImportSvelte').select($ => $.select(['email']))\n</script>\n<main />`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    expect(manifest.operations).toHaveProperty('AutoImportTs')
+    expect(manifest.operations).toHaveProperty('AutoImportVue')
+    expect(manifest.operations).toHaveProperty('AutoImportSvelte')
+  })
+
+  it('ignores files that have no queries even with the global builder in scope', async () => {
+    await writeFile(
+      join(dir, 'src', 'no-queries.ts'),
+      `// schema is available but no queries are defined here\nconst x = 1`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    expect(Object.keys(manifest.operations)).toHaveLength(0)
+  })
+
+  it('expands an auto-imported partial in a query that uses it', async () => {
+    // partial.ts defines a partial using the globally auto-imported `schema`
+    await writeFile(
+      join(dir, 'src', 'partial.ts'),
+      `export const userPartial = schema.partial('UserFields').on('User').select($ => $.select(['id', 'name']))`,
+    )
+    // query.ts imports that partial and uses it inside a query, also via the auto-imported `schema`
+    await writeFile(
+      join(dir, 'src', 'query.ts'),
+      `import { userPartial } from './partial'
+const doc = schema.query('AutoImportPartial').select($ => $.select([{
+  user: $ => $.select([...userPartial({})]),
+}]))`,
+    )
+    const parsed = await getParsed()
+    const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
+    expect(manifest.operations).toHaveProperty('AutoImportPartial')
+    expect(manifest.operations.AutoImportPartial!.body).toContain('...UserFields')
+    expect(manifest.operations.AutoImportPartial!.body).toContain('fragment UserFields on User')
   })
 })

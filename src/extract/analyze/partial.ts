@@ -1,14 +1,15 @@
 import type { Program } from 'estree'
+import type { TypeContext } from './chain'
 import type { StaticPartialDef } from './types'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
 import { collectNestedPartialRefs, interpretSelectCallback } from './selection'
 
-/** Round 1: Collect all partial/section definitions from the AST. */
 export function collectPartialDefs(
   ast: Program,
   builderNames: string[],
   namespace: string | undefined,
+  typeCtx?: TypeContext,
 ): Map<string, StaticPartialDef> {
   const partialDefs = new Map<string, StaticPartialDef>()
 
@@ -27,11 +28,11 @@ export function collectPartialDefs(
         continue
       }
 
-      if (!isGazaniaSelectCall(init, builderNames, namespace)) {
+      if (!isGazaniaSelectCall(init, builderNames, namespace, typeCtx)) {
         continue
       }
 
-      const chain = analyzeBuilderChain(init, builderNames, namespace)
+      const chain = analyzeBuilderChain(init, builderNames, namespace, typeCtx)
       if (!chain) {
         continue
       }
@@ -140,11 +141,11 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   describe('partial-resolver: same-file partial/section resolution', async () => {
-    const { parseSync } = await import('oxc-parser')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
     const { collectImports } = await import('./imports')
 
     async function parseCode(code: string) {
-      return parseSync('test.js', code).program as any
+      return parse(code, { range: true }) as any
     }
 
     it('7. collectPartialDefs returns empty map when no partials', async () => {

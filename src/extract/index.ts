@@ -2,6 +2,7 @@ import type { ExtractResult, HashFn, SkippedExtractionCategory } from './manifes
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
 import { ExtractionError } from './manifest'
+import { createSvelteCompiler, createVueCompiler } from './sfc'
 import { adaptToSystem, loadTS } from './ts-program'
 
 export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction, SourceLoc } from './manifest'
@@ -89,6 +90,27 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const system = fs ? adaptToSystem(fs, ts) : ts.sys
   const files = findFiles(dir, include, system)
 
+  const compilers: import('./sfc').SFCCompiler[] = []
+
+  if (files.some(f => f.endsWith('.vue'))) {
+    const vueCompiler = await createVueCompiler()
+    if (vueCompiler) {
+      compilers.push(vueCompiler)
+    }
+    else {
+      logger?.warn('Vue compiler not found. .vue files will be skipped. Install "vue" to enable extraction from Vue SFCs.')
+    }
+  }
+  if (files.some(f => f.endsWith('.svelte'))) {
+    const svelteCompiler = await createSvelteCompiler()
+    if (svelteCompiler) {
+      compilers.push(svelteCompiler)
+    }
+    else {
+      logger?.warn('Svelte compiler not found. .svelte files will be skipped. Install "svelte2tsx" to enable extraction from Svelte components.')
+    }
+  }
+
   const result = staticExtractCrossFile(files, {
     tsconfig,
     hash,
@@ -96,6 +118,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     system,
     createHost: createHostFn,
     ts,
+    compilers,
   })
 
   const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))

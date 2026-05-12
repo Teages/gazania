@@ -1,0 +1,19 @@
+{
+  "name": "nuxt",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "extract": "gazania extract --dir app --tsconfig .nuxt/tsconfig.app.json"
+  },
+  "dependencies": {
+    "@teages/oh-my-graphql": "^0.1.4",
+    "gazania": "workspace:*",
+    "nuxt": "^4.4.4",
+    "vue": "^3.5.33",
+    "vue-router": "^5.0.6"
+  }
+}

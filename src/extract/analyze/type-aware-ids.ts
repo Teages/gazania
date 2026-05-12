@@ -4,12 +4,7 @@ function hasGazaniaMarker(
   checker: ts.TypeChecker,
   type: ts.Type,
 ): boolean {
-  const marker = checker.getPropertyOfType(type, '~isGazania')
-  if (!marker) {
-    return false
-  }
-  const markerType = checker.getTypeOfSymbol(marker)
-  return checker.isTypeAssignableTo(markerType, checker.getTrueType())
+  return !!checker.getPropertyOfType(type, '~isGazania')
 }
 
 /**
@@ -79,12 +74,15 @@ export function collectBuilderNamesByType(
   }
 
   function detectVariableDeclaration(node: ts.VariableDeclaration): void {
-    if (!node.initializer || !ts.isIdentifier(node.name)) {
+    if (!ts.isIdentifier(node.name)) {
       return
     }
-    const type = checker.getTypeAtLocation(node.initializer)
+    const name = node.name.text
+    const type = node.initializer
+      ? checker.getTypeAtLocation(node.initializer)
+      : checker.getTypeAtLocation(node.name)
     if (hasGazaniaMarker(checker, type)) {
-      builderNames.add(node.name.text)
+      builderNames.add(name)
     }
   }
 
@@ -92,9 +90,6 @@ export function collectBuilderNamesByType(
   return { builderNames: Array.from(builderNames), namespace }
 }
 
-/**
- * Convenience wrapper: resolve SourceFile by path, then delegate.
- */
 export function collectBuilderNamesForFile(
   ts: typeof import('typescript'),
   program: ts.Program,

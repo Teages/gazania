@@ -1,13 +1,14 @@
-import type { Program } from 'estree'
 import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
 import type { ExtractManifest, HashFn, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
+import type { SFCCompiler } from '../sfc'
 import type { CreateHostFn } from '../ts-program'
+import type { TypeContext } from './chain'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
-import { parseSync } from 'oxc-parser'
 import { getFileImports, topologicalSort } from '../dependency-graph'
 import { offsetToLineColumn, parseFile, staticOffsetToLine } from '../files'
 import { addDocumentToManifest } from '../manifest'
+import { buildSFCVirtualFiles } from '../sfc'
 import { createModuleResolver, createTypeCheckerProgram } from '../ts-program'
 import { walkAST } from '../walk'
 import { analyzeBuilderChain, isGazaniaSelectCall } from './chain'
@@ -29,6 +30,7 @@ export function processFileStatic(
   crossFilePartials: Map<string, StaticPartialDef>,
   builderNames: string[],
   namespace: string | undefined,
+  checker?: import('typescript').TypeChecker,
 ): {
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
@@ -48,6 +50,10 @@ export function processFileStatic(
     const blockBuilderNames = [...builderNames]
 
     blockBuilderNames.push(...accumulatedBuilderNames)
+
+    const typeCtx: TypeContext | undefined = checker
+      ? { checker, nodeMap: block.nodeMap, builderNames: blockBuilderNames, namespace }
+      : undefined
 
     walkAST(block.ast, (node: any) => {
       if (node.type !== 'VariableDeclaration') {
@@ -69,7 +75,7 @@ export function processFileStatic(
       }
     })
 
-    const localPartials = collectPartialDefs(block.ast, blockBuilderNames, namespace)
+    const localPartials = collectPartialDefs(block.ast, blockBuilderNames, namespace, typeCtx)
     for (const [k, v] of localPartials) {
       mergedPartialDefs.set(k, v)
     }
@@ -99,10 +105,10 @@ export function processFileStatic(
 
     const chains: StaticBuilderChain[] = []
     walkAST(block.ast, (node: any) => {
-      if (!isGazaniaSelectCall(node, blockBuilderNames, namespace)) {
+      if (!isGazaniaSelectCall(node, blockBuilderNames, namespace, typeCtx)) {
         return
       }
-      const chain = analyzeBuilderChain(node, blockBuilderNames, namespace)
+      const chain = analyzeBuilderChain(node, blockBuilderNames, namespace, typeCtx)
       if (chain) {
         chains.push(chain)
       }
@@ -171,19 +177,6 @@ export function processFileStatic(
   }
 }
 
-export function staticExtractWithPartials(
-  code: string,
-  filePath?: string,
-): DocumentNode[] {
-  const parseResult = parseSync(filePath ?? 'test.js', code)
-  const ast = parseResult.program as unknown as Program
-  const blocks: StaticParsedBlock[] = [{ code, ast, lineOffset: 0 }]
-
-  const { builderNames, namespace } = collectImports(ast, {})
-  const result = processFileStatic(blocks, filePath ?? 'test.js', new Map(), builderNames, namespace)
-  return result.documents.map(d => d.doc)
-}
-
 export function staticExtractCrossFile(
   files: string[],
   options: {
@@ -193,19 +186,25 @@ export function staticExtractCrossFile(
     system: import('typescript').System
     createHost?: CreateHostFn
     ts: typeof import('typescript')
+    compilers: readonly SFCCompiler[]
   },
 ): {
   manifest: ExtractManifest
   skipped: SkippedExtraction[]
 } {
-  const { hash, logger, system, createHost: createHostFn, ts } = options
-  const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn)
-  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn)
+  const { hash, logger, system, createHost: createHostFn, ts, compilers } = options
+  const sfcExtensions = new Set(compilers.flatMap(c => c.extensions))
+  const virtualFiles = compilers.length > 0
+    ? buildSFCVirtualFiles(files, system, compilers)
+    : new Map<string, import('../sfc').VirtualFileEntry>()
+
+  const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn, virtualFiles)
+  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn, virtualFiles)
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()
   for (const file of files) {
-    const blocks = parseFile(file, { logger }, system)
+    const blocks = parseFile(file, { logger }, system, { program })
     if (blocks) {
       parsedFiles.set(file, blocks)
     }
@@ -217,13 +216,11 @@ export function staticExtractCrossFile(
     if (parsedFiles.has(file)) {
       continue
     }
-    const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
-    if (isSFC) {
-      continue
-    }
-    const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
+    const ext = file.includes('.') ? file.slice(file.lastIndexOf('.')) : ''
+    const tcPath = sfcExtensions.has(ext) ? `${file}.ts` : file
+    const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
-      const blocks = parseFile(file, { skipFilter: true, logger }, system)
+      const blocks = parseFile(file, { skipFilter: true, logger }, system, { program })
       if (blocks) {
         parsedFiles.set(file, blocks)
       }
@@ -263,25 +260,15 @@ export function staticExtractCrossFile(
   const filesNeedingSecondPass = new Set<string>()
 
   function getBuilderInfoForFile(file: string, blocks: StaticParsedBlock[]): { builderNames: string[], namespace: string | undefined } {
-    const isSFC = file.endsWith('.vue') || file.endsWith('.svelte')
-    if (isSFC) {
-      const mergedBuilderNames: string[] = []
-      let namespace: string | undefined
-      for (const block of blocks) {
-        const { builderNames, namespace: ns } = collectImports(block.ast, {})
-        mergedBuilderNames.push(...builderNames)
-        if (ns) {
-          namespace = ns
-        }
-      }
-      return { builderNames: mergedBuilderNames, namespace }
-    }
-    const tcResult = collectBuilderNamesForFile(ts, program, checker, file)
+    const ext = file.includes('.') ? file.slice(file.lastIndexOf('.')) : ''
+    const isSFC = sfcExtensions.has(ext)
+    const tcPath = isSFC ? `${file}.ts` : file
+    const tcResult = collectBuilderNamesForFile(ts, program, checker, tcPath)
     if (tcResult.builderNames.length > 0 || tcResult.namespace !== undefined) {
       return tcResult
     }
-    const mergedBuilderNames: string[] = []
     let namespace: string | undefined
+    const mergedBuilderNames: string[] = []
     for (const block of blocks) {
       const { builderNames, namespace: ns } = collectImports(block.ast, {})
       mergedBuilderNames.push(...builderNames)
@@ -322,7 +309,7 @@ export function staticExtractCrossFile(
 
     const { builderNames, namespace } = getBuilderInfoForFile(file, blocks)
     const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
-    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace)
+    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace, checker)
 
     for (const { doc, loc } of result.documents) {
       addDocumentToManifest(manifest, doc, hash, loc)
@@ -408,6 +395,15 @@ if (import.meta.vitest) {
 
   describe('partial-resolver: same-file partial/section resolution', async () => {
     const { print } = await import('graphql')
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+
+    function extractCode(code: string) {
+      const ast = parse(code, { range: true }) as any
+      const { builderNames, namespace } = collectImports(ast, {})
+      const blocks: StaticParsedBlock[] = [{ code, ast, lineOffset: 0 }]
+      const result = processFileStatic(blocks, 'test.js', new Map(), builderNames, namespace)
+      return result.documents.map(d => d.doc)
+    }
 
     it('1. single same-file partial', () => {
       const code = `
@@ -415,7 +411,7 @@ if (import.meta.vitest) {
       const userFields = gazania.partial('UserFields').on('User').select($ => $.select(['id', 'name']))
       gazania.query('GetUser').select($ => $.select([...userFields(), 'status']))
     `
-      const docs = staticExtractWithPartials(code)
+      const docs = extractCode(code)
       expect(docs).toHaveLength(1)
 
       const output = print(docs[0])
@@ -433,7 +429,7 @@ if (import.meta.vitest) {
       const postSection = gazania.section('PostSection').on('Post').select($ => $.select(['title', 'body']))
       gazania.query('GetPosts').select($ => $.select([...postSection(), 'createdAt']))
     `
-      const docs = staticExtractWithPartials(code)
+      const docs = extractCode(code)
       expect(docs).toHaveLength(1)
 
       const output = print(docs[0])
@@ -452,7 +448,7 @@ if (import.meta.vitest) {
       const userAvatar = gazania.partial('UserAvatar').on('User').select($ => $.select(['avatarUrl']))
       gazania.query('GetUserProfile').select($ => $.select([...userInfo(), ...userAvatar()]))
     `
-      const docs = staticExtractWithPartials(code)
+      const docs = extractCode(code)
       expect(docs).toHaveLength(1)
 
       const output = print(docs[0])
@@ -470,7 +466,7 @@ if (import.meta.vitest) {
       gazania.query('ForwardRef').select($ => $.select([...userFields(), 'active']))
       const userFields = gazania.partial('UserFields').on('User').select($ => $.select(['id', 'email']))
     `
-      const docs = staticExtractWithPartials(code)
+      const docs = extractCode(code)
       expect(docs).toHaveLength(1)
 
       const output = print(docs[0])
@@ -488,7 +484,7 @@ if (import.meta.vitest) {
       const filteredItems = gazania.partial('FilteredItems').on('Item').vars({ limit: 'Int!' }).select(($, vars) => $.select(['name']))
       gazania.query('GetItems').select($ => $.select([...filteredItems()]))
     `
-      const docs = staticExtractWithPartials(code)
+      const docs = extractCode(code)
       expect(docs).toHaveLength(1)
 
       const output = print(docs[0])
@@ -509,7 +505,7 @@ if (import.meta.vitest) {
       const deprecatedFields = gazania.partial('DeprecatedFields').on('User').directives(() => [['@deprecated', { reason: 'use v2' }]]).select($ => $.select(['oldField']))
       gazania.query('Legacy').select($ => $.select([...deprecatedFields()]))
     `
-      const docs = staticExtractWithPartials(code)
+      const docs = extractCode(code)
       expect(docs).toHaveLength(1)
 
       const output = print(docs[0])
@@ -525,7 +521,7 @@ if (import.meta.vitest) {
       const allFields = gazania.partial('AllFields').on('Item').select($ => $.select(['id', 'label']))
       gazania.query('GetAll').select($ => $.select([...allFields()]))
     `
-      const docs = staticExtractWithPartials(code)
+      const docs = extractCode(code)
       expect(docs).toHaveLength(1)
 
       const output = print(docs[0])

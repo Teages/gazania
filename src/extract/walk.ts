@@ -1,7 +1,8 @@
 import type { Node } from 'estree'
 
-// oxc-parser adds positional info (start/end) directly on each node
-export type NodeWithPosition = Node & { start: number, end: number }
+// TSESTree (typescript-estree) provides `range: [start, end]` instead of
+// separate `start`/`end` properties when `range: true` is set.
+export type NodeWithPosition = Node & { range: [number, number] }
 
 /**
  * Walk an ESTree AST, calling `enter` for every node.
@@ -30,8 +31,8 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   async function parseCode(code: string) {
-    const { parseSync } = await import('oxc-parser')
-    return parseSync('test.js', code).program as any
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    return parse(code, { range: true }) as any
   }
 
   describe('walkAST', () => {

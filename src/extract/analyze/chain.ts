@@ -1,14 +1,40 @@
 import type { Node } from 'estree'
 import type { StaticBuilderChain, StaticDirectiveDef } from './types'
 
-/**
- * Check if a node represents a terminal `.select(...)` call from a gazania
- * builder chain. The final method must be `.select(...)`.
- */
+export interface TypeContext {
+  checker: import('typescript').TypeChecker
+  nodeMap?: WeakMap<any, import('typescript').Node>
+  builderNames: string[]
+  namespace: string | undefined
+}
+
+function hasGazaniaMarker(
+  checker: import('typescript').TypeChecker,
+  type: import('typescript').Type,
+): boolean {
+  return !!checker.getPropertyOfType(type, '~isGazania')
+}
+
+function isGazaniaNode(
+  node: Node,
+  ctx: TypeContext,
+): boolean {
+  if (!ctx.nodeMap) {
+    return false
+  }
+  const tsNode = ctx.nodeMap.get(node)
+  if (!tsNode) {
+    return false
+  }
+  const type = ctx.checker.getTypeAtLocation(tsNode)
+  return hasGazaniaMarker(ctx.checker, type)
+}
+
 export function isGazaniaSelectCall(
   node: Node,
   builderNames: string[],
   namespace: string | undefined,
+  typeCtx?: TypeContext,
 ): boolean {
   if (node.type !== 'CallExpression') {
     return false
@@ -21,18 +47,19 @@ export function isGazaniaSelectCall(
     return false
   }
 
-  return isGazaniaChainRoot(callee.object, builderNames, namespace)
+  return isGazaniaChainRoot(callee.object, builderNames, namespace, typeCtx)
 }
 
-/**
- * Check if the expression originates from a gazania builder root.
- * Traverses member access and call expressions up the chain.
- */
 export function isGazaniaChainRoot(
   node: Node,
   builderNames: string[],
   namespace: string | undefined,
+  typeCtx?: TypeContext,
 ): boolean {
+  if (typeCtx && isGazaniaNode(node, typeCtx)) {
+    return true
+  }
+
   if (node.type === 'Identifier') {
     return builderNames.includes(node.name)
   }
@@ -41,7 +68,7 @@ export function isGazaniaChainRoot(
     if (node.object.type === 'Identifier' && namespace && node.object.name === namespace) {
       return true
     }
-    return isGazaniaChainRoot(node.object, builderNames, namespace)
+    return isGazaniaChainRoot(node.object, builderNames, namespace, typeCtx)
   }
 
   if (node.type === 'CallExpression') {
@@ -50,7 +77,7 @@ export function isGazaniaChainRoot(
       return true
     }
     if (callee.type === 'MemberExpression') {
-      return isGazaniaChainRoot(callee.object, builderNames, namespace)
+      return isGazaniaChainRoot(callee.object, builderNames, namespace, typeCtx)
     }
   }
 
@@ -114,6 +141,7 @@ export function analyzeBuilderChain(
   node: Node,
   builderNames: string[],
   namespace: string | undefined,
+  typeCtx?: TypeContext,
 ): StaticBuilderChain | null {
   if (node.type !== 'CallExpression') {
     return null
@@ -128,7 +156,7 @@ export function analyzeBuilderChain(
     return null
   }
 
-  if (!isGazaniaChainRoot(callee.object, builderNames, namespace)) {
+  if (!isGazaniaChainRoot(callee.object, builderNames, namespace, typeCtx)) {
     return null
   }
 
@@ -225,7 +253,7 @@ export function analyzeBuilderChain(
           }
         }
       }
-      else if (callCallee.type === 'Identifier' && builderNames.includes(callCallee.name)) {
+      else if (callCallee.type === 'Identifier' && (builderNames.includes(callCallee.name) || (typeCtx && isGazaniaNode(callCallee, typeCtx)))) {
         break
       }
       else if (callCallee.type === 'Identifier') {
@@ -241,6 +269,9 @@ export function analyzeBuilderChain(
         && namespace
         && current.object.name === namespace
       ) {
+        break
+      }
+      if (typeCtx && isGazaniaNode(current, typeCtx)) {
         break
       }
       current = current.object
@@ -263,8 +294,8 @@ export function analyzeBuilderChain(
     selectCallback,
     callbackParams,
     loc: {
-      start: (node as any).start ?? 0,
-      end: (node as any).end ?? 0,
+      start: node.range?.[0] ?? 0,
+      end: node.range?.[1] ?? 0,
     },
   }
 }
@@ -273,8 +304,8 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
 
   async function parseCode(code: string) {
-    const { parseSync } = await import('oxc-parser')
-    return parseSync('test.js', code).program as any
+    const { parse } = await import('@typescript-eslint/typescript-estree')
+    return parse(code, { range: true }) as any
   }
 
   async function getExpression(code: string) {

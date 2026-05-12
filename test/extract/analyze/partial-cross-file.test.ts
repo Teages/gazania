@@ -65,7 +65,7 @@ const doc = gazania.query('GetUser')
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserFields')
@@ -96,7 +96,7 @@ const doc = gazania.query('GetUser')
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserFields')
@@ -135,7 +135,7 @@ const doc = gazania.query('GetUser')
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'name.js'), join(dir, 'src', 'fragments', 'email.js'), join(dir, 'src', 'query.js')],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserName')
@@ -168,7 +168,7 @@ const doc = gazania.query('GetUser')
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser.body).toContain('...UserFields')
@@ -197,7 +197,7 @@ export const userPartial = gazania.partial('UserFields')
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'index.ts'), join(dir, 'src', 'fragments.ts')],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUsersWithFragment')
     expect(manifest.operations.GetUsersWithFragment.body).toContain('...UserFields')
@@ -235,7 +235,7 @@ const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', '
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'index.ts'), join(dir, 'src', 'App.vue'), join(dir, 'src', 'App.svelte'), join(dir, 'src', 'react.tsx')],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUsers_Svelte')
     expect(manifest.operations).toHaveProperty('GetUsers_React')
@@ -280,7 +280,7 @@ const doc = gazania.query('GetUser')
         join(dir, 'src', 'fragments', 'user.js'),
         join(dir, 'src', 'query.js'),
       ],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
     expect(manifest.operations.GetUser!.body).toContain('...UserFields')
@@ -301,7 +301,7 @@ const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [join(dir, 'src', 'query.js')],
-      { tsconfig: parsed, hash: sha256, ts, system: ts.sys },
+      { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('SimpleQuery')
     expect(manifest.operations.SimpleQuery.body).toContain('query SimpleQuery')
