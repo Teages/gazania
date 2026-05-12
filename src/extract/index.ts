@@ -98,7 +98,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
       compilers.push(vueCompiler)
     }
     else {
-      logger?.warn('Vue compiler not found. .vue files will be skipped. Install "vue/compiler-sfc" to enable extraction from Vue SFCs.')
+      logger?.warn('Vue compiler not found. .vue files will be skipped. Install "vue" to enable extraction from Vue SFCs.')
     }
   }
   if (files.some(f => f.endsWith('.svelte'))) {
