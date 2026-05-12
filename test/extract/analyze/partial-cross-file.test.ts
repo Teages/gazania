@@ -44,14 +44,14 @@ describe('staticExtractCrossFile: cross-file partial/section resolution', () => 
 
   it('1. basic cross-file partial', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'user.js'),
+      join(dir, 'src', 'fragments', 'user.ts'),
       `import { gazania } from 'gazania'
 export const userPartial = gazania.partial('UserFields')
   .on('User')
   .select($ => $.select(['id', 'name']))`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { userPartial } from './fragments/user'
 const doc = gazania.query('GetUser')
@@ -64,7 +64,7 @@ const doc = gazania.query('GetUser')
 
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
-      [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
+      [join(dir, 'src', 'fragments', 'user.ts'), join(dir, 'src', 'query.ts')],
       { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -75,14 +75,14 @@ const doc = gazania.query('GetUser')
 
   it('2. cross-file section', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'user.js'),
+      join(dir, 'src', 'fragments', 'user.ts'),
       `import { gazania } from 'gazania'
 export const userSection = gazania.section('UserFields')
   .on('User')
   .select($ => $.select(['id', 'name']))`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { userSection } from './fragments/user'
 const doc = gazania.query('GetUser')
@@ -95,7 +95,7 @@ const doc = gazania.query('GetUser')
 
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
-      [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
+      [join(dir, 'src', 'fragments', 'user.ts'), join(dir, 'src', 'query.ts')],
       { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -105,21 +105,21 @@ const doc = gazania.query('GetUser')
 
   it('3. multiple cross-file partials from different files', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'name.js'),
+      join(dir, 'src', 'fragments', 'name.ts'),
       `import { gazania } from 'gazania'
 export const namePartial = gazania.partial('UserName')
   .on('User')
   .select($ => $.select(['name']))`,
     )
     await writeFile(
-      join(dir, 'src', 'fragments', 'email.js'),
+      join(dir, 'src', 'fragments', 'email.ts'),
       `import { gazania } from 'gazania'
 export const emailPartial = gazania.partial('UserEmail')
   .on('User')
   .select($ => $.select(['email']))`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { namePartial } from './fragments/name'
 import { emailPartial } from './fragments/email'
@@ -134,7 +134,7 @@ const doc = gazania.query('GetUser')
 
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
-      [join(dir, 'src', 'fragments', 'name.js'), join(dir, 'src', 'fragments', 'email.js'), join(dir, 'src', 'query.js')],
+      [join(dir, 'src', 'fragments', 'name.ts'), join(dir, 'src', 'fragments', 'email.ts'), join(dir, 'src', 'query.ts')],
       { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -146,7 +146,7 @@ const doc = gazania.query('GetUser')
 
   it('4. re-exported partial with alias', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'user.js'),
+      join(dir, 'src', 'fragments', 'user.ts'),
       `import { gazania } from 'gazania'
 const _userPartial = gazania.partial('UserFields')
   .on('User')
@@ -154,7 +154,7 @@ const _userPartial = gazania.partial('UserFields')
 export { _userPartial as userPartial }`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { userPartial } from './fragments/user'
 const doc = gazania.query('GetUser')
@@ -167,7 +167,7 @@ const doc = gazania.query('GetUser')
 
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
-      [join(dir, 'src', 'fragments', 'user.js'), join(dir, 'src', 'query.js')],
+      [join(dir, 'src', 'fragments', 'user.ts'), join(dir, 'src', 'query.ts')],
       { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('GetUser')
@@ -243,14 +243,14 @@ const ReactQuery = gazania.query('GetUsers_React').select($ => $.select(['id', '
 
   it('7. three-level chain: a uses b\'s partial, b\'s partial uses c\'s partial', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'post.js'),
+      join(dir, 'src', 'fragments', 'post.ts'),
       `import { gazania } from 'gazania'
 export const postFields = gazania.partial('PostFields')
   .on('Post')
   .select($ => $.select(['title', 'content']))`,
     )
     await writeFile(
-      join(dir, 'src', 'fragments', 'user.js'),
+      join(dir, 'src', 'fragments', 'user.ts'),
       `import { gazania } from 'gazania'
 import { postFields } from './post'
 export const userFields = gazania.partial('UserFields')
@@ -262,7 +262,7 @@ export const userFields = gazania.partial('UserFields')
   }]))`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { userFields } from './fragments/user'
 const doc = gazania.query('GetUser')
@@ -276,9 +276,9 @@ const doc = gazania.query('GetUser')
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
       [
-        join(dir, 'src', 'fragments', 'post.js'),
-        join(dir, 'src', 'fragments', 'user.js'),
-        join(dir, 'src', 'query.js'),
+        join(dir, 'src', 'fragments', 'post.ts'),
+        join(dir, 'src', 'fragments', 'user.ts'),
+        join(dir, 'src', 'query.ts'),
       ],
       { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
@@ -293,14 +293,14 @@ const doc = gazania.query('GetUser')
 
   it('8. simple query regression (no cross-file deps)', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
     )
 
     const parsed = await getParsed()
     const { manifest } = staticExtractCrossFile(
-      [join(dir, 'src', 'query.js')],
+      [join(dir, 'src', 'query.ts')],
       { tsconfig: parsed, hash: sha256, ts, system: ts.sys, compilers: [] },
     )
     expect(manifest.operations).toHaveProperty('SimpleQuery')

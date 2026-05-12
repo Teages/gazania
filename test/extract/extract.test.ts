@@ -46,7 +46,7 @@ describe('extract', () => {
   })
 
   it('returns an empty manifest when no gazania files found', async () => {
-    await writeFile(join(dir, 'src', 'index.js'), `const x = 1`)
+    await writeFile(join(dir, 'src', 'index.ts'), `const x = 1`)
     const parsed = await getParsed()
     const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toEqual({})
@@ -55,7 +55,7 @@ describe('extract', () => {
 
   it('extracts a simple query from a JS file', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.query('TestQuery').select($ => $.select(['id', 'name']))`,
     )
@@ -68,7 +68,7 @@ const doc = gazania.query('TestQuery').select($ => $.select(['id', 'name']))`,
 
   it('extracts a mutation', async () => {
     await writeFile(
-      join(dir, 'src', 'mutation.js'),
+      join(dir, 'src', 'mutation.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.mutation('CreateUser')
   .vars({ input: 'CreateUserInput!' })
@@ -82,7 +82,7 @@ const doc = gazania.mutation('CreateUser')
 
   it('extracts a fragment', async () => {
     await writeFile(
-      join(dir, 'src', 'fragment.js'),
+      join(dir, 'src', 'fragment.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id', 'name']))`,
     )
@@ -93,8 +93,8 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
   })
 
   it('extracts multiple queries from multiple files', async () => {
-    await writeFile(join(dir, 'src', 'a.js'), `import { gazania } from 'gazania'\nconst doc = gazania.query('QueryA').select($ => $.select(['fieldA']))`)
-    await writeFile(join(dir, 'src', 'b.js'), `import { gazania } from 'gazania'\nconst doc = gazania.query('QueryB').select($ => $.select(['fieldB']))`)
+    await writeFile(join(dir, 'src', 'a.ts'), `import { gazania } from 'gazania'\nconst doc = gazania.query('QueryA').select($ => $.select(['fieldA']))`)
+    await writeFile(join(dir, 'src', 'b.ts'), `import { gazania } from 'gazania'\nconst doc = gazania.query('QueryB').select($ => $.select(['fieldB']))`)
     const parsed = await getParsed()
     const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toHaveProperty('QueryA')
@@ -102,7 +102,7 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
   })
 
   it('handles files that cannot be parsed', async () => {
-    await writeFile(join(dir, 'src', 'broken.js'), `this is not valid javascript {{{`)
+    await writeFile(join(dir, 'src', 'broken.ts'), `this is not valid javascript {{{`)
     const parsed = await getParsed()
     const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(manifest.operations).toEqual({})
@@ -110,7 +110,7 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
 
   it('supports different hash algorithms', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('TestQuery').select($ => $.select(['id']))`,
     )
     const parsed = await getParsed()
@@ -120,7 +120,7 @@ const doc = gazania.fragment('UserFields').on('User').select($ => $.select(['id'
 
   it('propagates errors from the hash function', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('TestQuery').select($ => $.select(['id']))`,
     )
     const brokenHash = () => {
@@ -209,7 +209,7 @@ function App() { return <div /> }`,
 
   it('extracts a query that uses a same-file partial', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 const userPartial = gazania.partial('UserFields')
   .on('User')
@@ -230,7 +230,7 @@ const doc = gazania.query('GetUser')
 
   it('extracts a query that uses a same-file section', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 const userSection = gazania.section('UserFields')
   .on('User')
@@ -250,7 +250,7 @@ const doc = gazania.query('GetUser')
 
   it('extracts a query using multiple same-file partials', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 const namePartial = gazania.partial('UserName')
   .on('User')
@@ -305,14 +305,14 @@ describe('extract with tsconfig (cross-file)', () => {
 
   it('extracts a query that uses a cross-file partial', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'user.js'),
+      join(dir, 'src', 'fragments', 'user.ts'),
       `import { gazania } from 'gazania'
 export const userPartial = gazania.partial('UserFields')
   .on('User')
   .select($ => $.select(['id', 'name']))`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { userPartial } from './fragments/user'
 const doc = gazania.query('GetUser')
@@ -332,14 +332,14 @@ const doc = gazania.query('GetUser')
 
   it('extracts a query that uses a cross-file section', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'user.js'),
+      join(dir, 'src', 'fragments', 'user.ts'),
       `import { gazania } from 'gazania'
 export const userSection = gazania.section('UserFields')
   .on('User')
   .select($ => $.select(['id', 'name']))`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { userSection } from './fragments/user'
 const doc = gazania.query('GetUser')
@@ -358,21 +358,21 @@ const doc = gazania.query('GetUser')
 
   it('extracts with multiple cross-file partials from different files', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'name.js'),
+      join(dir, 'src', 'fragments', 'name.ts'),
       `import { gazania } from 'gazania'
 export const namePartial = gazania.partial('UserName')
   .on('User')
   .select($ => $.select(['name']))`,
     )
     await writeFile(
-      join(dir, 'src', 'fragments', 'email.js'),
+      join(dir, 'src', 'fragments', 'email.ts'),
       `import { gazania } from 'gazania'
 export const emailPartial = gazania.partial('UserEmail')
   .on('User')
   .select($ => $.select(['email']))`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { namePartial } from './fragments/name'
 import { emailPartial } from './fragments/email'
@@ -394,7 +394,7 @@ const doc = gazania.query('GetUser')
 
   it('handles re-exported partials with alias', async () => {
     await writeFile(
-      join(dir, 'src', 'fragments', 'user.js'),
+      join(dir, 'src', 'fragments', 'user.ts'),
       `import { gazania } from 'gazania'
 const _userPartial = gazania.partial('UserFields')
   .on('User')
@@ -402,7 +402,7 @@ const _userPartial = gazania.partial('UserFields')
 export { _userPartial as userPartial }`,
     )
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 import { userPartial } from './fragments/user'
 const doc = gazania.query('GetUser')
@@ -421,7 +421,7 @@ const doc = gazania.query('GetUser')
 
   it('still extracts simple queries without cross-file dependencies', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.query('SimpleQuery').select($ => $.select(['id']))`,
     )
@@ -523,7 +523,7 @@ describe('extract: skipped calls', () => {
 
   it('returns empty skipped array when all calls succeed', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('OkQuery').select($ => $.select(['id']))`,
     )
     const parsed = await getParsed()
@@ -533,7 +533,7 @@ describe('extract: skipped calls', () => {
 
   it('throws ExtractionError when a call references an undefined variable', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
     )
     const parsed = await getParsed()
@@ -553,7 +553,7 @@ describe('extract: skipped calls', () => {
   it('extractionError.skipped entry includes the absolute file path', async () => {
     const { join: pathJoin } = await import('node:path')
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('X').select($ => $.select([...gone({})]))`,
     )
     const parsed = await getParsed()
@@ -563,13 +563,13 @@ describe('extract: skipped calls', () => {
     }
     catch (err) {
       expect(err).toBeInstanceOf(ExtractionError)
-      expect((err as ExtractionError).skipped[0]!.file).toBe(pathJoin(dir, 'src', 'query.js'))
+      expect((err as ExtractionError).skipped[0]!.file).toBe(pathJoin(dir, 'src', 'query.ts'))
     }
   })
 
   it('extractionError.skipped entry has a 1-based line number pointing to the failing call', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\n\nconst doc = gazania.query('LineTest').select($ => $.select([...gone({})]))`,
     )
     const parsed = await getParsed()
@@ -599,11 +599,11 @@ describe('extract: skipped calls', () => {
 
   it('collects skipped calls from multiple files in ExtractionError', async () => {
     await writeFile(
-      join(dir, 'src', 'a.js'),
+      join(dir, 'src', 'a.ts'),
       `import { gazania } from 'gazania'\nconst d = gazania.query('A').select($ => $.select([...x({})]))`,
     )
     await writeFile(
-      join(dir, 'src', 'b.js'),
+      join(dir, 'src', 'b.ts'),
       `import { gazania } from 'gazania'\nconst d = gazania.query('B').select($ => $.select([...y({})]))`,
     )
     const parsed = await getParsed()
@@ -616,14 +616,14 @@ describe('extract: skipped calls', () => {
       const skipped = (err as ExtractionError).skipped
       expect(skipped).toHaveLength(2)
       const files = skipped.map(s => s.file)
-      expect(files.some(f => f.endsWith('a.js'))).toBe(true)
-      expect(files.some(f => f.endsWith('b.js'))).toBe(true)
+      expect(files.some(f => f.endsWith('a.ts'))).toBe(true)
+      expect(files.some(f => f.endsWith('b.ts'))).toBe(true)
     }
   })
 
   it('ignoreCategories suppresses ExtractionError for matching categories', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
     )
     const parsed = await getParsed()
@@ -640,7 +640,7 @@ describe('extract: skipped calls', () => {
 
   it('ignoreCategories with all categories suppresses all errors', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
     )
     const parsed = await getParsed()
@@ -655,7 +655,7 @@ describe('extract: skipped calls', () => {
 
   it('ignoreCategories does not suppress non-matching categories', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('FailQuery').select($ => $.select([...missingPartial({})]))`,
     )
     const parsed = await getParsed()
@@ -727,7 +727,7 @@ describe('extract: integration', () => {
 
   it('manifest entries contain loc field', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.query('LocQuery').select($ => $.select(['id', 'name']))`,
     )
@@ -745,12 +745,12 @@ const doc = gazania.query('LocQuery').select($ => $.select(['id', 'name']))`,
 
   it('throws for duplicate operation names with different bodies across files', async () => {
     await writeFile(
-      join(dir, 'src', 'a.js'),
+      join(dir, 'src', 'a.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.query('DupQuery').select($ => $.select(['id']))`,
     )
     await writeFile(
-      join(dir, 'src', 'b.js'),
+      join(dir, 'src', 'b.ts'),
       `import { gazania } from 'gazania'
 const doc = gazania.query('DupQuery').select($ => $.select(['name']))`,
     )
@@ -762,8 +762,8 @@ const doc = gazania.query('DupQuery').select($ => $.select(['name']))`,
 
   it('silently skips duplicate operations with identical bodies across files', async () => {
     const queryCode = `import { gazania } from 'gazania'\nconst doc = gazania.query('SameQuery').select($ => $.select(['id']))`
-    await writeFile(join(dir, 'src', 'a.js'), queryCode)
-    await writeFile(join(dir, 'src', 'b.js'), queryCode)
+    await writeFile(join(dir, 'src', 'a.ts'), queryCode)
+    await writeFile(join(dir, 'src', 'b.ts'), queryCode)
     const parsed = await getParsed()
     const { manifest } = await extract({ dir: join(dir, 'src'), hash: sha256, tsconfig: parsed })
     expect(Object.keys(manifest.operations)).toHaveLength(1)
@@ -772,7 +772,7 @@ const doc = gazania.query('DupQuery').select($ => $.select(['name']))`,
 
   it('loc field points to the correct source line', async () => {
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `// comment line 1
 // comment line 2
 import { gazania } from 'gazania'

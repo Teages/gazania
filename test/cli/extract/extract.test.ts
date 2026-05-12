@@ -150,7 +150,7 @@ describe('feature: skipped call diagnostics', () => {
     const dir = join(tmpdir(), `gazania-e2e-warn-${randomUUID()}`)
     await mkdir(join(dir, 'src'), { recursive: true })
     await writeFile(
-      join(dir, 'src', 'query.js'),
+      join(dir, 'src', 'query.ts'),
       `import { gazania } from 'gazania'\nconst doc = gazania.query('E2EFail').select($ => $.select([...e2eMissing({})]))`,
     )
 
