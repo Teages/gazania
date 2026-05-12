@@ -141,7 +141,7 @@ if (import.meta.vitest) {
           Object.entries(ops).map(([k, v]) => [k, { body: v, hash: '', loc: makeLoc() }]),
         ),
         fragments: Object.fromEntries(
-          Object.entries(frags).map(([k, v]) => [k, { body: v, hash: '', loc: makeLoc() }]),
+          Object.entries(frags).map(([k, v]) => [k, { body: v, hash: '', loc: makeLoc(), mode: 'fragment' as const }]),
         ),
       }
     }

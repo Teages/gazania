@@ -35,13 +35,13 @@ export function processFileStatic(
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
   builderExports: string[]
-  documents: Array<{ doc: DocumentNode, loc: SourceLoc }>
+  documents: Array<{ doc: DocumentNode, loc: SourceLoc, mode?: 'fragment' | 'partial' | 'section' }>
   skipped: SkippedExtraction[]
 } {
   const mergedPartialDefs = new Map<string, StaticPartialDef>()
   const mergedExportMap = new Map<string, string>()
   const mergedBuilderExports: string[] = []
-  const documents: Array<{ doc: DocumentNode, loc: SourceLoc }> = []
+  const documents: Array<{ doc: DocumentNode, loc: SourceLoc, mode?: 'fragment' | 'partial' | 'section' }> = []
   const skipped: SkippedExtraction[] = []
 
   const accumulatedBuilderNames: string[] = []
@@ -126,10 +126,6 @@ export function processFileStatic(
     })
 
     for (const chain of chains) {
-      if (chain.type === 'partial' || chain.type === 'section') {
-        continue
-      }
-
       const unresolvedRef = findUnresolvedSpreadRef(chain.selectCallback, mergedPartialDefs, declaredNames, typeCtx)
       if (unresolvedRef) {
         skipped.push({
@@ -141,6 +137,11 @@ export function processFileStatic(
         continue
       }
 
+      const mode: 'fragment' | 'partial' | 'section' | undefined
+        = (chain.type === 'fragment' || chain.type === 'partial' || chain.type === 'section')
+          ? chain.type as 'fragment' | 'partial' | 'section'
+          : undefined
+
       try {
         const doc = buildDocumentFromChain(chain, mergedPartialDefs, undefined, typeCtx)
         const startPos = offsetToLineColumn(block.code, chain.loc.start)
@@ -150,7 +151,7 @@ export function processFileStatic(
           start: { line: startPos.line + block.lineOffset, column: startPos.column, offset: startPos.offset },
           end: { line: endPos.line + block.lineOffset, column: endPos.column, offset: endPos.offset },
         }
-        documents.push({ doc, loc })
+        documents.push({ doc, loc, mode })
       }
       catch (err) {
         if (err instanceof CircularPartialError) {
@@ -309,8 +310,8 @@ export function staticExtractCrossFile(
     const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
     const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace, checker)
 
-    for (const { doc, loc } of result.documents) {
-      addDocumentToManifest(manifest, doc, hash, loc)
+    for (const { doc, loc, mode } of result.documents) {
+      addDocumentToManifest(manifest, doc, hash, loc, mode)
     }
 
     fileSkipped.set(file, result.skipped)
@@ -407,10 +408,16 @@ if (import.meta.vitest) {
     function makeMockPipelineCtx(ast: any): { checker: any, nodeMap: WeakMap<any, any> } {
       const varToFrag = new Map<string, string>()
       for (const stmt of ast.body) {
-        if (stmt.type !== 'VariableDeclaration') continue
+        if (stmt.type !== 'VariableDeclaration') {
+          continue
+        }
         for (const decl of stmt.declarations) {
-          if (decl.id.type !== 'Identifier' || !decl.init) continue
-          if (decl.init.type !== 'CallExpression') continue
+          if (decl.id.type !== 'Identifier' || !decl.init) {
+            continue
+          }
+          if (decl.init.type !== 'CallExpression') {
+            continue
+          }
           let fragName: string | undefined
           let cur: any = decl.init
           while (cur?.type === 'CallExpression' && cur.callee?.type === 'MemberExpression') {
@@ -421,7 +428,9 @@ if (import.meta.vitest) {
             }
             cur = cur.callee.object
           }
-          if (fragName) varToFrag.set(decl.id.name, fragName)
+          if (fragName) {
+            varToFrag.set(decl.id.name, fragName)
+          }
         }
       }
 
@@ -429,7 +438,9 @@ if (import.meta.vitest) {
       const tsNodeToFragName = new WeakMap<any, string>()
 
       function walk(n: any): void {
-        if (!n || typeof n !== 'object') return
+        if (!n || typeof n !== 'object') {
+          return
+        }
         if (
           n.type === 'SpreadElement'
           && n.argument?.type === 'CallExpression'
@@ -444,7 +455,9 @@ if (import.meta.vitest) {
         }
         for (const val of Object.values(n)) {
           if (Array.isArray(val)) {
-            for (const item of val) walk(item)
+            for (const item of val) {
+              walk(item)
+            }
           }
           else if (val && typeof val === 'object') {
             walk(val)
@@ -482,15 +495,19 @@ if (import.meta.vitest) {
       gazania.query('GetUser').select($ => $.select([...userFields(), 'status']))
     `
       const docs = extractCode(code)
-      expect(docs).toHaveLength(1)
+      expect(docs).toHaveLength(2)
 
-      const output = print(docs[0])
+      const queryDoc = docs.find((d: any) => d.definitions.some((def: any) => def.kind === 'OperationDefinition'))!
+      const output = print(queryDoc)
       expect(output).toContain('...UserFields')
       expect(output).toContain('fragment UserFields on User')
       expect(output).toContain('id')
       expect(output).toContain('name')
       expect(output).toContain('status')
       expect(output).toContain('query GetUser')
+
+      const partialDoc = docs.find((d: any) => d.definitions[0]?.kind === 'FragmentDefinition')!
+      expect(print(partialDoc)).toContain('fragment UserFields on User')
     })
 
     it('2. single same-file section', () => {
@@ -500,15 +517,19 @@ if (import.meta.vitest) {
       gazania.query('GetPosts').select($ => $.select([...postSection(), 'createdAt']))
     `
       const docs = extractCode(code)
-      expect(docs).toHaveLength(1)
+      expect(docs).toHaveLength(2)
 
-      const output = print(docs[0])
+      const queryDoc = docs.find((d: any) => d.definitions.some((def: any) => def.kind === 'OperationDefinition'))!
+      const output = print(queryDoc)
       expect(output).toContain('...PostSection')
       expect(output).toContain('fragment PostSection on Post')
       expect(output).toContain('title')
       expect(output).toContain('body')
       expect(output).toContain('createdAt')
       expect(output).toContain('query GetPosts')
+
+      const sectionDoc = docs.find((d: any) => d.definitions[0]?.kind === 'FragmentDefinition')!
+      expect(print(sectionDoc)).toContain('fragment PostSection on Post')
     })
 
     it('3. multiple same-file partials', () => {
@@ -519,9 +540,10 @@ if (import.meta.vitest) {
       gazania.query('GetUserProfile').select($ => $.select([...userInfo(), ...userAvatar()]))
     `
       const docs = extractCode(code)
-      expect(docs).toHaveLength(1)
+      expect(docs).toHaveLength(3)
 
-      const output = print(docs[0])
+      const queryDoc = docs.find((d: any) => d.definitions.some((def: any) => def.kind === 'OperationDefinition'))!
+      const output = print(queryDoc)
       expect(output).toContain('...UserInfo')
       expect(output).toContain('...UserAvatar')
       expect(output).toContain('fragment UserInfo on User')
@@ -537,9 +559,10 @@ if (import.meta.vitest) {
       const userFields = gazania.partial('UserFields').on('User').select($ => $.select(['id', 'email']))
     `
       const docs = extractCode(code)
-      expect(docs).toHaveLength(1)
+      expect(docs).toHaveLength(2)
 
-      const output = print(docs[0])
+      const queryDoc = docs.find((d: any) => d.definitions.some((def: any) => def.kind === 'OperationDefinition'))!
+      const output = print(queryDoc)
       expect(output).toContain('...UserFields')
       expect(output).toContain('fragment UserFields on User')
       expect(output).toContain('id')
@@ -555,13 +578,14 @@ if (import.meta.vitest) {
       gazania.query('GetItems').select($ => $.select([...filteredItems()]))
     `
       const docs = extractCode(code)
-      expect(docs).toHaveLength(1)
+      expect(docs).toHaveLength(2)
 
-      const output = print(docs[0])
+      const queryDoc = docs.find((d: any) => d.definitions.some((def: any) => def.kind === 'OperationDefinition'))!
+      const output = print(queryDoc)
       expect(output).toContain('...FilteredItems')
       expect(output).toContain('fragment FilteredItems')
       expect(output).toContain('on Item')
-      const doc = docs[0]
+      const doc = queryDoc
       const frag = doc.definitions.find((d: any) => d.kind === 'FragmentDefinition') as any
       expect(frag).toBeDefined()
       expect(frag.variableDefinitions).toHaveLength(1)
@@ -576,9 +600,10 @@ if (import.meta.vitest) {
       gazania.query('Legacy').select($ => $.select([...deprecatedFields()]))
     `
       const docs = extractCode(code)
-      expect(docs).toHaveLength(1)
+      expect(docs).toHaveLength(2)
 
-      const output = print(docs[0])
+      const queryDoc = docs.find((d: any) => d.definitions.some((def: any) => def.kind === 'OperationDefinition'))!
+      const output = print(queryDoc)
       expect(output).toContain('...DeprecatedFields')
       expect(output).toContain('fragment DeprecatedFields on User')
       expect(output).toContain('@deprecated')
@@ -592,9 +617,10 @@ if (import.meta.vitest) {
       gazania.query('GetAll').select($ => $.select([...allFields()]))
     `
       const docs = extractCode(code)
-      expect(docs).toHaveLength(1)
+      expect(docs).toHaveLength(2)
 
-      const output = print(docs[0])
+      const queryDoc = docs.find((d: any) => d.definitions.some((def: any) => def.kind === 'OperationDefinition'))!
+      const output = print(queryDoc)
       expect(output).toContain('...AllFields')
       expect(output).toContain('fragment AllFields on Item')
       expect(output).toContain('id')

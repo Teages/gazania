@@ -1,8 +1,8 @@
 import type { DocumentNode, FragmentDefinitionNode, SelectionNode, SelectionSetNode } from '../../lib/graphql'
 import type { DirectiveInput } from '../../runtime/directive'
 import type { SelectionInput, SelectionObject } from '../../runtime/dollar'
-import type { StaticBuilderChain, StaticDirectiveDef, StaticPartialDef, StaticPartialRef } from './types'
 import type { TypeContext } from './chain'
+import type { StaticBuilderChain, StaticDirectiveDef, StaticPartialDef, StaticPartialRef } from './types'
 import { Kind, OperationTypeNode } from '../../lib/graphql'
 import { createDocumentNodeContext } from '../../runtime/context'
 import { parseDirectives } from '../../runtime/directive'
@@ -314,7 +314,7 @@ export function buildDocumentFromChain(
     } as any)
   }
 
-  if (chain.type === 'fragment') {
+  if (chain.type === 'fragment' || chain.type === 'partial' || chain.type === 'section') {
     ctx.pushDefinition({
       kind: Kind.FRAGMENT_DEFINITION,
       name: { kind: Kind.NAME, value: chain.name },

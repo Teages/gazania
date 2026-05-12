@@ -19,9 +19,15 @@ export interface ManifestEntry {
   loc: SourceLoc
 }
 
+export type FragmentMode = 'fragment' | 'partial' | 'section'
+
+export interface ManifestFragmentEntry extends ManifestEntry {
+  mode: FragmentMode
+}
+
 export interface ExtractManifest {
   operations: Record<string, ManifestEntry>
-  fragments: Record<string, ManifestEntry>
+  fragments: Record<string, ManifestFragmentEntry>
 }
 
 export type SkippedExtractionCategory = 'unresolved' | 'analysis' | 'circular'
@@ -72,6 +78,7 @@ export function addDocumentToManifest(
   doc: DocumentNode,
   hash: HashFn,
   loc: SourceLoc,
+  mode?: FragmentMode,
 ): void {
   const body = print(doc)
   const hashStr = hash(body)
@@ -100,6 +107,7 @@ export function addDocumentToManifest(
     manifest.operations[anonKey] = { body, hash: hashStr, loc }
   }
   else if (type === 'fragment') {
+    const fragmentMode: FragmentMode = mode ?? 'fragment'
     const existing = manifest.fragments[name]
     if (existing) {
       if (existing.hash === hashStr) {
@@ -109,7 +117,7 @@ export function addDocumentToManifest(
         `Duplicate fragment name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.fragments[name] = { body, hash: hashStr, loc }
+    manifest.fragments[name] = { body, hash: hashStr, loc, mode: fragmentMode }
   }
   else {
     const existing = manifest.operations[name]

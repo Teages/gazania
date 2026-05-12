@@ -14,7 +14,7 @@ export interface ExtractLogger {
 }
 export interface ExtractManifest {
   operations: Record<string, ManifestEntry>;
-  fragments: Record<string, ManifestEntry>;
+  fragments: Record<string, ManifestFragmentEntry>;
 }
 export interface ExtractOptions {
   dir: string;
@@ -34,6 +34,9 @@ export interface ManifestEntry {
   body: string;
   hash: string;
   loc: SourceLoc;
+}
+export interface ManifestFragmentEntry extends ManifestEntry {
+  mode: FragmentMode;
 }
 export interface SkippedExtraction {
   file: string;
@@ -58,6 +61,7 @@ export interface ValidationWarning {
 
 // #region Types
 export type CreateHostFn = (_: typeof _$typescript, _: _$typescript.System, _: _$typescript.CompilerOptions) => _$typescript.CompilerHost;
+export type FragmentMode = 'fragment' | 'partial' | 'section';
 export type HashFn = (_: string) => string;
 // #endregion
 
