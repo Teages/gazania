@@ -62,14 +62,14 @@ export function createVFS(files: Record<string, string>) {
 
         if (excludes?.length) {
           for (const pattern of excludes) {
-            if (matchesPattern(f, pattern)) {
+            if (matchesPattern(f, pattern) || matchesPattern(relative, pattern)) {
               return false
             }
           }
         }
 
         if (includes?.length) {
-          const included = includes.some(pattern => matchesPattern(f, pattern))
+          const included = includes.some(pattern => matchesPattern(f, pattern) || matchesPattern(relative, pattern))
           if (!included) {
             return false
           }
