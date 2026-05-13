@@ -36,10 +36,10 @@ export interface FragmentSourceLoc extends SourceLoc {
 export interface ManifestEntry {
   body: string;
   hash: string;
-  loc: SourceLoc;
+  locs: SourceLoc[];
 }
-export interface ManifestFragmentEntry extends Omit<ManifestEntry, 'loc'> {
-  loc: FragmentSourceLoc;
+export interface ManifestFragmentEntry extends Omit<ManifestEntry, 'locs'> {
+  locs: FragmentSourceLoc[];
 }
 export interface SkippedExtraction {
   file: string;
