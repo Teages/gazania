@@ -268,9 +268,8 @@ describe('types/masking', () => {
       .on('User')
       .select($ => $.select(['id', 'name']))
 
-    // section does not carry $fragmentOf — FragmentOf is not applicable
     type Pkg = typeof _section
-    expectTypeOf<Pkg>().not.toHaveProperty(' $fragmentOf')
+    expectTypeOf<Pkg>().toHaveProperty(' $fragmentOf')
 
     // The callable should still return an array (section spread)
     type Ret = ReturnType<Pkg>
@@ -400,12 +399,11 @@ describe('types/masking', () => {
     expectTypeOf<UserItem>().toHaveProperty('sayings')
   })
 
-  test('section: FragmentOf<typeof section> resolves to never', () => {
+  test('section: FragmentOf<typeof section> resolves to FragmentRef', () => {
     const g = createGazania({} as Schema)
     const _section = g.section('UserBasic').on('User').select($ => $.select(['id']))
 
-    // TypedSectionPackage has no ' $fragmentOf' phantom, so FragmentOf resolves to never
     type Ref = FragmentOf<typeof _section>
-    expectTypeOf<Ref>().toBeNever()
+    expectTypeOf<Ref>().toEqualTypeOf<FragmentRef<'UserBasic', 'User'>>()
   })
 })

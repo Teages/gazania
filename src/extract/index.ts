@@ -5,7 +5,7 @@ import { ExtractionError } from './manifest'
 import { createSvelteCompiler, createVueCompiler } from './sfc'
 import { adaptToSystem, loadTS } from './ts-program'
 
-export type { ExtractManifest, ExtractResult, HashFn, ManifestEntry, SkippedExtraction, SourceLoc } from './manifest'
+export type { ExtractManifest, ExtractResult, FragmentMode, FragmentSourceLoc, HashFn, ManifestEntry, ManifestFragmentEntry, SkippedExtraction, SourceLoc } from './manifest'
 export type { CreateHostFn, ExtractFS } from './ts-program'
 export { parseTSConfig } from './ts-program'
 export type { ValidationError, ValidationWarning } from './validate'

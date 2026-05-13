@@ -30,8 +30,8 @@ export interface Gazania {
   'mutation': (_?: string) => OperationBuilderWithoutVars;
   'subscription': (_?: string) => OperationBuilderWithoutVars;
   'fragment': (_: string) => FragmentBuilder;
-  'partial': (_: string) => PartialBuilder;
-  'section': (_: string) => SectionBuilder;
+  'partial': <const Name extends string>(_: Name) => PartialBuilder<Name>;
+  'section': <const Name extends string>(_: Name) => SectionBuilder<Name>;
   'enum': EnumFunction$1;
 }
 export interface Input<T> {

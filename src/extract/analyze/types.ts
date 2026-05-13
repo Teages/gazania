@@ -43,8 +43,8 @@ export interface StaticSelectionResult {
  * These are resolved separately from the main selection interpretation.
  */
 export interface StaticPartialRef {
-  /** The local variable name binding the partial/section result */
-  localName: string
+  /** The fragment name extracted via TypeChecker from the spread callee's type */
+  fragmentName: string
   /** The ESTree AST node of the arguments passed to the partial/section call */
   args: Node
   /** Optional ESTree AST node of directives applied to this partial/section call */
@@ -88,6 +88,12 @@ export interface StaticPartialDef {
    * to resolve transitive partial references across file boundaries.
    */
   scopedDeps?: Map<string, StaticPartialDef>
+  /**
+   * AST-to-TS-node mapping from the source file where this partial was defined.
+   * Used by `buildFragmentDef` to resolve fragment names via the TypeChecker
+   * when interpreting this partial's select callback from a different file.
+   */
+  nodeMap?: WeakMap<any, any>
 }
 
 /**

@@ -17,8 +17,8 @@ export interface Gazania {
   'mutation': (name?: string) => OperationBuilderWithoutVars
   'subscription': (name?: string) => OperationBuilderWithoutVars
   'fragment': (name: string) => FragmentBuilder
-  'partial': (name: string) => PartialBuilder
-  'section': (name: string) => SectionBuilder
+  'partial': <const Name extends string>(name: Name) => PartialBuilder<Name>
+  'section': <const Name extends string>(name: Name) => SectionBuilder<Name>
   'enum': EnumFunction
 }
 
@@ -30,8 +30,8 @@ function initGazania(): Gazania {
     'mutation': (name?: string) => createOperationBuilder('mutation', name),
     'subscription': (name?: string) => createOperationBuilder('subscription', name),
     'fragment': (name: string) => createFragmentBuilder(name),
-    'partial': (name: string) => createPartialBuilder(name),
-    'section': (name: string) => createSectionBuilder(name),
+    'partial': <const Name extends string>(name: Name) => createPartialBuilder(name),
+    'section': <const Name extends string>(name: Name) => createSectionBuilder(name),
     'enum': enumFn,
     '~isGazania': true as const,
   }

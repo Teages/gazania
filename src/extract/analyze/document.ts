@@ -1,6 +1,7 @@
 import type { DocumentNode, FragmentDefinitionNode, SelectionNode, SelectionSetNode } from '../../lib/graphql'
 import type { DirectiveInput } from '../../runtime/directive'
 import type { SelectionInput, SelectionObject } from '../../runtime/dollar'
+import type { TypeContext } from './chain'
 import type { StaticBuilderChain, StaticDirectiveDef, StaticPartialDef, StaticPartialRef } from './types'
 import { Kind, OperationTypeNode } from '../../lib/graphql'
 import { createDocumentNodeContext } from '../../runtime/context'
@@ -20,6 +21,7 @@ import { CircularPartialError } from './types'
 export function wrapSelectionWithPartialRefs(
   items: SelectionInput,
   partialDefs: Map<string, StaticPartialDef>,
+  typeCtx?: TypeContext,
 ): SelectionInput {
   return items.map((item) => {
     if (typeof item === 'string') {
@@ -29,7 +31,7 @@ export function wrapSelectionWithPartialRefs(
     const newObj: SelectionObject = {}
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'function') {
-        newObj[key] = wrapFieldCallback(value as (dollar: any) => any, partialDefs)
+        newObj[key] = wrapFieldCallback(value as (dollar: any) => any, partialDefs, typeCtx)
       }
       else {
         ;(newObj as any)[key] = value
@@ -42,6 +44,7 @@ export function wrapSelectionWithPartialRefs(
 function wrapFieldCallback(
   fn: (dollar: any) => any,
   partialDefs: Map<string, StaticPartialDef>,
+  typeCtx?: TypeContext,
 ): (dollar: any) => any {
   const refs: StaticPartialRef[] | undefined = (fn as any)._partialRefs
 
@@ -49,18 +52,18 @@ function wrapFieldCallback(
     const result = fn(dollar)
 
     if (result._selection && result._selection.length > 0) {
-      result._selection = wrapSelectionWithPartialRefs(result._selection, partialDefs)
+      result._selection = wrapSelectionWithPartialRefs(result._selection, partialDefs, typeCtx)
     }
 
     if (refs && refs.length > 0) {
       const partialEntries: any[] = []
       for (const ref of refs) {
-        const partialDef = partialDefs.get(ref.localName)
+        const partialDef = partialDefs.get(ref.fragmentName)
         if (!partialDef) {
           continue
         }
 
-        const fragDefs = buildFragmentDef(partialDef, partialDefs)
+        const fragDefs = buildFragmentDef(partialDef, partialDefs, undefined, undefined, typeCtx)
         if (fragDefs && fragDefs.length > 0) {
           const sym = Symbol('@gazania:PartialContent')
           partialEntries.push({
@@ -149,6 +152,7 @@ export function buildFragmentDef(
   partialDefs: Map<string, StaticPartialDef>,
   literalScope?: Map<string, unknown>,
   seen?: Set<string>,
+  typeCtx?: TypeContext,
 ): FragmentDefinitionNode[] | null {
   if (!seen) {
     seen = new Set()
@@ -158,6 +162,10 @@ export function buildFragmentDef(
     throw new CircularPartialError(partialDef.name, cyclePath)
   }
   seen.add(partialDef.name)
+
+  const effectiveTypeCtx = partialDef.nodeMap && typeCtx
+    ? { ...typeCtx, nodeMap: partialDef.nodeMap }
+    : typeCtx
 
   // Merge home-file scope so the partial's callback can resolve its own deps
   // (e.g. transitive cross-file partials that the consumer file doesn't directly import)
@@ -171,6 +179,7 @@ export function buildFragmentDef(
     partialDef.callbackParams.vars,
     effectiveDefs,
     literalScope,
+    effectiveTypeCtx,
   )
 
   const enumFn = createEnumFunction()
@@ -180,9 +189,7 @@ export function buildFragmentDef(
     ? partialDef.directives.flatMap(interpretDirectiveCallback)
     : []
 
-  // Wrap field callbacks so field-nested partial refs (e.g. ...postFields inside a
-  // posts field callback) are resolved the same way as in top-level operation processing.
-  const wrappedSelection = wrapSelectionWithPartialRefs(partialResult.selection, effectiveDefs)
+  const wrappedSelection = wrapSelectionWithPartialRefs(partialResult.selection, effectiveDefs, effectiveTypeCtx)
 
   let fragSelectionSet: SelectionSetNode
   if (wrappedSelection.length > 0) {
@@ -193,12 +200,12 @@ export function buildFragmentDef(
   }
 
   for (const nestedRef of partialResult.partialRefs) {
-    const nestedDef = effectiveDefs.get(nestedRef.localName)
+    const nestedDef = effectiveDefs.get(nestedRef.fragmentName)
     if (!nestedDef) {
       continue
     }
 
-    const nestedFragDefs = buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen)
+    const nestedFragDefs = buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen, effectiveTypeCtx)
     if (nestedFragDefs && nestedFragDefs.length > 0) {
       for (const d of nestedFragDefs) {
         fragCtx.pushDefinition(d)
@@ -212,12 +219,12 @@ export function buildFragmentDef(
 
   const fieldCallbackRefs = collectNestedPartialRefs(partialResult.selection)
   for (const nestedRef of fieldCallbackRefs) {
-    const nestedDef = effectiveDefs.get(nestedRef.localName)
+    const nestedDef = effectiveDefs.get(nestedRef.fragmentName)
     if (!nestedDef) {
       continue
     }
 
-    const nestedFragDefs = buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen)
+    const nestedFragDefs = buildFragmentDef(nestedDef, effectiveDefs, literalScope, seen, effectiveTypeCtx)
     if (nestedFragDefs && nestedFragDefs.length > 0) {
       for (const d of nestedFragDefs) {
         fragCtx.pushDefinition(d)
@@ -253,6 +260,7 @@ export function buildDocumentFromChain(
   chain: StaticBuilderChain,
   partialDefs: Map<string, StaticPartialDef>,
   literalScope?: Map<string, unknown>,
+  typeCtx?: TypeContext,
 ): DocumentNode {
   const { selection, partialRefs } = interpretSelectCallback(
     chain.selectCallback,
@@ -260,9 +268,10 @@ export function buildDocumentFromChain(
     chain.callbackParams.vars,
     partialDefs,
     literalScope,
+    typeCtx,
   )
 
-  const wrappedSelection = wrapSelectionWithPartialRefs(selection, partialDefs)
+  const wrappedSelection = wrapSelectionWithPartialRefs(selection, partialDefs, typeCtx)
 
   const ctx = createDocumentNodeContext()
   const enumFn = createEnumFunction()
@@ -281,7 +290,7 @@ export function buildDocumentFromChain(
 
   const seenFrags = new Set<string>()
   for (const ref of partialRefs) {
-    const partialDef = partialDefs.get(ref.localName)
+    const partialDef = partialDefs.get(ref.fragmentName)
     if (!partialDef) {
       continue
     }
@@ -290,7 +299,7 @@ export function buildDocumentFromChain(
     }
     seenFrags.add(partialDef.name)
 
-    const fragDefs = buildFragmentDef(partialDef, partialDefs, literalScope)
+    const fragDefs = buildFragmentDef(partialDef, partialDefs, literalScope, undefined, typeCtx)
     if (fragDefs) {
       for (const fragDef of fragDefs) {
         ctx.pushDefinition(fragDef)
@@ -303,7 +312,7 @@ export function buildDocumentFromChain(
     } as any)
   }
 
-  if (chain.type === 'fragment') {
+  if (chain.type === 'fragment' || chain.type === 'partial' || chain.type === 'section') {
     ctx.pushDefinition({
       kind: Kind.FRAGMENT_DEFINITION,
       name: { kind: Kind.NAME, value: chain.name },

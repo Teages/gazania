@@ -1,3 +1,4 @@
+import type { FragmentRef } from '../../types/masking'
 import type { DirectiveInput } from '../directive'
 import type { SelectionInput } from '../dollar'
 import type { Variable, VariableDefinitions } from '../variable'
@@ -10,32 +11,36 @@ import { createFragmentBuilder } from './fragment'
 import { createOperationBuilder } from './operation'
 import { createRootDollar } from './root'
 
-export type PartialPackage = ($: Record<string, Variable>, directives?: DirectiveInput[]) => SelectionInput
-
-export interface PartialBuilder {
-  on: (typeName: string) => PartialBuilderOnType
+export interface PartialPackage<Name extends string = string> {
+  ($: Record<string, Variable>, directives?: DirectiveInput[]): SelectionInput
+  readonly ' $fragmentName'?: Name
+  readonly ' $fragmentOf'?: FragmentRef<Name, string>
 }
 
-export interface PartialBuilderOnType {
-  vars: (defs: VariableDefinitions) => PartialBuilderOnTypeWithVar
-  directives: (fn: () => DirectiveInput[]) => PartialBuilderOnType
-  select: (callback: SelectCallback) => PartialPackage
+export interface PartialBuilder<Name extends string = string> {
+  on: (typeName: string) => PartialBuilderOnType<Name>
 }
 
-export interface PartialBuilderOnTypeWithVar {
-  directives: (fn: (vars: Record<string, Variable>) => DirectiveInput[]) => PartialBuilderOnTypeWithVar
-  select: (callback: SelectCallback<Record<string, Variable>>) => PartialPackage
+export interface PartialBuilderOnType<Name extends string = string> {
+  vars: (defs: VariableDefinitions) => PartialBuilderOnTypeWithVar<Name>
+  directives: (fn: () => DirectiveInput[]) => PartialBuilderOnType<Name>
+  select: (callback: SelectCallback) => PartialPackage<Name>
 }
 
-export function createPartialBuilder(name: string): PartialBuilder {
+export interface PartialBuilderOnTypeWithVar<Name extends string = string> {
+  directives: (fn: (vars: Record<string, Variable>) => DirectiveInput[]) => PartialBuilderOnTypeWithVar<Name>
+  select: (callback: SelectCallback<Record<string, Variable>>) => PartialPackage<Name>
+}
+
+export function createPartialBuilder<const Name extends string>(name: Name): PartialBuilder<Name> {
   const enumFn = createEnumFunction()
 
   return {
-    on(typeName: string): PartialBuilderOnType {
+    on(typeName: string): PartialBuilderOnType<Name> {
       let varDefs: VariableDefinitions | undefined
       let directivesFn: ((vars?: Record<string, Variable>) => DirectiveInput[]) | undefined
 
-      const buildPartial = (selection: SelectionInput): PartialPackage => {
+      const buildPartial = (selection: SelectionInput): PartialPackage<Name> => {
         const fragBuilderOnType = createFragmentBuilder(name).on(typeName)
 
         let fragmentDoc: ReturnType<typeof fragBuilderOnType.select>
@@ -73,12 +78,12 @@ export function createPartialBuilder(name: string): PartialBuilder {
         }
       }
 
-      const builderOnTypeWithVar: PartialBuilderOnTypeWithVar = {
-        directives(fn: (vars: Record<string, Variable>) => DirectiveInput[]): PartialBuilderOnTypeWithVar {
+      const builderOnTypeWithVar: PartialBuilderOnTypeWithVar<Name> = {
+        directives(fn: (vars: Record<string, Variable>) => DirectiveInput[]): PartialBuilderOnTypeWithVar<Name> {
           directivesFn = fn as (vars?: Record<string, Variable>) => DirectiveInput[]
           return builderOnTypeWithVar
         },
-        select(callback: SelectCallback<Record<string, Variable>>): PartialPackage {
+        select(callback: SelectCallback<Record<string, Variable>>): PartialPackage<Name> {
           const root = createRootDollar(enumFn)
           const vars = createVariableProxy()
           const result = callback(root, vars)
@@ -86,16 +91,16 @@ export function createPartialBuilder(name: string): PartialBuilder {
         },
       }
 
-      const builderOnType: PartialBuilderOnType = {
-        vars(defs: VariableDefinitions): PartialBuilderOnTypeWithVar {
+      const builderOnType: PartialBuilderOnType<Name> = {
+        vars(defs: VariableDefinitions): PartialBuilderOnTypeWithVar<Name> {
           varDefs = defs
           return builderOnTypeWithVar
         },
-        directives(fn: () => DirectiveInput[]): PartialBuilderOnType {
+        directives(fn: () => DirectiveInput[]): PartialBuilderOnType<Name> {
           directivesFn = fn
           return builderOnType
         },
-        select(callback: SelectCallback): PartialPackage {
+        select(callback: SelectCallback): PartialPackage<Name> {
           const root = createRootDollar(enumFn)
           const vars = createVariableProxy()
           const result = callback(root, vars)

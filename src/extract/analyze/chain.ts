@@ -8,6 +8,39 @@ export interface TypeContext {
   namespace: string | undefined
 }
 
+export function resolvePartialFragmentName(
+  checker: import('typescript').TypeChecker,
+  tsNode: import('typescript').Node,
+): string | null {
+  const type = checker.getTypeAtLocation(tsNode)
+
+  const nameProp = checker.getPropertyOfType(type, ' $fragmentName')
+  if (!nameProp) {
+    return null
+  }
+
+  let nameType = checker.getTypeOfSymbol(nameProp)
+  nameType = unwrapOptional(checker, nameType)
+  if (nameType.isStringLiteral()) {
+    return nameType.value
+  }
+
+  return null
+}
+
+const NULLABLE_FLAGS = 4 | 8 // TypeFlags.Undefined | TypeFlags.Null
+
+function unwrapOptional(
+  checker: import('typescript').TypeChecker,
+  type: import('typescript').Type,
+): import('typescript').Type {
+  if (!type.isUnion()) {
+    return type
+  }
+  const nonNullable = type.types.find((t: any) => !(t.flags & NULLABLE_FLAGS))
+  return nonNullable ?? type
+}
+
 function hasGazaniaMarker(
   checker: import('typescript').TypeChecker,
   type: import('typescript').Type,

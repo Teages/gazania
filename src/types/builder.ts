@@ -202,6 +202,9 @@ export interface TypedPartialPackage<
 > {
   (vars: _Variables, directives?: DirectiveInput[]): TypedPartialSpreadReturn<_T, _Name>
 
+  /** Phantom key for static extract — fragment name literal, resolved in one step. */
+  readonly ' $fragmentName'?: _Name
+
   /** Phantom key used by `FragmentOf<T>` to extract the fragment ref type. */
   readonly ' $fragmentOf'?: _T extends BaseObject<infer TypeName, any, any>
     ? FragmentRef<_Name, TypeName>
@@ -215,6 +218,14 @@ export interface TypedSectionPackage<
   _Name extends string = string,
 > {
   (vars: _Variables, directives?: DirectiveInput[]): TypedSectionSpreadReturn<Expand<_P>, _Name>
+
+  /** Phantom key for static extract — fragment name literal, resolved in one step. */
+  readonly ' $fragmentName'?: _Name
+
+  /** Phantom key for fragment name extraction (mirrors TypedPartialPackage). */
+  readonly ' $fragmentOf'?: _T extends BaseObject<infer TypeName, any, any>
+    ? FragmentRef<_Name, TypeName>
+    : never
 }
 
 export type RequireOperationPartialData<
