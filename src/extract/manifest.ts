@@ -21,8 +21,12 @@ export interface ManifestEntry {
 
 export type FragmentMode = 'fragment' | 'partial' | 'section'
 
-export interface ManifestFragmentEntry extends ManifestEntry {
-  mode: FragmentMode
+export interface FragmentSourceLoc extends SourceLoc {
+  fragmentMode: FragmentMode
+}
+
+export interface ManifestFragmentEntry extends Omit<ManifestEntry, 'loc'> {
+  loc: FragmentSourceLoc
 }
 
 export interface ExtractManifest {
@@ -117,7 +121,7 @@ export function addDocumentToManifest(
         `Duplicate fragment name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.fragments[name] = { body, hash: hashStr, loc, mode: fragmentMode }
+    manifest.fragments[name] = { body, hash: hashStr, loc: { ...loc, fragmentMode } }
   }
   else {
     const existing = manifest.operations[name]

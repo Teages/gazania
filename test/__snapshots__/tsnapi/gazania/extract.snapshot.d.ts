@@ -30,13 +30,16 @@ export interface ExtractResult {
   manifest: ExtractManifest;
   skipped: SkippedExtraction[];
 }
+export interface FragmentSourceLoc extends SourceLoc {
+  fragmentMode: FragmentMode;
+}
 export interface ManifestEntry {
   body: string;
   hash: string;
   loc: SourceLoc;
 }
-export interface ManifestFragmentEntry extends ManifestEntry {
-  mode: FragmentMode;
+export interface ManifestFragmentEntry extends Omit<ManifestEntry, 'loc'> {
+  loc: FragmentSourceLoc;
 }
 export interface SkippedExtraction {
   file: string;
