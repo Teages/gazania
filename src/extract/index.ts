@@ -1,10 +1,10 @@
 import type { ExtractResult, HashFn, SkippedExtractionCategory } from './manifest'
+import type { TypeCheckerProgram } from './ts-program'
 import { staticExtractCrossFile } from './analyze/pipeline'
 import { findFiles } from './files'
 import { ExtractionError } from './manifest'
 import { createSvelteCompiler, createVueCompiler } from './sfc'
 import { adaptToSystem, loadTS } from './ts-program'
-import type { TypeCheckerProgram } from './ts-program'
 
 export type { ExtractManifest, ExtractResult, FragmentMode, FragmentSourceLoc, HashFn, ManifestEntry, ManifestFragmentEntry, SkippedExtraction, SourceLoc } from './manifest'
 export type { CreateHostFn, ExtractFS } from './ts-program'

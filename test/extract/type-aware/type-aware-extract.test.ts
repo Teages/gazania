@@ -1,3 +1,4 @@
+import type { CreateHostFn } from '../../../src/extract'
 /**
  * Integration tests for TypeChecker-based builder name detection.
  *
@@ -13,7 +14,7 @@
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { extract, type CreateHostFn } from '../../../src/extract'
+import { extract } from '../../../src/extract'
 import { loadTS, parseTSConfig } from '../../../src/extract/ts-program'
 import { createTestingSystem } from '../../../test/utils/vfs'
 

@@ -1,9 +1,10 @@
+import type { CreateHostFn } from '../../src/extract/ts-program'
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { extract } from '../../src/extract'
 import { ExtractionError } from '../../src/extract/manifest'
-import { type CreateHostFn, createHostFromSystem, loadTS, parseTSConfig } from '../../src/extract/ts-program'
+import { createHostFromSystem, loadTS, parseTSConfig } from '../../src/extract/ts-program'
 import { createTestingSystem, createVFS } from '../utils/vfs'
 
 const ts = await loadTS()
