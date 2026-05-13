@@ -13,6 +13,7 @@ import { createRootDollar } from './root'
 
 export interface PartialPackage<Name extends string = string> {
   ($: Record<string, Variable>, directives?: DirectiveInput[]): SelectionInput
+  readonly ' $fragmentName'?: Name
   readonly ' $fragmentOf'?: FragmentRef<Name, string>
 }
 
@@ -35,7 +36,7 @@ export function createPartialBuilder<const Name extends string>(name: Name): Par
   const enumFn = createEnumFunction()
 
   return {
-    on(typeName: string): PartialBuilderOnType {
+    on(typeName: string): PartialBuilderOnType<Name> {
       let varDefs: VariableDefinitions | undefined
       let directivesFn: ((vars?: Record<string, Variable>) => DirectiveInput[]) | undefined
 
