@@ -165,9 +165,7 @@ export function buildFragmentDef(
 
   const effectiveTypeCtx = partialDef.nodeMap && typeCtx
     ? { ...typeCtx, nodeMap: partialDef.nodeMap }
-    : partialDef.nodeMap
-      ? { checker: undefined as any, nodeMap: partialDef.nodeMap, builderNames: [], namespace: undefined }
-      : typeCtx
+    : typeCtx
 
   // Merge home-file scope so the partial's callback can resolve its own deps
   // (e.g. transitive cross-file partials that the consumer file doesn't directly import)
