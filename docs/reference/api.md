@@ -657,6 +657,7 @@ Returns `{ errors: ValidationError[], warnings: ValidationWarning[] }`.
 | `logger` | `ExtractLogger` | — | Logger for extraction diagnostics |
 | `fs` | `ExtractFS` | `ts.sys` | File-system interface for all file operations |
 | `createHost` | `CreateHostFn` | — | Override the default CompilerHost construction |
+| `program` | `TypeCheckerProgram` | — | Pre-built TypeScript type checker program. Pass a cached instance to skip re-creating the program when calling `extract()` multiple times |
 
 #### `ExtractFS`
 
@@ -709,6 +710,18 @@ type CreateHostFn = (
 ) => import('typescript').CompilerHost
 ```
 
+#### `TypeCheckerProgram`
+
+A pre-built TypeScript program with type checker, returned by `createTypeCheckerProgram()` and accepted as the `program` option in `ExtractOptions`. Pass a cached instance to avoid re-creating the TypeScript program across multiple `extract()` calls.
+
+```ts
+interface TypeCheckerProgram {
+  program: import('typescript').Program
+  checker: import('typescript').TypeChecker
+  host: import('typescript').CompilerHost
+}
+```
+
 #### `ExtractResult`
 
 | Property | Type | Description |
@@ -722,7 +735,7 @@ type CreateHostFn = (
 |---|---|---|
 | `body` | `string` | The GraphQL operation or fragment body |
 | `hash` | `string` | Body hash in `algorithm:hex` format |
-| `loc` | `SourceLoc` | Source location in the original file |
+| `locs` | `SourceLoc[]` | Source locations in the original files. Contains one entry per occurrence; multiple entries when the same operation body appears in more than one location |
 
 #### `SourceLoc`
 

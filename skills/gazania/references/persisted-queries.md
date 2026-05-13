@@ -24,37 +24,43 @@ By default this scans `src/` and outputs the manifest to stdout. Use `--output <
     "FetchAnime": {
       "body": "query FetchAnime($id: Int = 127549) {\n  Media(id: $id, type: ANIME) {\n    id\n    title {\n      romaji\n      english\n      native\n    }\n  }\n}",
       "hash": "sha256:a1b2c3d4...",
-      "loc": {
-        "file": "/project/src/queries/anime.ts",
-        "start": { "line": 10, "column": 1, "offset": 245 },
-        "end": { "line": 15, "column": 2, "offset": 412 }
-      }
+      "locs": [
+        {
+          "file": "/project/src/queries/anime.ts",
+          "start": { "line": 10, "column": 1, "offset": 245 },
+          "end": { "line": 15, "column": 2, "offset": 412 }
+        }
+      ]
     },
     "CreateUser": {
       "body": "mutation CreateUser($input: CreateUserInput!) { ... }",
       "hash": "sha256:e5f6a7b8...",
-      "loc": {
-        "file": "/project/src/queries/create-user.ts",
-        "start": { "line": 20, "column": 1, "offset": 600 },
-        "end": { "line": 25, "column": 2, "offset": 820 }
-      }
+      "locs": [
+        {
+          "file": "/project/src/queries/create-user.ts",
+          "start": { "line": 20, "column": 1, "offset": 600 },
+          "end": { "line": 25, "column": 2, "offset": 820 }
+        }
+      ]
     }
   },
   "fragments": {
     "UserFields": {
       "body": "fragment UserFields on User {\n  id\n  name\n  email\n}",
       "hash": "sha256:c9d0e1f2...",
-      "loc": {
-        "file": "/project/src/fragments/user.ts",
-        "start": { "line": 3, "column": 14, "offset": 88 },
-        "end": { "line": 3, "column": 52, "offset": 126 }
-      }
+      "locs": [
+        {
+          "file": "/project/src/fragments/user.ts",
+          "start": { "line": 3, "column": 14, "offset": 88 },
+          "end": { "line": 3, "column": 52, "offset": 126 }
+        }
+      ]
     }
   }
 }
 ```
 
-Each entry includes a `loc` field with `file` (absolute source file path), `start` and `end` source positions. Each position contains `line` (1-based), `column` (1-based), and `offset` (0-based character offset from file start).
+Each entry includes a `locs` array with source positions. Each location has `file` (absolute source file path), `start` and `end` source positions. Each position contains `line` (1-based), `column` (1-based), and `offset` (0-based character offset from file start). Multiple entries appear when the same operation body exists in more than one location.
 
 Operations (queries, mutations, subscriptions) go into `operations`. Named fragments go into `fragments`.
 
@@ -189,4 +195,4 @@ Each client has a different mechanism for persisted queries. Consult your client
 - **Static analysis only**: The extractor evaluates builders with static analysis. When a Gazania call cannot be statically evaluated (e.g., unresolved references, runtime-dependent values, circular partials), extraction fails by default. Use `--ignore-*` flags to suppress specific failure categories and allow extraction to continue.
 - **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
-- **Duplicate names**: If the same operation or fragment name is defined in multiple files with different bodies, extraction fails with an error. If the bodies are identical, the duplicate is silently skipped.
+- **Duplicate names**: If the same operation or fragment name is defined in multiple files with different bodies, extraction fails with an error. If the bodies are identical, all source locations are recorded in the `locs` array of the manifest entry.
