@@ -103,19 +103,23 @@ export function validateManifest(
     }
 
     const ruleErrors = validate(schema, mergedDoc, specifiedRules)
-    for (const err of ruleErrors) {
-      errors.push({
-        loc: entry.loc,
-        message: err.message,
-      })
+    for (const loc of entry.locs) {
+      for (const err of ruleErrors) {
+        errors.push({
+          loc,
+          message: err.message,
+        })
+      }
     }
 
     const depWarnings = validate(schema, mergedDoc, [NoDeprecatedCustomRule])
-    for (const warn of depWarnings) {
-      warnings.push({
-        loc: entry.loc,
-        message: warn.message,
-      })
+    for (const loc of entry.locs) {
+      for (const warn of depWarnings) {
+        warnings.push({
+          loc,
+          message: warn.message,
+        })
+      }
     }
   }
 
@@ -138,10 +142,10 @@ if (import.meta.vitest) {
     ): ExtractManifest {
       return {
         operations: Object.fromEntries(
-          Object.entries(ops).map(([k, v]) => [k, { body: v, hash: '', loc: makeLoc() }]),
+          Object.entries(ops).map(([k, v]) => [k, { body: v, hash: '', locs: [makeLoc()] }]),
         ),
         fragments: Object.fromEntries(
-          Object.entries(frags).map(([k, v]) => [k, { body: v, hash: '', loc: { ...makeLoc(), fragmentMode: 'fragment' as const } }]),
+          Object.entries(frags).map(([k, v]) => [k, { body: v, hash: '', locs: [{ ...makeLoc(), fragmentMode: 'fragment' as const }] }]),
         ),
       }
     }

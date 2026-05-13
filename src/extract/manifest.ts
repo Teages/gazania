@@ -16,7 +16,7 @@ export interface SourceLoc {
 export interface ManifestEntry {
   body: string
   hash: string
-  loc: SourceLoc
+  locs: SourceLoc[]
 }
 
 export type FragmentMode = 'fragment' | 'partial' | 'section'
@@ -25,8 +25,8 @@ export interface FragmentSourceLoc extends SourceLoc {
   fragmentMode: FragmentMode
 }
 
-export interface ManifestFragmentEntry extends Omit<ManifestEntry, 'loc'> {
-  loc: FragmentSourceLoc
+export interface ManifestFragmentEntry extends Omit<ManifestEntry, 'locs'> {
+  locs: FragmentSourceLoc[]
 }
 
 export interface ExtractManifest {
@@ -95,7 +95,8 @@ export function addDocumentToManifest(
     const existing = manifest.operations[anonKey]
     if (existing) {
       if (existing.hash === hashStr) {
-        return // identical anonymous operation
+        existing.locs.push(loc)
+        return
       }
       // Hash collision — extend prefix until unique
       for (let len = HASH_PREFIX_LENGTH + 1; len <= hashStr.length - hashStart; len++) {
@@ -104,35 +105,38 @@ export function addDocumentToManifest(
           break
         }
         if (manifest.operations[anonKey]!.hash === hashStr) {
+          manifest.operations[anonKey]!.locs.push(loc)
           return
         }
       }
     }
-    manifest.operations[anonKey] = { body, hash: hashStr, loc }
+    manifest.operations[anonKey] = { body, hash: hashStr, locs: [loc] }
   }
   else if (type === 'fragment') {
     const fragmentMode: FragmentMode = mode ?? 'fragment'
     const existing = manifest.fragments[name]
     if (existing) {
       if (existing.hash === hashStr) {
+        existing.locs.push({ ...loc, fragmentMode })
         return
       }
       throw new Error(
-        `Duplicate fragment name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
+        `Duplicate fragment name "${name}": first defined at ${existing.locs[0]!.start.line}:${existing.locs[0]!.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.fragments[name] = { body, hash: hashStr, loc: { ...loc, fragmentMode } }
+    manifest.fragments[name] = { body, hash: hashStr, locs: [{ ...loc, fragmentMode }] }
   }
   else {
     const existing = manifest.operations[name]
     if (existing) {
       if (existing.hash === hashStr) {
+        existing.locs.push(loc)
         return
       }
       throw new Error(
-        `Duplicate operation name "${name}": first defined at ${existing.loc.start.line}:${existing.loc.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
+        `Duplicate operation name "${name}": first defined at ${existing.locs[0]!.start.line}:${existing.locs[0]!.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.operations[name] = { body, hash: hashStr, loc }
+    manifest.operations[name] = { body, hash: hashStr, locs: [loc] }
   }
 }
