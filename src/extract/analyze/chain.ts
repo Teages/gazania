@@ -14,28 +14,18 @@ export function resolvePartialFragmentName(
 ): string | null {
   const type = checker.getTypeAtLocation(tsNode)
 
-  const fragmentOfProp = checker.getPropertyOfType(type, ' $fragmentOf')
-  if (!fragmentOfProp) {
+  const nameProp = checker.getPropertyOfType(type, ' $fragmentName')
+  if (!nameProp) {
     return null
   }
 
-  let fragmentOfType = checker.getTypeOfSymbol(fragmentOfProp)
-  fragmentOfType = unwrapOptional(checker, fragmentOfType)
-
-  const refsProp = checker.getPropertyOfType(fragmentOfType, ' $fragmentRefs')
-  if (!refsProp) {
-    return null
+  let nameType = checker.getTypeOfSymbol(nameProp)
+  nameType = unwrapOptional(checker, nameType)
+  if (nameType.isStringLiteral()) {
+    return nameType.value
   }
 
-  let refsType = checker.getTypeOfSymbol(refsProp)
-  refsType = unwrapOptional(checker, refsType)
-
-  const props = checker.getPropertiesOfType(refsType)
-  if (props.length === 0) {
-    return null
-  }
-
-  return props[0].name
+  return null
 }
 
 const NULLABLE_FLAGS = 4 | 8 // TypeFlags.Undefined | TypeFlags.Null

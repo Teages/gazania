@@ -498,9 +498,12 @@ if (import.meta.vitest) {
       checker: {
         getTypeAtLocation: () => mockType,
         getPropertyOfType: (_t: any, name: string) =>
-          (name === ' $fragmentOf' || name === ' $fragmentRefs') ? mockSymbol : undefined,
-        getTypeOfSymbol: () => mockType,
-        getPropertiesOfType: () => [{ name: fragmentName }],
+          name === ' $fragmentName' ? mockSymbol : undefined,
+        getTypeOfSymbol: () => ({
+          isUnion: () => false,
+          isStringLiteral: () => true,
+          value: fragmentName,
+        }),
       } as any,
       nodeMap,
       builderNames: [],

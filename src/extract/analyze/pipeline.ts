@@ -476,13 +476,12 @@ if (import.meta.vitest) {
           return mockType
         },
         getPropertyOfType: (_t: any, name: string) =>
-          (name === ' $fragmentOf' || name === ' $fragmentRefs') ? mockSymbol : undefined,
-        getTypeOfSymbol: () => mockType,
-        getPropertiesOfType: () => {
-          const name = currentFragmentName
-          currentFragmentName = null
-          return name ? [{ name }] : []
-        },
+          name === ' $fragmentName' ? mockSymbol : undefined,
+        getTypeOfSymbol: () => ({
+          isUnion: () => false,
+          isStringLiteral: () => currentFragmentName !== null,
+          value: currentFragmentName ?? undefined,
+        }),
       }
 
       return { checker, nodeMap }
