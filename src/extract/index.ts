@@ -4,9 +4,11 @@ import { findFiles } from './files'
 import { ExtractionError } from './manifest'
 import { createSvelteCompiler, createVueCompiler } from './sfc'
 import { adaptToSystem, loadTS } from './ts-program'
+import type { TypeCheckerProgram } from './ts-program'
 
 export type { ExtractManifest, ExtractResult, FragmentMode, FragmentSourceLoc, HashFn, ManifestEntry, ManifestFragmentEntry, SkippedExtraction, SourceLoc } from './manifest'
 export type { CreateHostFn, ExtractFS } from './ts-program'
+export type { TypeCheckerProgram } from './ts-program'
 export { parseTSConfig } from './ts-program'
 export type { ValidationError, ValidationWarning } from './validate'
 export { validateManifest } from './validate'
@@ -52,6 +54,7 @@ export interface ExtractOptions {
    * SourceFile caching, or integrating with existing TS service instances.
    */
   createHost?: import('./ts-program').CreateHostFn
+  program?: TypeCheckerProgram
 }
 
 /**
@@ -80,6 +83,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     logger,
     fs,
     createHost: createHostFn,
+    program: prebuiltProgram,
   } = options
 
   if (!tsconfig) {
@@ -119,6 +123,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     createHost: createHostFn,
     ts,
     compilers,
+    program: prebuiltProgram,
   })
 
   const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))
