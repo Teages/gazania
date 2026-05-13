@@ -38,7 +38,9 @@ describe('addDocumentToManifest duplicate detection', () => {
     addDocumentToManifest(manifest, doc, sha256, makeLoc(10, 1))
 
     expect(Object.keys(manifest.operations)).toHaveLength(1)
-    expect(manifest.operations.GetUser!.loc.start.line).toBe(1)
+    expect(manifest.operations.GetUser!.locs).toHaveLength(2)
+    expect(manifest.operations.GetUser!.locs[0]!.start.line).toBe(1)
+    expect(manifest.operations.GetUser!.locs[1]!.start.line).toBe(10)
   })
 
   it('throws on duplicate fragment name with different body', () => {
@@ -58,7 +60,9 @@ describe('addDocumentToManifest duplicate detection', () => {
     addDocumentToManifest(manifest, doc, sha256, makeLoc(10, 1))
 
     expect(Object.keys(manifest.fragments)).toHaveLength(1)
-    expect(manifest.fragments.UserFields!.loc.start.line).toBe(1)
+    expect(manifest.fragments.UserFields!.locs).toHaveLength(2)
+    expect(manifest.fragments.UserFields!.locs[0]!.start.line).toBe(1)
+    expect(manifest.fragments.UserFields!.locs[1]!.start.line).toBe(10)
   })
 
   it('allows different operation names without error', () => {
