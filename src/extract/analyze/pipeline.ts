@@ -2,7 +2,7 @@ import type { DocumentNode } from '../../lib/graphql'
 import type { ParsedBlock as StaticParsedBlock } from '../files'
 import type { ExtractManifest, HashFn, SkippedExtraction, SkippedExtractionCategory, SourceLoc } from '../manifest'
 import type { SFCCompiler } from '../sfc'
-import type { CreateHostFn } from '../ts-program'
+import type { CreateHostFn, TypeCheckerProgram } from '../ts-program'
 import type { TypeContext } from './chain'
 import type { StaticBuilderChain, StaticPartialDef } from './types'
 import { getFileImports, topologicalSort } from '../dependency-graph'
@@ -188,6 +188,7 @@ export function staticExtractCrossFile(
     createHost?: CreateHostFn
     ts: typeof import('typescript')
     compilers: readonly SFCCompiler[]
+    program?: TypeCheckerProgram
   },
 ): {
   manifest: ExtractManifest
@@ -200,7 +201,8 @@ export function staticExtractCrossFile(
     : new Map<string, import('../sfc').VirtualFileEntry>()
 
   const resolver = createModuleResolver(ts, options.tsconfig, system, createHostFn, virtualFiles)
-  const { program, checker } = createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn, virtualFiles)
+  const checkerProgram = options.program ?? createTypeCheckerProgram(ts, options.tsconfig, system, createHostFn, virtualFiles)
+  const { program, checker } = checkerProgram
 
   // Step 1: Parse all files
   const parsedFiles = new Map<string, StaticParsedBlock[]>()

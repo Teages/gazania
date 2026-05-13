@@ -25,6 +25,7 @@ export interface ExtractOptions {
   logger?: ExtractLogger;
   fs?: ExtractFS;
   createHost?: CreateHostFn;
+  program?: TypeCheckerProgram;
 }
 export interface ExtractResult {
   manifest: ExtractManifest;
@@ -51,6 +52,11 @@ export interface SourceLoc {
   file: string;
   start: SourceLocation;
   end: SourceLocation;
+}
+export interface TypeCheckerProgram {
+  program: _$typescript.Program;
+  checker: _$typescript.TypeChecker;
+  host: _$typescript.CompilerHost;
 }
 export interface ValidationError {
   loc: SourceLoc;
