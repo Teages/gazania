@@ -9,40 +9,40 @@ import type {
   ScalarTypeDefinitionNode,
   UnionTypeDefinitionNode,
 } from 'graphql'
-import type { GenerateOptions } from './schema'
+import type { GenerateConfig } from './schema'
 import { Kind, parse, print } from 'graphql'
 
-export interface ScalarTypeData {
+interface ScalarTypeData {
   name: string
   input: string
   output: string
 }
 
-export interface EnumTypeData {
+interface EnumTypeData {
   name: string
   values: string[]
 }
 
-export interface FieldData {
+interface FieldData {
   name: string
   res: string
   args: Record<string, string>
 }
 
-export interface InputObjectData {
+interface InputObjectData {
   name: string
   args: Record<string, string>
 }
 
-export interface TypeObjectData {
+interface TypeObjectData {
   name: string
   fields: FieldData[]
   impl: string[]
 }
 
-export interface InterfaceObjectData extends TypeObjectData {}
+interface InterfaceObjectData extends TypeObjectData {}
 
-export interface UnionData {
+interface UnionData {
   name: string
   types: string[]
 }
@@ -63,7 +63,7 @@ export class SchemaData {
   typeObjects: Record<string, TypeObjectData> = {}
   unions: Record<string, UnionData> = {}
 
-  constructor(schema: DocumentNode, options?: GenerateOptions) {
+  constructor(schema: DocumentNode, options?: Pick<GenerateConfig, 'scalars'>) {
     if (schema.kind !== Kind.DOCUMENT) {
       throw new Error('Invalid schema: expected DocumentNode')
     }
@@ -198,7 +198,7 @@ function parseName(node: NameNode): string {
   return node.value
 }
 
-export function parseSchema(sdl: string, options?: GenerateOptions): SchemaData {
+export function parseSchema(sdl: string, options?: Pick<GenerateConfig, 'scalars'>): SchemaData {
   let doc: DocumentNode | undefined
 
   try {

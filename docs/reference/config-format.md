@@ -11,12 +11,12 @@ The CLI looks for the following files (in order):
 
 ## `defineConfig`
 
-Use `defineConfig` from `gazania/codegen` for type checking and autocompletion.
+Use `defineConfig` from `gazania/config` for type checking and autocompletion.
 
 **Single schema:**
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: 'https://api.example.com/graphql',
@@ -27,7 +27,7 @@ export default defineConfig({
 **Multiple schemas** — pass an array to generate several output files in one run:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig([
   {
@@ -195,7 +195,7 @@ export default defineConfig({
 ## Complete example
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: {
@@ -219,7 +219,7 @@ export default defineConfig({
 ## Multiple schemas example
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig([
   {
@@ -239,10 +239,10 @@ export default defineConfig([
 
 ## Codegen API
 
-The config format matches the `Config` and `UserConfig` types exported from `gazania/codegen`:
+The config format matches the `Config` and `UserConfig` types exported from `gazania/config`:
 
 ```ts
-import type { Config, UserConfig } from 'gazania/codegen'
+import type { Config, UserConfig } from 'gazania/config'
 // UserConfig = Config | Config[]
 ```
 

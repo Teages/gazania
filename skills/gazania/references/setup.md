@@ -33,7 +33,7 @@ npx gazania generate --schema introspection.json --output src/schema.ts
 Create `gazania.config.ts` in the project root (requires Node.js >= 22.6; use `gazania.config.js` otherwise):
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: 'https://api.example.com/graphql',
@@ -59,7 +59,7 @@ npx gazania generate
 #### Authenticated endpoints
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: {
@@ -75,7 +75,7 @@ export default defineConfig({
 Custom scalars default to `string`. Override with the `scalars` option:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: 'https://api.example.com/graphql',
@@ -93,7 +93,7 @@ export default defineConfig({
 Pass an array to generate multiple output files in one run:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig([
   { schema: 'https://api-a.example.com/graphql', output: 'src/schema-a.ts' },
@@ -151,19 +151,9 @@ import { generate } from 'gazania/codegen'
 
 const sdl = `type Query { hello: String }`
 
-const code = generate(sdl, {
+const code = generate({
+  source: sdl,
   scalars: { DateTime: 'string' },
 })
 await writeFile('src/schema.ts', code)
-```
-
-Lower-level functions for more control:
-
-```ts
-import { parseSchema, printSchema } from 'gazania/codegen'
-
-const sdl = `type Query { hello: String }`
-
-const schemaData = parseSchema(sdl, { scalars: { DateTime: 'string' } })
-const code = printSchema(schemaData)
 ```

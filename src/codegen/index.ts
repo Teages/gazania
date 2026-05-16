@@ -1,28 +1,17 @@
-import type { GenerateOptions, SchemaSource } from './schema'
-import { buildSchema, GraphQLSchema, printSchema as printGraphQLSchema } from 'graphql'
+import type { GenerateConfig } from './schema'
+import { GraphQLSchema, printSchema as printGraphQLSchema } from 'graphql'
 import { parseSchema } from './parse'
 import { printSchema } from './print'
 
-export { defineConfig } from './config'
-export type { Config, GetterSource, JsonSource, SchemaLoader, SdlSource, UrlSource, UserConfig } from './config'
-export { parseSchema } from './parse'
-export { printSchema } from './print'
-export type { GenerateOptions, SchemaSource } from './schema'
+export type { GenerateConfig } from './schema'
 
-/**
- * Generate TypeScript type definitions from a GraphQL schema.
- *
- * @param source - SDL string or GraphQLSchema object
- * @param options - Generation options (scalar mappings, URL for module augmentation)
- * @returns TypeScript type definition string
- */
-export function generate(source: SchemaSource, options?: GenerateOptions & { url?: string }): string {
-  const sdl = normalizeToSDL(source)
-  const schemaData = parseSchema(sdl, options)
-  return printSchema(schemaData, options)
+export function generate(config: GenerateConfig): string {
+  const sdl = normalizeToSDL(config.source)
+  const schemaData = parseSchema(sdl, config)
+  return printSchema(schemaData, config)
 }
 
-function normalizeToSDL(source: SchemaSource): string {
+function normalizeToSDL(source: string | GraphQLSchema): string {
   if (typeof source === 'string') {
     return source
   }
@@ -65,28 +54,30 @@ if (import.meta.vitest) {
   }
 `
 
-  describe('generate', () => {
+  describe('generate', async () => {
+    const { buildSchema } = await import('graphql')
+
     it('generates TypeScript from SDL string', () => {
-      const code = generate(SIMPLE_SDL)
+      const code = generate({ source: SIMPLE_SDL })
       expect(code).toContain('export type Schema = DefineSchema<{')
       expect(code).toContain(`from 'gazania'`)
     })
 
     it('generates TypeScript from inline SDL', () => {
-      const code = generate(SCHEMA_WITH_ENUM)
+      const code = generate({ source: SCHEMA_WITH_ENUM })
       expect(code).toContain(`export type MediaType =`)
       expect(code).toContain(`export type Schema = DefineSchema<{`)
     })
 
     it('adds URL module augmentation', () => {
       const url = 'https://api.example.com/graphql'
-      const code = generate(SIMPLE_SDL, { url })
+      const code = generate({ source: SIMPLE_SDL, url })
       expect(code).toContain(`'${url}': Schema`)
     })
 
     it('generates TypeScript from a GraphQLSchema instance', () => {
       const schema = buildSchema(SIMPLE_SDL)
-      const code = generate(schema)
+      const code = generate({ source: schema })
       expect(code).toContain('export type Schema = DefineSchema<{')
     })
   })

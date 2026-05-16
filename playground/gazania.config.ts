@@ -1,4 +1,4 @@
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   output: 'gazania/anilist.ts',

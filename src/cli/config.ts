@@ -1,8 +1,40 @@
-import type { Config } from '../codegen/config'
+import type { GraphQLSchema } from 'graphql'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { cwd as getCwd } from 'node:process'
 import { pathToFileURL } from 'node:url'
+
+export interface UrlSource {
+  url: string
+  headers?: Record<string, string>
+  method?: 'GET' | 'POST'
+}
+
+export interface SdlSource {
+  sdl: string
+}
+
+export interface JsonSource {
+  json: string
+}
+
+export type GetterSource = () => string | GraphQLSchema | Promise<string | GraphQLSchema>
+
+export type SchemaLoader = string | UrlSource | SdlSource | JsonSource | GetterSource
+
+export interface Config {
+  schema: SchemaLoader
+  output: string
+  scalars?: Record<string, string | { input: string, output: string }>
+}
+
+export type UserConfig = Config | Config[]
+
+export function defineConfig(config: Config[]): Config[]
+export function defineConfig(config: Config): Config
+export function defineConfig(config: UserConfig): UserConfig {
+  return config
+}
 
 const CONFIG_CANDIDATES = ['gazania.config.ts', 'gazania.config.js']
 
@@ -42,7 +74,7 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
 
     if (!mod.default || typeof mod.default !== 'object') {
       throw new Error(
-        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/codegen'.`,
+        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/config'.`,
       )
     }
 
@@ -57,7 +89,7 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
 
     if (!('schema' in mod.default) || !('output' in mod.default)) {
       throw new Error(
-        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/codegen'.`,
+        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/config'.`,
       )
     }
 
@@ -75,6 +107,29 @@ if (import.meta.vitest) {
   const { join } = await import('node:path')
 
   const SIMPLE_SDL = `type Query { hello: String }`
+
+  describe('defineConfig', () => {
+    it('returns single config as-is', () => {
+      const config = defineConfig({
+        schema: 'https://api.example.com/graphql',
+        output: './schema.d.ts',
+        scalars: { DateTime: 'string' },
+      })
+      expect(config.schema).toBe('https://api.example.com/graphql')
+      expect(config.output).toBe('./schema.d.ts')
+    })
+
+    it('returns config array as-is', () => {
+      const configs = defineConfig([
+        { schema: 'https://api.example.com/graphql', output: './schema-a.d.ts' },
+        { schema: { sdl: 'type Query { noop: String }' }, output: './schema-b.d.ts' },
+      ])
+      expect(Array.isArray(configs)).toBe(true)
+      expect(configs).toHaveLength(2)
+      expect(configs[0]!.output).toBe('./schema-a.d.ts')
+      expect(configs[1]!.output).toBe('./schema-b.d.ts')
+    })
+  })
 
   describe('loadConfig', () => {
     let dir: string

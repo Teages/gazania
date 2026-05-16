@@ -35,7 +35,7 @@ npx gazania generate --schema introspection.json --output src/schema.ts
 For repeated use, create a `gazania.config.ts` (or `gazania.config.js`) file in your project root:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: 'https://api.example.com/graphql',
@@ -54,7 +54,7 @@ npx gazania generate
 Custom scalars default to `string`. Override with the `scalars` option:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: 'https://api.example.com/graphql',
@@ -90,7 +90,7 @@ The `schema` field in the config supports multiple formats:
 For authenticated endpoints:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: {
@@ -113,7 +113,8 @@ import { generate } from 'gazania/codegen'
 
 const sdl = `type Query { hello: String }`
 
-const code = generate(sdl, {
+const code = generate({
+  source: sdl,
   scalars: {
     DateTime: 'string',
   },
@@ -122,25 +123,7 @@ const code = generate(sdl, {
 await writeFile('src/schema.ts', code)
 ```
 
-### Lower-level functions
-
-For more control:
-
-```ts
-import { parseSchema, printSchema } from 'gazania/codegen'
-
-const sdl = `type Query { hello: String }`
-
-// Parse SDL into internal schema data
-const schemaData = parseSchema(sdl, {
-  scalars: { DateTime: 'string' },
-})
-
-// Generate TypeScript code
-const code = printSchema(schemaData)
-```
-
-`generate()` accepts an SDL string, introspection JSON string, or `GraphQLSchema` object. For loading schemas from URLs or files, use the CLI.
+`generate()` accepts a `GenerateConfig` object with a `source` field (SDL string, introspection JSON string, or `GraphQLSchema` object), plus optional `scalars` and `url` fields. For loading schemas from URLs or files, use the CLI.
 
 ## Typical project setup
 

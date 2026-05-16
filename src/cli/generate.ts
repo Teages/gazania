@@ -1,4 +1,4 @@
-import type { Config, SchemaLoader } from '../codegen/config'
+import type { Config, SchemaLoader } from './config'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { cwd as getCwd } from 'node:process'
@@ -78,7 +78,7 @@ async function generateOne(
   log(`Generating schema types...`)
 
   const sdl = await resolveSchema(source)
-  const code = generate(sdl, { scalars: config.scalars, url })
+  const code = generate({ source: sdl, scalars: config.scalars, url })
 
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, code, 'utf-8')

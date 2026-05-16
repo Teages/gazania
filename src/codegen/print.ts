@@ -1,7 +1,7 @@
 import type { SchemaData } from './parse'
-import type { GenerateOptions } from './schema'
+import type { GenerateConfig } from './schema'
 
-export function printSchema(schemaData: SchemaData, options: GenerateOptions & { url?: string } = {}): string {
+export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig, 'scalars' | 'url'> = {}): string {
   const lines: string[] = []
   const push = (...strs: string[]) => lines.push(...strs)
 
