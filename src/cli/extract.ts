@@ -1,55 +1,69 @@
 import type { SkippedExtractionCategory } from '../extract/manifest'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, join, relative } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { env, stderr, stdout } from 'node:process'
 import { buildASTSchema, parse } from 'graphql'
 import { extract } from '../extract'
 import { ExtractionError } from '../extract/manifest'
 import { loadTS, parseTSConfig } from '../extract/ts-program'
 import { validateManifest } from '../extract/validate'
+import { loadConfig } from './config'
 import { resolveSchema } from './loader'
 
 export type { ExtractManifest, ExtractResult, ManifestEntry, SkippedExtraction } from '../extract'
 
 export interface ExtractCommandOptions {
-  dir: string
-  output: string | null
-  noEmit: boolean
-  include: string
-  algorithm: string
-  silent: boolean
+  dir?: string
+  output?: string | null
+  noEmit?: boolean
+  include?: string
+  algorithm?: string
+  silent?: boolean
   cwd: string
   tsconfig?: string
+  config?: string
   ignoreCategories?: SkippedExtractionCategory[]
   schema?: string
   strict?: boolean
 }
 
-/**
- * Run the extract CLI command.
- * Delegates to the core `extract()` function and writes the manifest to disk.
- */
+async function resolveExtractOptions(options: ExtractCommandOptions) {
+  const { cwd, config: configPath } = options
+  const configDir = configPath ? dirname(resolve(cwd, configPath)) : cwd
+  const loaded = await loadConfig(configDir)
+  const cfg = loaded?.[0]
+
+  const dir = options.dir ?? cfg?.extract?.dir ?? 'src'
+  const output = options.output !== undefined ? options.output : (cfg?.extract?.output ?? null)
+  const noEmit = options.noEmit ?? cfg?.extract?.noEmit ?? false
+  const include = options.include ?? cfg?.extract?.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}'
+  const algorithm = options.algorithm ?? cfg?.extract?.algorithm ?? 'sha256'
+  const tsconfig = options.tsconfig ?? cfg?.extract?.tsconfig ?? 'tsconfig.json'
+  const strict = options.strict ?? cfg?.extract?.strict ?? false
+  const ignoreCategories = options.ignoreCategories ?? cfg?.extract?.ignoreCategories ?? []
+
+  const schemaSource = options.schema ?? cfg?.schemas?.[0]?.schema
+
+  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, cwd }
+}
+
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, noEmit, include, algorithm, silent, cwd, tsconfig, ignoreCategories, schema, strict } = options
+  const { dir, output, noEmit, include, algorithm, silent = false, cwd, tsconfig, ignoreCategories, schemaSource, strict } = await resolveExtractOptions(options)
   const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
   const warn = (msg: string) => stderr.write(`${msg}\n`)
 
-  if (!tsconfig) {
-    throw new Error('--tsconfig is required. Usage: gazania extract --dir src --tsconfig tsconfig.json')
-  }
-
-  if (strict && !schema) {
+  if (strict && !schemaSource) {
     throw new Error('--strict requires --schema')
   }
 
+  const tsconfigPath = join(cwd, tsconfig)
   const scanDir = join(cwd, dir)
   log(`Scanning ${relative(cwd, scanDir) || '.'}...`)
 
   let manifest
   try {
     const ts = await loadTS()
-    const tsconfigPath = join(cwd, tsconfig)
     const parsed = parseTSConfig(ts, tsconfigPath, ts.sys)
     const hash = (body: string) => {
       const hex = createHash(algorithm).update(body).digest('hex')
@@ -84,8 +98,8 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
     throw err
   }
 
-  if (schema) {
-    const sdl = await resolveSchema(schema)
+  if (schemaSource) {
+    const sdl = await resolveSchema(schemaSource)
     const gqlSchema = buildASTSchema(parse(sdl))
     const { errors, warnings } = validateManifest(manifest, gqlSchema)
 
@@ -296,21 +310,21 @@ const doc = gazania.query('CliQuery').select($ => $.select(['id']))`,
       expect(stderrCalls.some((msg: string) => msg.includes('⚠'))).toBe(true)
     })
 
-    it('throws when --tsconfig is not provided', async () => {
+    it('uses default tsconfig.json when --tsconfig is not provided', async () => {
       await writeFileTest(
         join(dir, 'src', 'query.js'),
-        `import { gazania } from 'gazania'\nconst doc = gazania.query('Fail').select($ => $.select([...crossFilePartial({})]))`,
+        `import { gazania } from 'gazania'\nconst doc = gazania.query('DefaultTS').select($ => $.select(['id']))`,
       )
 
-      await expect(runExtract({
+      await runExtract({
         dir: 'src',
         output: 'manifest.json',
-        noEmit: false,
-        include: '**/*.{ts,tsx,js,jsx}',
-        algorithm: 'sha256',
-        silent: false,
+        silent: true,
         cwd: dir,
-      })).rejects.toThrow('tsconfig is required')
+      })
+
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).toHaveProperty('DefaultTS')
     })
 
     it('ignoreCategories suppresses ExtractionError at CLI level', async () => {
@@ -609,7 +623,7 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
         expect(stderrCalls.some((msg: string) => msg.includes('validation'))).toBe(false)
       })
 
-      it('--strict without --schema → throws', async () => {
+      it('--strict without --schema (and no config) → throws', async () => {
         await writeFileTest(
           join(dir, 'src', 'query.js'),
           `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id']))`,
@@ -626,6 +640,25 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
           tsconfig: 'tsconfig.json',
           strict: true,
         })).rejects.toThrow('--strict requires --schema')
+      })
+
+      it('reads schema from config when --schema is not provided', async () => {
+        await writeFileTest(join(dir, 'schema.graphql'), `
+          type Query { id: ID }
+        `)
+        await writeFileTest(
+          join(dir, 'gazania.config.js'),
+          `export default { schemas: [{ schema: ${JSON.stringify(join(dir, 'schema.graphql'))}, output: 'types.ts' }], extract: { strict: true, noEmit: true } }`,
+        )
+        await writeFileTest(
+          join(dir, 'src', 'query.js'),
+          `import { gazania } from 'gazania'\nconst doc = gazania.query('GetUser').select($ => $.select(['id']))`,
+        )
+
+        await expect(runExtract({
+          cwd: dir,
+          tsconfig: 'tsconfig.json',
+        })).resolves.toBeUndefined()
       })
     })
   })
