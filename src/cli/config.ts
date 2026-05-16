@@ -42,7 +42,7 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
 
     if (!mod.default || typeof mod.default !== 'object') {
       throw new Error(
-        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/codegen'.`,
+        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/config'.`,
       )
     }
 
@@ -57,7 +57,7 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
 
     if (!('schema' in mod.default) || !('output' in mod.default)) {
       throw new Error(
-        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/codegen'.`,
+        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/config'.`,
       )
     }
 
