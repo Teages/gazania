@@ -78,7 +78,7 @@ async function generateOne(
   log(`Generating schema types...`)
 
   const sdl = await resolveSchema(source)
-  const code = generate(sdl, { scalars: config.scalars, url })
+  const code = generate({ source: sdl, scalars: config.scalars, url })
 
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, code, 'utf-8')

@@ -9,7 +9,7 @@ import type {
   ScalarTypeDefinitionNode,
   UnionTypeDefinitionNode,
 } from 'graphql'
-import type { GenerateOptions } from './schema'
+import type { GenerateConfig } from './schema'
 import { Kind, parse, print } from 'graphql'
 
 export interface ScalarTypeData {
@@ -63,7 +63,7 @@ export class SchemaData {
   typeObjects: Record<string, TypeObjectData> = {}
   unions: Record<string, UnionData> = {}
 
-  constructor(schema: DocumentNode, options?: GenerateOptions) {
+  constructor(schema: DocumentNode, options?: Pick<GenerateConfig, 'scalars'>) {
     if (schema.kind !== Kind.DOCUMENT) {
       throw new Error('Invalid schema: expected DocumentNode')
     }
@@ -198,7 +198,7 @@ function parseName(node: NameNode): string {
   return node.value
 }
 
-export function parseSchema(sdl: string, options?: GenerateOptions): SchemaData {
+export function parseSchema(sdl: string, options?: Pick<GenerateConfig, 'scalars'>): SchemaData {
   let doc: DocumentNode | undefined
 
   try {

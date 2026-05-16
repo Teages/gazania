@@ -1,7 +1,7 @@
 import type { GraphQLSchema } from 'graphql'
 
-export type SchemaSource = string | GraphQLSchema
-
-export interface GenerateOptions {
+export interface GenerateConfig {
+  source: string | GraphQLSchema
   scalars?: Record<string, string | { input: string, output: string }>
+  url?: string
 }
