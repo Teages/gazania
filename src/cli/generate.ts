@@ -1,4 +1,4 @@
-import type { Config, SchemaLoader } from './config'
+import type { SchemaConfig, SchemaLoader } from './config'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { cwd as getCwd } from 'node:process'
@@ -18,11 +18,10 @@ export async function runGenerate(options: GenerateCommandOptions = {}): Promise
   const { silent = false, cwd = getCwd() } = options
   const log = makeLogger(silent)
 
-  let configs: Config[]
+  let schemaConfigs: SchemaConfig[]
 
   if (options.schema && options.output) {
-    // Fully specified via CLI flags — no config file needed
-    configs = [{ schema: options.schema, output: options.output }]
+    schemaConfigs = [{ schema: options.schema, output: options.output }]
   }
   else {
     const configCwd = options.config ? dirname(resolve(options.config)) : cwd
@@ -40,35 +39,37 @@ export async function runGenerate(options: GenerateCommandOptions = {}): Promise
       )
     }
 
-    configs = loaded
+    const allSchemas = loaded.flatMap(c => c.schemas)
 
-    // CLI flags override: only allowed with single config
     if (options.schema || options.output) {
-      if (configs.length > 1) {
+      if (allSchemas.length > 1) {
         throw new Error(
           'Cannot use --schema or --output flags when config file defines multiple schemas.',
         )
       }
-      if (options.schema) {
-        configs = [{ ...configs[0]!, schema: options.schema }]
-      }
-      if (options.output) {
-        configs = [{ ...configs[0]!, output: options.output }]
-      }
+      const base = allSchemas[0]!
+      schemaConfigs = [{
+        ...base,
+        ...(options.schema ? { schema: options.schema } : {}),
+        ...(options.output ? { output: options.output } : {}),
+      }]
+    }
+    else {
+      schemaConfigs = allSchemas
     }
   }
 
-  for (const config of configs) {
-    await generateOne(config, { cwd, log })
+  for (const sc of schemaConfigs) {
+    await generateOne(sc, { cwd, log })
   }
 }
 
 async function generateOne(
-  config: Config,
+  schemaConfig: SchemaConfig,
   { cwd, log }: { cwd: string, log: (msg: string) => void },
 ): Promise<void> {
-  const source: SchemaLoader = config.schema
-  const outputPath = resolve(cwd, config.output)
+  const source: SchemaLoader = schemaConfig.schema
+  const outputPath = resolve(cwd, schemaConfig.output)
   const url = typeof source === 'string' && (source.startsWith('http://') || source.startsWith('https://'))
     ? source
     : typeof source === 'object' && 'url' in source
@@ -78,7 +79,7 @@ async function generateOne(
   log(`Generating schema types...`)
 
   const sdl = await resolveSchema(source)
-  const code = generate({ source: sdl, scalars: config.scalars, url })
+  const code = generate({ source: sdl, scalars: schemaConfig.scalars, url })
 
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, code, 'utf-8')
@@ -115,8 +116,8 @@ if (import.meta.vitest) {
       await writeFileTest(
         join(dir, 'gazania.config.js'),
         `export default [
-        { schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' },
-        { schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' },
+        { schemas: [{ schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' }] },
+        { schemas: [{ schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' }] },
       ]`,
       )
       await runGenerate({ cwd: dir })
@@ -126,13 +127,32 @@ if (import.meta.vitest) {
       expect(existsSync(join(dir, 'out-b.ts'))).toBe(true)
     })
 
-    it('throws when --schema or --output is used with multi-config file', async () => {
+    it('generates multiple outputs from single config with multiple schemas', async () => {
       await writeFileTest(
         join(dir, 'gazania.config.js'),
-        `export default [
-        { schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' },
-        { schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' },
-      ]`,
+        `export default {
+          schemas: [
+            { schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' },
+            { schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' },
+          ]
+        }`,
+      )
+      await runGenerate({ cwd: dir })
+
+      const { existsSync } = await import('node:fs')
+      expect(existsSync(join(dir, 'out-a.ts'))).toBe(true)
+      expect(existsSync(join(dir, 'out-b.ts'))).toBe(true)
+    })
+
+    it('throws when --schema or --output is used with multi-schema config', async () => {
+      await writeFileTest(
+        join(dir, 'gazania.config.js'),
+        `export default {
+          schemas: [
+            { schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' },
+            { schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' },
+          ]
+        }`,
       )
       await expect(
         runGenerate({ cwd: dir, output: 'override.ts' }),
