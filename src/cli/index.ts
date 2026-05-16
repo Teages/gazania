@@ -51,7 +51,6 @@ Options:
   --ignore-all           Ignore all extraction errors
   --no-emit              Suppress manifest output (useful for validation)
   -s, --schema <path>    Schema file path, URL, or SDL string for query validation
-  --validate             Validate extracted operations against the schema
   --strict               Treat validation warnings (deprecated fields) as errors
   -h, --help             Show help
 `
@@ -116,7 +115,6 @@ else if (command === 'extract') {
       'ignore-all': { type: 'boolean' },
       'no-emit': { type: 'boolean' },
       'schema': { type: 'string', short: 's' },
-      'validate': { type: 'boolean' },
       'strict': { type: 'boolean' },
       'help': { type: 'boolean', short: 'h' },
     },
@@ -152,7 +150,6 @@ else if (command === 'extract') {
       config: values.config,
       ignoreCategories: ignoreCategories.length > 0 ? ignoreCategories : undefined,
       schema: values.schema,
-      validate: values.validate || undefined,
       strict: values.strict || undefined,
     })
   }

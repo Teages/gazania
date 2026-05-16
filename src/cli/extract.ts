@@ -26,7 +26,6 @@ export interface ExtractCommandOptions {
   ignoreCategories?: SkippedExtractionCategory[]
   schema?: string
   strict?: boolean
-  validate?: boolean
 }
 
 async function resolveExtractOptions(options: ExtractCommandOptions) {
@@ -44,10 +43,10 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
   const strict = options.strict ?? cfg?.extract?.strict ?? false
   const ignoreCategories = options.ignoreCategories ?? cfg?.extract?.ignoreCategories ?? []
 
-  const validate = options.validate ?? cfg?.extract?.validate ?? false
-  const schemaSource = validate ? (options.schema ?? cfg?.schemas?.[0]?.schema) : options.schema
+  const validate = cfg?.extract?.validate ?? false
+  const schemaSource = options.schema ?? (validate ? cfg?.schemas?.[0]?.schema : undefined)
 
-  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, validate, cwd }
+  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, cwd }
 }
 
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
