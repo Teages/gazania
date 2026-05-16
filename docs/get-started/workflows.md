@@ -113,7 +113,8 @@ import { generate } from 'gazania/codegen'
 
 const sdl = `type Query { hello: String }`
 
-const code = generate(sdl, {
+const code = generate({
+  source: sdl,
   scalars: {
     DateTime: 'string',
   },
@@ -140,7 +141,7 @@ const schemaData = parseSchema(sdl, {
 const code = printSchema(schemaData)
 ```
 
-`generate()` accepts an SDL string, introspection JSON string, or `GraphQLSchema` object. For loading schemas from URLs or files, use the CLI.
+`generate()` accepts a `GenerateConfig` object with a `source` field (SDL string, introspection JSON string, or `GraphQLSchema` object), plus optional `scalars` and `url` fields. For loading schemas from URLs or files, use the CLI.
 
 ## Typical project setup
 

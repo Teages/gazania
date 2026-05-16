@@ -151,7 +151,8 @@ import { generate } from 'gazania/codegen'
 
 const sdl = `type Query { hello: String }`
 
-const code = generate(sdl, {
+const code = generate({
+  source: sdl,
   scalars: { DateTime: 'string' },
 })
 await writeFile('src/schema.ts', code)
