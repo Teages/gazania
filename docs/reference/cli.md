@@ -94,7 +94,7 @@ gazania extract [options]
 
 The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode` using type-aware detection, evaluates them at analysis time, and outputs a JSON manifest with each operation's body and SHA-256 hash. Vue (`.vue`) and Svelte (`.svelte`) single-file components are supported — each `<script>` block is extracted and processed independently.
 
-A `tsconfig.json` is recommended — Gazania defaults to `tsconfig.json` relative to the config file or current directory. Gazania uses the type-aware detection to detect builder identifiers by type, supporting re-exported, aliased, and factory-created builders.
+Gazania uses type-aware detection to identify builder identifiers by type, supporting re-exported, aliased, and factory-created builders. The TypeScript config defaults to `tsconfig.json` in the config file's directory (or current directory).
 
 #### Options
 

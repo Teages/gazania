@@ -12,7 +12,7 @@ The `extract` command scans your source files, finds all Gazania builder calls u
 npx gazania extract
 ```
 
-A `tsconfig.json` is recommended — Gazania defaults to `tsconfig.json` relative to the config file or current directory. Gazania uses type-aware detection to detect builder identifiers by type (including re-exported, aliased, and factory-created builders), not by import string matching.
+Gazania defaults to `tsconfig.json` in the config file's directory (or current directory) for type-aware detection to identify builder identifiers by type (including re-exported, aliased, and factory-created builders).
 
 By default this scans `src/` and outputs the manifest to stdout. Use `--output <path>` to write to a file.
 
@@ -66,9 +66,9 @@ The extractor understands `gazania.partial()` and `gazania.section()` builders a
 
 **Cross-file** partials and sections — where a partial defined in one file is imported and spread into a query in another file — are resolved via TypeScript module resolution. Files are processed in dependency order so that evaluated partials and sections are available when the importer files are evaluated.
 
-### tsconfig requirements
+### tsconfig
 
-The `tsconfig.json` defaults to `tsconfig.json` relative to the config file or current directory. Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
+Gazania defaults to `tsconfig.json` in the config file's directory (or current directory). Your tsconfig must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
 
 ```json
 {
