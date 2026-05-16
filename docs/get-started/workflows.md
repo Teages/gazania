@@ -38,8 +38,12 @@ For repeated use, create a `gazania.config.ts` (or `gazania.config.js`) file in 
 import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
-  schema: 'https://api.example.com/graphql',
-  output: 'src/schema.ts',
+  schemas: [
+    {
+      schema: 'https://api.example.com/graphql',
+      output: 'src/schema.ts',
+    },
+  ],
 })
 ```
 
@@ -57,16 +61,20 @@ Custom scalars default to `string`. Override with the `scalars` option:
 import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
-  schema: 'https://api.example.com/graphql',
-  output: 'src/schema.ts',
-  scalars: {
-    DateTime: 'string',
-    JSON: 'Record<string, unknown>',
-    BigInt: {
-      input: 'string',
-      output: 'string',
+  schemas: [
+    {
+      schema: 'https://api.example.com/graphql',
+      output: 'src/schema.ts',
+      scalars: {
+        DateTime: 'string',
+        JSON: 'Record<string, unknown>',
+        BigInt: {
+          input: 'string',
+          output: 'string',
+        },
+      },
     },
-  },
+  ],
 })
 ```
 
@@ -93,13 +101,17 @@ For authenticated endpoints:
 import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
-  schema: {
-    url: 'https://api.example.com/graphql',
-    headers: {
-      Authorization: `Bearer ${process.env.API_TOKEN}`,
+  schemas: [
+    {
+      schema: {
+        url: 'https://api.example.com/graphql',
+        headers: {
+          Authorization: `Bearer ${process.env.API_TOKEN}`,
+        },
+      },
+      output: 'src/schema.ts',
     },
-  },
-  output: 'src/schema.ts',
+  ],
 })
 ```
 

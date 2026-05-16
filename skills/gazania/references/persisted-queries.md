@@ -9,10 +9,10 @@ Gazania includes a CLI command to extract all your query definitions and export 
 The `extract` command scans your source files, finds all Gazania builder calls using type-aware detection, evaluates them at analysis time, and writes a JSON manifest containing each operation's body and hash.
 
 ```sh
-npx gazania extract --tsconfig tsconfig.json
+npx gazania extract
 ```
 
-A `tsconfig.json` is **required** — Gazania uses type-aware detection to detect builder identifiers by type (including re-exported, aliased, and factory-created builders), not by import string matching.
+A `tsconfig.json` is recommended — Gazania defaults to `tsconfig.json` relative to the config file or current directory. Gazania uses type-aware detection to detect builder identifiers by type (including re-exported, aliased, and factory-created builders), not by import string matching.
 
 By default this scans `src/` and outputs the manifest to stdout. Use `--output <path>` to write to a file.
 
@@ -68,7 +68,7 @@ The extractor understands `gazania.partial()` and `gazania.section()` builders a
 
 ### tsconfig requirements
 
-The `--tsconfig` flag is **required** for all extraction. Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
+The `tsconfig.json` defaults to `tsconfig.json` relative to the config file or current directory. Your `tsconfig.json` must include all source files that contain partials, sections, or operations you want to extract. A minimal example:
 
 ```json
 {
@@ -91,7 +91,8 @@ Options:
   -o, --output <path>    Output manifest file path, use - for stdout (default: stdout)
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
-  --tsconfig <path>      (required) Path to tsconfig.json
+  --tsconfig <path>      Path to tsconfig.json (default: tsconfig.json)
+  -c, --config <path>    Path to config file
   --silent               Suppress progress output (errors still shown)
   --ignore-unresolved    Skip unresolved reference errors
   --ignore-analysis      Skip analysis failure errors
@@ -108,49 +109,49 @@ Options:
 **Basic usage (outputs to stdout):**
 
 ```sh
-npx gazania extract --tsconfig tsconfig.json
+npx gazania extract
 ```
 
 **Write to a file:**
 
 ```sh
-npx gazania extract --output dist/persisted-queries.json --tsconfig tsconfig.json
+npx gazania extract --output dist/persisted-queries.json
 ```
 
 **Scan the selected directory:**
 
 ```sh
-npx gazania extract --dir app --tsconfig tsconfig.json
+npx gazania extract --dir app
 ```
 
 **Use SHA-512 hashes:**
 
 ```sh
-npx gazania extract --algorithm sha512 --tsconfig tsconfig.json
+npx gazania extract --algorithm sha512
 ```
 
 **Ignore all extraction errors:**
 
 ```sh
-npx gazania extract --ignore-all --tsconfig tsconfig.json
+npx gazania extract --ignore-all
 ```
 
 **Validation only (no output):**
 
 ```sh
-npx gazania extract --no-emit --tsconfig tsconfig.json
+npx gazania extract --no-emit
 ```
 
 **Validate queries against a schema:**
 
 ```sh
-npx gazania extract --schema schema.graphql --no-emit --tsconfig tsconfig.json
+npx gazania extract --schema schema.graphql --no-emit
 ```
 
 **Strict validation (deprecated fields cause errors):**
 
 ```sh
-npx gazania extract --schema schema.graphql --strict --no-emit --tsconfig tsconfig.json
+npx gazania extract --schema schema.graphql --strict --no-emit
 ```
 
 ## Typical workflow
@@ -162,7 +163,7 @@ Run `gazania extract` as part of your CI or build pipeline, after compilation:
 ```json
 {
   "scripts": {
-    "build": "tsc && gazania extract --tsconfig tsconfig.json --output dist/manifest.json",
+    "build": "tsc && gazania extract --output dist/manifest.json",
     "generate": "gazania generate"
   }
 }

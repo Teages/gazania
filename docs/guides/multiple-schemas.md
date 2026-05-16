@@ -4,24 +4,24 @@ Gazania can work with multiple GraphQL schemas in the same project.
 
 ## Generating multiple schemas
 
-### Using a single config file (recommended)
-
-Pass an array to `defineConfig` to generate all schemas in one run:
+Pass an array of schema configurations to the `schemas` field:
 
 ```ts
 // gazania.config.ts
 import { defineConfig } from 'gazania/config'
 
-export default defineConfig([
-  {
-    schema: 'https://api-a.example.com/graphql',
-    output: 'src/schema-a.ts',
-  },
-  {
-    schema: 'https://api-b.example.com/graphql',
-    output: 'src/schema-b.ts',
-  },
-])
+export default defineConfig({
+  schemas: [
+    {
+      schema: 'https://api-a.example.com/graphql',
+      output: 'src/schema-a.ts',
+    },
+    {
+      schema: 'https://api-b.example.com/graphql',
+      output: 'src/schema-b.ts',
+    },
+  ],
+})
 ```
 
 Then run once:

@@ -94,7 +94,7 @@ gazania extract [options]
 
 The command scans your source files, finds all Gazania builder chains that produce a `DocumentNode` using type-aware detection, evaluates them at analysis time, and outputs a JSON manifest with each operation's body and SHA-256 hash. Vue (`.vue`) and Svelte (`.svelte`) single-file components are supported — each `<script>` block is extracted and processed independently.
 
-A `tsconfig.json` is **required** — Gazania uses the type-aware detection to detect builder identifiers by type, supporting re-exported, aliased, and factory-created builders.
+A `tsconfig.json` is recommended — Gazania defaults to `tsconfig.json` relative to the config file or current directory. Gazania uses the type-aware detection to detect builder identifiers by type, supporting re-exported, aliased, and factory-created builders.
 
 #### Options
 
@@ -104,7 +104,8 @@ A `tsconfig.json` is **required** — Gazania uses the type-aware detection to d
 | `--output <path>` | `-o` | `string` | stdout | Output file path. Use `-` for explicit stdout |
 | `--include <glob>` | | `string` | `**/*.{ts,tsx,js,jsx,vue,svelte}` | File pattern to include |
 | `--algorithm <alg>` | | `string` | `sha256` | Hash algorithm |
-| `--tsconfig <path>` | | `string` | | **(required)** Path to TypeScript config file |
+| `--config <path>` | `-c` | `string` | | Path to config file |
+| `--tsconfig <path>` | | `string` | `tsconfig.json` | Path to TypeScript config file (default: tsconfig.json) |
 | `--silent` | | `boolean` | `false` | Suppress progress output (errors still shown) |
 | `--ignore-unresolved` | | `boolean` | `false` | Skip unresolved reference errors |
 | `--ignore-analysis` | | `boolean` | `false` | Skip analysis failure errors |
@@ -120,61 +121,61 @@ A `tsconfig.json` is **required** — Gazania uses the type-aware detection to d
 **Basic usage (stdout):**
 
 ```sh
-npx gazania extract --tsconfig tsconfig.json
+npx gazania extract
 ```
 
 **Write to a file:**
 
 ```sh
-npx gazania extract --output dist/persisted-queries.json --tsconfig tsconfig.json
+npx gazania extract --output dist/persisted-queries.json
 ```
 
 **Scan a custom directory:**
 
 ```sh
-npx gazania extract --dir app --tsconfig tsconfig.json
+npx gazania extract --dir app
 ```
 
 **Explicit stdout:**
 
 ```sh
-npx gazania extract --output - --tsconfig tsconfig.json
+npx gazania extract --output -
 ```
 
 **Use SHA-512 hashes:**
 
 ```sh
-npx gazania extract --algorithm sha512 --tsconfig tsconfig.json
+npx gazania extract --algorithm sha512
 ```
 
 **Ignore unresolved references:**
 
 ```sh
-npx gazania extract --ignore-unresolved --tsconfig tsconfig.json
+npx gazania extract --ignore-unresolved
 ```
 
 **Ignore all extraction errors:**
 
 ```sh
-npx gazania extract --ignore-all --tsconfig tsconfig.json
+npx gazania extract --ignore-all
 ```
 
 **Validation only (no output):**
 
 ```sh
-npx gazania extract --no-emit --tsconfig tsconfig.json
+npx gazania extract --no-emit
 ```
 
 **Validate queries against a schema:**
 
 ```sh
-npx gazania extract --schema schema.graphql --no-emit --tsconfig tsconfig.json
+npx gazania extract --schema schema.graphql --no-emit
 ```
 
 **Strict validation (deprecated fields cause errors):**
 
 ```sh
-npx gazania extract --schema schema.graphql --strict --no-emit --tsconfig tsconfig.json
+npx gazania extract --schema schema.graphql --strict --no-emit
 ```
 
 #### Manifest format
@@ -235,7 +236,7 @@ TypeScript config files (`.ts`) need Node.js 22.6+ with native TypeScript suppor
 
 When both config file values and CLI flags are provided:
 
-1. CLI flags override config file values for `--schema` and `--output`
-2. If both `--schema` and `--output` are provided via CLI, no config file is loaded
+1. CLI flags override config file values for `--schema`, `--output`, and `extract` options
+2. If both `--schema` and `--output` are provided via CLI, no config file is loaded for `generate`
 3. If only one is provided via CLI, a config file is still required for the missing value
 4. `--schema` and `--output` flags **cannot** be used when the config file exports an array of schemas; use `--config` to point to a single-schema config file instead

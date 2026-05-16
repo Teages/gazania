@@ -36,8 +36,12 @@ Create `gazania.config.ts` in the project root (requires Node.js >= 22.6; use `g
 import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
-  schema: 'https://api.example.com/graphql',
-  output: 'src/schema.ts',
+  schemas: [
+    {
+      schema: 'https://api.example.com/graphql',
+      output: 'src/schema.ts',
+    },
+  ],
 })
 ```
 
@@ -62,11 +66,15 @@ npx gazania generate
 import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
-  schema: {
-    url: 'https://api.example.com/graphql',
-    headers: { Authorization: `Bearer ${process.env.API_TOKEN}` },
-  },
-  output: 'src/schema.ts',
+  schemas: [
+    {
+      schema: {
+        url: 'https://api.example.com/graphql',
+        headers: { Authorization: `Bearer ${process.env.API_TOKEN}` },
+      },
+      output: 'src/schema.ts',
+    },
+  ],
 })
 ```
 
@@ -78,13 +86,17 @@ Custom scalars default to `string`. Override with the `scalars` option:
 import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
-  schema: 'https://api.example.com/graphql',
-  output: 'src/schema.ts',
-  scalars: {
-    DateTime: 'string',
-    JSON: 'Record<string, unknown>',
-    BigInt: { input: 'string | number', output: 'string' }, // different input/output types
-  },
+  schemas: [
+    {
+      schema: 'https://api.example.com/graphql',
+      output: 'src/schema.ts',
+      scalars: {
+        DateTime: 'string',
+        JSON: 'Record<string, unknown>',
+        BigInt: { input: 'string | number', output: 'string' }, // different input/output types
+      },
+    },
+  ],
 })
 ```
 
@@ -95,10 +107,12 @@ Pass an array to generate multiple output files in one run:
 ```ts
 import { defineConfig } from 'gazania/config'
 
-export default defineConfig([
-  { schema: 'https://api-a.example.com/graphql', output: 'src/schema-a.ts' },
-  { schema: 'https://api-b.example.com/graphql', output: 'src/schema-b.ts' },
-])
+export default defineConfig({
+  schemas: [
+    { schema: 'https://api-a.example.com/graphql', output: 'src/schema-a.ts' },
+    { schema: 'https://api-b.example.com/graphql', output: 'src/schema-b.ts' },
+  ],
+})
 ```
 
 ## Initialize the builder
