@@ -40,9 +40,10 @@ Extract GraphQL operations and produce a persisted query manifest
 Options:
   -d, --dir <path>       Directory to scan (default: src)
   -o, --output <path>    Output manifest file path (default: stdout). Use '-' for explicit stdout.
+  -c, --config <path>    Path to config file
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
   --algorithm <alg>      Hash algorithm (default: sha256)
-  --tsconfig <path>      (required) Path to tsconfig.json for cross-file partial/section resolution
+  --tsconfig <path>      Path to tsconfig.json (default: tsconfig.json)
   --silent               Suppress output
   --ignore-unresolved    Ignore unresolved reference errors
   --ignore-analysis      Ignore static analysis failures
@@ -103,6 +104,7 @@ else if (command === 'extract') {
     options: {
       'dir': { type: 'string', short: 'd' },
       'output': { type: 'string', short: 'o' },
+      'config': { type: 'string', short: 'c' },
       'include': { type: 'string' },
       'algorithm': { type: 'string' },
       'tsconfig': { type: 'string' },
@@ -137,17 +139,18 @@ else if (command === 'extract') {
     }
 
     await runExtract({
-      dir: values.dir ?? 'src',
-      output: values.output ?? null,
-      noEmit: values['no-emit'] ?? false,
-      include: values.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}',
-      algorithm: values.algorithm ?? 'sha256',
+      dir: values.dir,
+      output: values.output ?? undefined,
+      noEmit: values['no-emit'] || undefined,
+      include: values.include,
+      algorithm: values.algorithm,
       silent: values.silent ?? false,
       cwd: getCwd(),
       tsconfig: values.tsconfig,
-      ignoreCategories,
+      config: values.config,
+      ignoreCategories: ignoreCategories.length > 0 ? ignoreCategories : undefined,
       schema: values.schema,
-      strict: values.strict ?? false,
+      strict: values.strict || undefined,
     })
   }
   catch (err) {
