@@ -123,24 +123,6 @@ const code = generate({
 await writeFile('src/schema.ts', code)
 ```
 
-### Lower-level functions
-
-For more control:
-
-```ts
-import { parseSchema, printSchema } from 'gazania/codegen'
-
-const sdl = `type Query { hello: String }`
-
-// Parse SDL into internal schema data
-const schemaData = parseSchema(sdl, {
-  scalars: { DateTime: 'string' },
-})
-
-// Generate TypeScript code
-const code = printSchema(schemaData)
-```
-
 `generate()` accepts a `GenerateConfig` object with a `source` field (SDL string, introspection JSON string, or `GraphQLSchema` object), plus optional `scalars` and `url` fields. For loading schemas from URLs or files, use the CLI.
 
 ## Typical project setup

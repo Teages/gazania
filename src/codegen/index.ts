@@ -3,8 +3,6 @@ import { GraphQLSchema, printSchema as printGraphQLSchema } from 'graphql'
 import { parseSchema } from './parse'
 import { printSchema } from './print'
 
-export { parseSchema } from './parse'
-export { printSchema } from './print'
 export type { GenerateConfig } from './schema'
 
 export function generate(config: GenerateConfig): string {

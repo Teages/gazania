@@ -157,14 +157,3 @@ const code = generate({
 })
 await writeFile('src/schema.ts', code)
 ```
-
-Lower-level functions for more control:
-
-```ts
-import { parseSchema, printSchema } from 'gazania/codegen'
-
-const sdl = `type Query { hello: String }`
-
-const schemaData = parseSchema(sdl, { scalars: { DateTime: 'string' } })
-const code = printSchema(schemaData)
-```
