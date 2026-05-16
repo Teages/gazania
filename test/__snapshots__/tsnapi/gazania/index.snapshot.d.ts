@@ -50,7 +50,7 @@ export interface ScalarType<Name extends string, Output, Input> extends BaseScal
   __type__?: () => 'Scalar';
 }
 export interface Schemas {}
-export interface TypedDocumentNode<Result = Record<string, any>, Variables = Record<string, any>> extends DocumentNode$1 {
+export interface TypedDocumentNode<Result = Record<string, any>, Variables = Record<string, any>> extends DocumentNode {
   __apiType?: (_: Variables) => Result;
   __ensureTypesOfVariablesAndResultMatching?: (_: Variables) => Result;
 }

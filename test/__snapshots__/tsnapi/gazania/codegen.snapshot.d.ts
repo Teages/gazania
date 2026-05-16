@@ -14,6 +14,4 @@ export interface GenerateConfig {
 
 // #region Functions
 export declare function generate(_: GenerateConfig): string;
-export declare function parseSchema(_: string, _?: Pick<GenerateConfig, 'scalars'>): SchemaData;
-export declare function printSchema(_: SchemaData, _?: Pick<GenerateConfig, 'scalars' | 'url'>): string;
 // #endregion

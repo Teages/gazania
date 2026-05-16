@@ -3,6 +3,4 @@
  */
 // #region Other
 export { generate }
-export { parseSchema }
-export { printSchema }
 // #endregion
