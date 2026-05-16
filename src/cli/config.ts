@@ -45,6 +45,8 @@ export interface ExtractConfig {
   noEmit?: boolean
   /** Categories of extraction errors to ignore. */
   ignoreCategories?: import('../extract/manifest').SkippedExtractionCategory[]
+  /** Validate extracted operations against the schema. Default: `false` */
+  validate?: boolean
 }
 
 export interface Config {

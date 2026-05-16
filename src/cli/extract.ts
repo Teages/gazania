@@ -26,6 +26,7 @@ export interface ExtractCommandOptions {
   ignoreCategories?: SkippedExtractionCategory[]
   schema?: string
   strict?: boolean
+  validate?: boolean
 }
 
 async function resolveExtractOptions(options: ExtractCommandOptions) {
@@ -43,9 +44,10 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
   const strict = options.strict ?? cfg?.extract?.strict ?? false
   const ignoreCategories = options.ignoreCategories ?? cfg?.extract?.ignoreCategories ?? []
 
-  const schemaSource = options.schema ?? cfg?.schemas?.[0]?.schema
+  const validate = options.validate ?? cfg?.extract?.validate ?? false
+  const schemaSource = validate ? (options.schema ?? cfg?.schemas?.[0]?.schema) : options.schema
 
-  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, cwd }
+  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, validate, cwd }
 }
 
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
@@ -649,7 +651,7 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
         `)
         await writeFileTest(
           join(dir, 'gazania.config.js'),
-          `export default { schemas: [{ schema: ${JSON.stringify(join(dir, 'schema.graphql'))}, output: 'types.ts' }], extract: { strict: true, noEmit: true } }`,
+          `export default { schemas: [{ schema: ${JSON.stringify(join(dir, 'schema.graphql'))}, output: 'types.ts' }], extract: { validate: true, strict: true, noEmit: true } }`,
         )
         await writeFileTest(
           join(dir, 'src', 'query.js'),

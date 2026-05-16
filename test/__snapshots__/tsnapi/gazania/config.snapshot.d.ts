@@ -15,6 +15,7 @@ export interface ExtractConfig {
   strict?: boolean;
   noEmit?: boolean;
   ignoreCategories?: SkippedExtractionCategory[];
+  validate?: boolean;
 }
 export interface JsonSource {
   json: string;
