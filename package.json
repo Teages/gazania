@@ -19,6 +19,10 @@
       "types": "./dist/codegen/index.d.mts",
       "import": "./dist/codegen/index.mjs"
     },
+    "./config": {
+      "types": "./dist/config.d.mts",
+      "import": "./dist/config.mjs"
+    },
     "./extract": {
       "types": "./dist/extract/index.d.mts",
       "import": "./dist/extract/index.mjs"
@@ -32,6 +36,9 @@
       ],
       "codegen": [
         "./dist/codegen/index.d.mts"
+      ],
+      "config": [
+        "./dist/config.d.mts"
       ],
       "extract": [
         "./dist/extract/index.d.mts"
