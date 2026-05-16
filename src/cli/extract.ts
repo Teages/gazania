@@ -49,7 +49,8 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
 }
 
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, noEmit, include, algorithm, silent = false, cwd, tsconfig, ignoreCategories, schemaSource, strict } = await resolveExtractOptions(options)
+  const { dir, output, noEmit, include, algorithm, cwd, tsconfig, ignoreCategories, schemaSource, strict } = await resolveExtractOptions(options)
+  const silent = options.silent ?? false
   const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
   const warn = (msg: string) => stderr.write(`${msg}\n`)
 

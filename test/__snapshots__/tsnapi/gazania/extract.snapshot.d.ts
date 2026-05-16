@@ -12,10 +12,6 @@ export interface ExtractLogger {
   warn: (..._: any[]) => void;
   error: (..._: any[]) => void;
 }
-export interface ExtractManifest {
-  operations: Record<string, ManifestEntry>;
-  fragments: Record<string, ManifestFragmentEntry>;
-}
 export interface ExtractOptions {
   dir: string;
   include?: string;
@@ -26,32 +22,6 @@ export interface ExtractOptions {
   fs?: ExtractFS;
   createHost?: CreateHostFn;
   program?: TypeCheckerProgram;
-}
-export interface ExtractResult {
-  manifest: ExtractManifest;
-  skipped: SkippedExtraction[];
-}
-export interface FragmentSourceLoc extends SourceLoc {
-  fragmentMode: FragmentMode;
-}
-export interface ManifestEntry {
-  body: string;
-  hash: string;
-  locs: SourceLoc[];
-}
-export interface ManifestFragmentEntry extends Omit<ManifestEntry, 'locs'> {
-  locs: FragmentSourceLoc[];
-}
-export interface SkippedExtraction {
-  file: string;
-  line: number;
-  reason: string;
-  category: SkippedExtractionCategory;
-}
-export interface SourceLoc {
-  file: string;
-  start: SourceLocation;
-  end: SourceLocation;
 }
 export interface TypeCheckerProgram {
   program: _$typescript.Program;
@@ -70,8 +40,6 @@ export interface ValidationWarning {
 
 // #region Types
 export type CreateHostFn = (_: typeof _$typescript, _: _$typescript.System, _: _$typescript.CompilerOptions) => _$typescript.CompilerHost;
-export type FragmentMode = 'fragment' | 'partial' | 'section';
-export type HashFn = (_: string) => string;
 // #endregion
 
 // #region Functions
@@ -81,4 +49,16 @@ export declare function validateManifest(_: ExtractManifest, _: GraphQLSchema): 
   errors: ValidationError[];
   warnings: ValidationWarning[];
 };
+// #endregion
+
+// #region Other
+export { ExtractManifest }
+export { ExtractResult }
+export { FragmentMode }
+export { FragmentSourceLoc }
+export { HashFn }
+export { ManifestEntry }
+export { ManifestFragmentEntry }
+export { SkippedExtraction }
+export { SourceLoc }
 // #endregion
