@@ -34,7 +34,10 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
   const loaded = await loadConfig(configDir)
   const cfg = loaded?.[0]
 
-  const dir = options.dir ?? cfg?.extract?.dir ?? 'src'
+  const dir = options.dir ?? cfg?.extract?.dir
+  if (!dir) {
+    throw new Error('dir is required. Specify --dir or set extract.dir in config.')
+  }
   const output = options.output !== undefined ? options.output : (cfg?.extract?.output ?? null)
   const noEmit = options.noEmit ?? cfg?.extract?.noEmit ?? false
   const include = options.include ?? cfg?.extract?.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}'
@@ -650,7 +653,7 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
         `)
         await writeFileTest(
           join(dir, 'gazania.config.js'),
-          `export default { schemas: [{ schema: ${JSON.stringify(join(dir, 'schema.graphql'))}, output: 'types.ts' }], extract: { validate: true, strict: true, noEmit: true } }`,
+          `export default { schemas: [{ schema: ${JSON.stringify(join(dir, 'schema.graphql'))}, output: 'types.ts' }], extract: { dir: 'src', validate: true, strict: true, noEmit: true } }`,
         )
         await writeFileTest(
           join(dir, 'src', 'query.js'),

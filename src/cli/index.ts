@@ -38,7 +38,7 @@ Usage: gazania extract [options]
 Extract GraphQL operations and produce a persisted query manifest
 
 Options:
-  -d, --dir <path>       Directory to scan (default: src)
+  -d, --dir <path>       Directory to scan (required, or set extract.dir in config)
   -o, --output <path>    Output manifest file path (default: stdout). Use '-' for explicit stdout.
   -c, --config <path>    Path to config file
   --include <glob>       File glob pattern to include (default: **/*.{ts,tsx,js,jsx,vue,svelte})
