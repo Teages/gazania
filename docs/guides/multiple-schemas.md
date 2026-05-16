@@ -10,7 +10,7 @@ Pass an array to `defineConfig` to generate all schemas in one run:
 
 ```ts
 // gazania.config.ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig([
   {

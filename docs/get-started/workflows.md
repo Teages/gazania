@@ -35,7 +35,7 @@ npx gazania generate --schema introspection.json --output src/schema.ts
 For repeated use, create a `gazania.config.ts` (or `gazania.config.js`) file in your project root:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: 'https://api.example.com/graphql',
@@ -54,7 +54,7 @@ npx gazania generate
 Custom scalars default to `string`. Override with the `scalars` option:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: 'https://api.example.com/graphql',
@@ -90,7 +90,7 @@ The `schema` field in the config supports multiple formats:
 For authenticated endpoints:
 
 ```ts
-import { defineConfig } from 'gazania/codegen'
+import { defineConfig } from 'gazania/config'
 
 export default defineConfig({
   schema: {
