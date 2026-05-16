@@ -23,7 +23,6 @@ function normalizeToSDL(source: string | GraphQLSchema): string {
 
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest
-  const { buildSchema } = await import('graphql')
 
   const SIMPLE_SDL = `
   type Query {
@@ -55,7 +54,9 @@ if (import.meta.vitest) {
   }
 `
 
-  describe('generate', () => {
+  describe('generate', async () => {
+    const { buildSchema } = await import('graphql')
+
     it('generates TypeScript from SDL string', () => {
       const code = generate({ source: SIMPLE_SDL })
       expect(code).toContain('export type Schema = DefineSchema<{')
