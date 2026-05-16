@@ -23,14 +23,3 @@ export declare function printSchema(_: SchemaData, _?: GenerateOptions & {
   url?: string;
 }): string;
 // #endregion
-
-// #region Other
-export { Config }
-export { defineConfig }
-export { GetterSource }
-export { JsonSource }
-export { SchemaLoader }
-export { SdlSource }
-export { UrlSource }
-export { UserConfig }
-// #endregion
