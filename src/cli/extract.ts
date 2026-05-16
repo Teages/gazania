@@ -49,6 +49,10 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
   const validate = cfg?.extract?.validate ?? false
   const schemaSource = options.schema ?? (validate ? cfg?.schemas?.[0]?.schema : undefined)
 
+  if (strict && !schemaSource) {
+    throw new Error('--strict requires --schema')
+  }
+
   return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, cwd }
 }
 
@@ -57,10 +61,6 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
   const silent = options.silent ?? false
   const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
   const warn = (msg: string) => stderr.write(`${msg}\n`)
-
-  if (strict && !schemaSource) {
-    throw new Error('--strict requires --schema')
-  }
 
   const tsconfigPath = join(cwd, tsconfig)
   const scanDir = join(cwd, dir)
