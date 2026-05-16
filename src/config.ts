@@ -1,2 +1,2 @@
-export { defineConfig } from './codegen/config'
-export type { Config, GetterSource, JsonSource, SchemaLoader, SdlSource, UrlSource, UserConfig } from './codegen/config'
+export { defineConfig } from './cli/config'
+export type { Config, GetterSource, JsonSource, SchemaLoader, SdlSource, UrlSource, UserConfig } from './cli/config'
