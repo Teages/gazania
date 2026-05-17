@@ -13,4 +13,7 @@ export default defineConfig({
       exclude: ['src/types/**/*.ts'],
     },
   },
+  benchmark: {
+    include: ['bench/**/*.bench.ts'],
+  },
 })
