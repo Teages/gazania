@@ -1589,10 +1589,7 @@ type Type_Media = ObjectType<'Media', {
   season: Field<Enum_MediaSeason | null>
   /** The season year the media was initially released in */
   seasonYear: Field<Scalar_Int | null>
-  /**
-   * The year & season the media was initially released in
-   * @deprecated
-   */
+  /** The year & season the media was initially released in */
   seasonInt: Field<Scalar_Int | null>
   /** The amount of episodes the anime has when complete */
   episodes: Field<Scalar_Int | null>
