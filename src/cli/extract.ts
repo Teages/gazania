@@ -47,9 +47,8 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
   const strict = options.strict ?? cfg?.extract?.strict ?? false
   const ignoreCategories = options.ignoreCategories ?? cfg?.extract?.ignoreCategories ?? []
 
-  const validate = cfg?.extract?.validate ?? false
   const schemaSource = options.schema
-  const schemas = validate ? (cfg?.schemas ?? []) : []
+  const schemas = cfg?.schemas ?? []
 
   if (strict && schemaSource === undefined && schemas.length === 0) {
     throw new Error('--strict requires --schema or a config with schemas')
@@ -700,7 +699,7 @@ const doc = gazania.query('Fail').select($ => $.select([...notAFn({})]))`,
         `)
         await writeFileTest(
           join(dir, 'gazania.config.js'),
-          `export default { schemas: [{ schema: ${JSON.stringify(join(dir, 'schema.graphql'))}, output: 'types.ts' }], extract: { dir: 'src', validate: true, strict: true, noEmit: true } }`,
+          `export default { schemas: [{ schema: ${JSON.stringify(join(dir, 'schema.graphql'))}, output: 'types.ts' }], extract: { dir: 'src', strict: true, noEmit: true } }`,
         )
         await writeFileTest(
           join(dir, 'src', 'query.js'),
