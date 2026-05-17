@@ -1,0 +1,12 @@
+{
+  "name": "multi-schema-extract",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "generate": "gazania",
+    "extract": "gazania extract"
+  },
+  "dependencies": {
+    "gazania": "workspace:*"
+  }
+}
