@@ -96,17 +96,17 @@ export function addDocumentToManifest(
     let anonKey = `Anonymous_${hashStr.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
     const existing = manifest.operations[anonKey]
     if (existing) {
-      if (existing.hash === hashStr) {
+      if (existing.hash === hashStr && existing.schemaHash === schemaHash) {
         existing.locs.push(loc)
         return
       }
-      // Hash collision — extend prefix until unique
+      // Hash collision or different schema — extend prefix until unique
       for (let len = HASH_PREFIX_LENGTH + 1; len <= hashStr.length - hashStart; len++) {
         anonKey = `Anonymous_${hashStr.slice(hashStart, hashStart + len)}`
         if (!manifest.operations[anonKey]) {
           break
         }
-        if (manifest.operations[anonKey]!.hash === hashStr) {
+        if (manifest.operations[anonKey]!.hash === hashStr && manifest.operations[anonKey]!.schemaHash === schemaHash) {
           manifest.operations[anonKey]!.locs.push(loc)
           return
         }
@@ -118,7 +118,7 @@ export function addDocumentToManifest(
     const fragmentMode: FragmentMode = mode ?? 'fragment'
     const existing = manifest.fragments[name]
     if (existing) {
-      if (existing.hash === hashStr) {
+      if (existing.hash === hashStr && existing.schemaHash === schemaHash) {
         existing.locs.push({ ...loc, fragmentMode })
         return
       }
@@ -131,7 +131,7 @@ export function addDocumentToManifest(
   else {
     const existing = manifest.operations[name]
     if (existing) {
-      if (existing.hash === hashStr) {
+      if (existing.hash === hashStr && existing.schemaHash === schemaHash) {
         existing.locs.push(loc)
         return
       }
