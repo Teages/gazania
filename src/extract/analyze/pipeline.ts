@@ -18,7 +18,7 @@ import { collectPartialDefs, detectCircularPartialRefs, findUnresolvedSpreadRef 
 import { collectBuilderNamesForFile } from './type-aware-ids'
 import { CircularPartialError } from './types'
 
-function relativePath(basePath: string, file: string): string {
+function relativePath(basePath: string | undefined, file: string): string {
   if (!basePath || !file.startsWith(basePath)) {
     return file
   }
@@ -138,7 +138,7 @@ export function processFileStatic(
       const unresolvedRef = findUnresolvedSpreadRef(chain.selectCallback, mergedPartialDefs, declaredNames, typeCtx)
       if (unresolvedRef) {
         skipped.push({
-          file: basePath ? relativePath(basePath, file) : file,
+          file: relativePath(basePath, file),
           line: staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset,
           reason: unresolvedRef.reason,
           category: 'unresolved' as SkippedExtractionCategory,
@@ -156,7 +156,7 @@ export function processFileStatic(
         const startPos = offsetToLineColumn(block.code, chain.loc.start)
         const endPos = offsetToLineColumn(block.code, chain.loc.end)
         const loc: SourceLoc = {
-          file: basePath ? relativePath(basePath, file) : file,
+          file: relativePath(basePath, file),
           start: { line: startPos.line + block.lineOffset, column: startPos.column, offset: startPos.offset },
           end: { line: endPos.line + block.lineOffset, column: endPos.column, offset: endPos.offset },
         }
@@ -169,7 +169,7 @@ export function processFileStatic(
         const line = staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset
         const errMsg = err instanceof Error ? err.message : String(err)
         skipped.push({
-          file: basePath ? relativePath(basePath, file) : file,
+          file: relativePath(basePath, file),
           line,
           reason: `Failed to statically analyze ${chain.type} "${chain.name}": ${errMsg}`,
           category: 'analysis' as SkippedExtractionCategory,
