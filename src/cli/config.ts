@@ -52,11 +52,7 @@ export interface Config {
   extract?: ExtractConfig
 }
 
-export type UserConfig = Config | Config[]
-
-export function defineConfig(config: Config[]): Config[]
-export function defineConfig(config: Config): Config
-export function defineConfig(config: UserConfig): UserConfig {
+export function defineConfig(config: Config): Config {
   return config
 }
 
@@ -82,9 +78,9 @@ function isValidConfigEntry(value: unknown): value is Config {
  * TypeScript config files require Node.js 22.6+ with native TS support.
  *
  * @param cwd - Working directory (defaults to process.cwd())
- * @returns Loaded configs (normalized to array) or undefined if no config file found
+ * @returns Loaded config or undefined if no config file found
  */
-export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | undefined> {
+export async function loadConfig(cwd: string = getCwd()): Promise<Config | undefined> {
   for (const candidate of CONFIG_CANDIDATES) {
     const filePath = resolve(cwd, candidate)
     if (!existsSync(filePath)) {
@@ -112,17 +108,8 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
 
     if (!mod.default || typeof mod.default !== 'object') {
       throw new Error(
-        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/config'.`,
+        `Config file "${filePath}" must export a default config object. Use defineConfig() from 'gazania/config'.`,
       )
-    }
-
-    if (Array.isArray(mod.default)) {
-      if (mod.default.length === 0 || !mod.default.every(isValidConfigEntry)) {
-        throw new Error(
-          `Config file "${filePath}" exports an invalid config array. Each entry must have a "schemas" field with at least one schema entry containing "schema" and "output".`,
-        )
-      }
-      return mod.default as Config[]
     }
 
     if (!isValidConfigEntry(mod.default)) {
@@ -131,7 +118,7 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
       )
     }
 
-    return [mod.default as Config]
+    return mod.default as Config
   }
 
   return undefined
@@ -147,7 +134,7 @@ if (import.meta.vitest) {
   const SIMPLE_SDL = `type Query { hello: String }`
 
   describe('defineConfig', () => {
-    it('returns single config as-is', () => {
+    it('returns config as-is', () => {
       const config = defineConfig({
         schemas: [{ schema: 'https://api.example.com/graphql', output: './schema.d.ts', scalars: { DateTime: 'string' } }],
       })
@@ -163,17 +150,6 @@ if (import.meta.vitest) {
       })
       expect(config.extract?.dir).toBe('lib')
       expect(config.extract?.algorithm).toBe('sha512')
-    })
-
-    it('returns config array as-is', () => {
-      const configs = defineConfig([
-        { schemas: [{ schema: 'https://api.example.com/graphql', output: './schema-a.d.ts' }] },
-        { schemas: [{ schema: { sdl: 'type Query { noop: String }' }, output: './schema-b.d.ts' }] },
-      ])
-      expect(Array.isArray(configs)).toBe(true)
-      expect(configs).toHaveLength(2)
-      expect(configs[0]!.schemas[0]!.output).toBe('./schema-a.d.ts')
-      expect(configs[1]!.schemas[0]!.output).toBe('./schema-b.d.ts')
     })
   })
 
@@ -194,15 +170,14 @@ if (import.meta.vitest) {
       expect(result).toBeUndefined()
     })
 
-    it('loads single config as a one-element array', async () => {
+    it('loads single config', async () => {
       await writeFile(
         join(dir, 'gazania.config.js'),
         `export default { schemas: [{ schema: { sdl: '${SIMPLE_SDL}' }, output: './out.ts' }] }`,
       )
       const result = await loadConfig(dir)
-      expect(Array.isArray(result)).toBe(true)
-      expect(result).toHaveLength(1)
-      expect(result![0]!.schemas[0]!.output).toBe('./out.ts')
+      expect(result).toBeDefined()
+      expect(result!.schemas[0]!.output).toBe('./out.ts')
     })
 
     it('loads config with extract options', async () => {
@@ -211,12 +186,12 @@ if (import.meta.vitest) {
         `export default { schemas: [{ schema: { sdl: '${SIMPLE_SDL}' }, output: './out.ts' }], extract: { dir: 'lib', tsconfig: 'tsconfig.build.json' } }`,
       )
       const result = await loadConfig(dir)
-      expect(result).toHaveLength(1)
-      expect(result![0]!.extract?.dir).toBe('lib')
-      expect(result![0]!.extract?.tsconfig).toBe('tsconfig.build.json')
+      expect(result).toBeDefined()
+      expect(result!.extract?.dir).toBe('lib')
+      expect(result!.extract?.tsconfig).toBe('tsconfig.build.json')
     })
 
-    it('loads array config as-is', async () => {
+    it('throws when array config is exported', async () => {
       await writeFile(
         join(dir, 'gazania.config.js'),
         `export default [
@@ -224,11 +199,7 @@ if (import.meta.vitest) {
         { schemas: [{ schema: { sdl: 'type Query { b: String }' }, output: './out-b.ts' }] },
       ]`,
       )
-      const result = await loadConfig(dir)
-      expect(Array.isArray(result)).toBe(true)
-      expect(result).toHaveLength(2)
-      expect(result![0]!.schemas[0]!.output).toBe('./out-a.ts')
-      expect(result![1]!.schemas[0]!.output).toBe('./out-b.ts')
+      await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
     })
 
     it('throws when config is missing schemas', async () => {
@@ -245,14 +216,6 @@ if (import.meta.vitest) {
         `export default { schemas: [] }`,
       )
       await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
-    })
-
-    it('throws when array entries are missing schemas', async () => {
-      await writeFile(
-        join(dir, 'gazania.config.js'),
-        `export default [{ output: './out.ts' }]`,
-      )
-      await expect(loadConfig(dir)).rejects.toThrow('invalid config array')
     })
 
     it('throws when schema entry has empty output', async () => {

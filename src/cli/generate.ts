@@ -26,9 +26,9 @@ export async function runGenerate(options: GenerateCommandOptions = {}): Promise
   }
   else {
     const configCwd = options.config ? dirname(resolve(options.config)) : cwd
-    const loaded = await loadConfig(configCwd)
+    const config = await loadConfig(configCwd)
 
-    if (!loaded) {
+    if (!config) {
       if (options.schema || options.output) {
         throw new Error(
           'No config file found. Provide both --schema and --output, or create a gazania.config.ts/js file.',
@@ -40,15 +40,13 @@ export async function runGenerate(options: GenerateCommandOptions = {}): Promise
       )
     }
 
-    const allSchemas = loaded.flatMap(c => c.schemas)
-
     if (options.schema || options.output) {
-      if (allSchemas.length > 1) {
+      if (config.schemas.length > 1) {
         throw new Error(
           'Cannot use --schema or --output flags when config file defines multiple schemas.',
         )
       }
-      const base = allSchemas[0]!
+      const base = config.schemas[0]!
       schemaConfigs = [{
         ...base,
         ...(options.schema ? { schema: options.schema } : {}),
@@ -56,7 +54,7 @@ export async function runGenerate(options: GenerateCommandOptions = {}): Promise
       }]
     }
     else {
-      schemaConfigs = allSchemas
+      schemaConfigs = config.schemas
     }
   }
 
@@ -100,7 +98,7 @@ if (import.meta.vitest) {
   const { join } = await import('node:path')
   const { randomUUID } = await import('node:crypto')
 
-  describe('runGenerate (multi-config)', () => {
+  describe('runGenerate', () => {
     let dir: string
     const mockLog = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -112,21 +110,6 @@ if (import.meta.vitest) {
     afterEach(async () => {
       await rm(dir, { recursive: true, force: true })
       mockLog.mockClear()
-    })
-
-    it('generates multiple outputs from array config', async () => {
-      await writeFileTest(
-        join(dir, 'gazania.config.js'),
-        `export default [
-        { schemas: [{ schema: { sdl: 'type Query { a: String }' }, output: 'out-a.ts' }] },
-        { schemas: [{ schema: { sdl: 'type Query { b: String }' }, output: 'out-b.ts' }] },
-      ]`,
-      )
-      await runGenerate({ cwd: dir })
-
-      const { existsSync } = await import('node:fs')
-      expect(existsSync(join(dir, 'out-a.ts'))).toBe(true)
-      expect(existsSync(join(dir, 'out-b.ts'))).toBe(true)
     })
 
     it('generates multiple outputs from single config with multiple schemas', async () => {

@@ -32,23 +32,22 @@ export interface ExtractCommandOptions {
 async function resolveExtractOptions(options: ExtractCommandOptions) {
   const { cwd, config: configPath } = options
   const configDir = configPath ? dirname(resolve(cwd, configPath)) : cwd
-  const loaded = await loadConfig(configDir)
-  const cfg = loaded?.[0]
+  const config = await loadConfig(configDir)
 
-  const dir = options.dir ?? cfg?.extract?.dir
+  const dir = options.dir ?? config?.extract?.dir
   if (!dir) {
     throw new Error('dir is required. Specify --dir or set extract.dir in config.')
   }
-  const output = options.output !== undefined ? options.output : (cfg?.extract?.output ?? null)
-  const noEmit = options.noEmit ?? cfg?.extract?.noEmit ?? false
-  const include = options.include ?? cfg?.extract?.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}'
-  const algorithm = options.algorithm ?? cfg?.extract?.algorithm ?? 'sha256'
-  const tsconfig = options.tsconfig ?? cfg?.extract?.tsconfig ?? 'tsconfig.json'
-  const strict = options.strict ?? cfg?.extract?.strict ?? false
-  const ignoreCategories = options.ignoreCategories ?? cfg?.extract?.ignoreCategories ?? []
+  const output = options.output !== undefined ? options.output : (config?.extract?.output ?? null)
+  const noEmit = options.noEmit ?? config?.extract?.noEmit ?? false
+  const include = options.include ?? config?.extract?.include ?? '**/*.{ts,tsx,js,jsx,vue,svelte}'
+  const algorithm = options.algorithm ?? config?.extract?.algorithm ?? 'sha256'
+  const tsconfig = options.tsconfig ?? config?.extract?.tsconfig ?? 'tsconfig.json'
+  const strict = options.strict ?? config?.extract?.strict ?? false
+  const ignoreCategories = options.ignoreCategories ?? config?.extract?.ignoreCategories ?? []
 
   const schemaSource = options.schema
-  const schemas = cfg?.schemas ?? []
+  const schemas = config?.schemas ?? []
 
   if (strict && schemaSource === undefined && schemas.length === 0) {
     throw new Error('--strict requires --schema or a config with schemas')
