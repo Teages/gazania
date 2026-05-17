@@ -24,7 +24,7 @@ bun install gazania
 
 ## Requirements
 
-- **Node.js** >= 20.0.0
+- **Node.js** >= 22.12.0
 - **TypeScript** >= 5.0 (recommended)
 
 ## Generate schema types

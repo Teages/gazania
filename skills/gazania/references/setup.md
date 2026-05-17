@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js >= 20.0.0
+- Node.js >= 22.12.0
 - TypeScript >= 5.0
 
 ## Install
@@ -30,7 +30,7 @@ npx gazania generate --schema introspection.json --output src/schema.ts
 
 ### Config file (recommended)
 
-Create `gazania.config.ts` in the project root (requires Node.js >= 22.6; use `gazania.config.js` otherwise):
+Create `gazania.config.ts` in the project root (use `gazania.config.js` if not using TypeScript config):
 
 ```ts
 import { defineConfig } from 'gazania/config'
