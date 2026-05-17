@@ -41,15 +41,13 @@ npx gazania generate --schema https://api-b.example.com/graphql --output src/sch
 
 ## Using multiple schemas
 
-Import each schema and create separate `gazania` instances:
+Each generated schema file registers itself by URL via module augmentation. Create a separate `createGazania` instance for each:
 
 ```ts
-import type { Schema as SchemaA } from './schema-a'
-import type { Schema as SchemaB } from './schema-b'
 import { createGazania } from 'gazania'
 
-const apiA = createGazania({} as SchemaA)
-const apiB = createGazania({} as SchemaB)
+const apiA = createGazania('https://api-a.example.com/graphql')
+const apiB = createGazania('https://api-b.example.com/graphql')
 
 // Each instance is typed for its own schema
 const usersQuery = apiA.query('GetUsers')
@@ -63,30 +61,35 @@ const productsQuery = apiB.query('GetProducts')
   }]))
 ```
 
-## Named schema registration
+### Passing schema types directly
 
-You can register each schema by name using module augmentation:
+If you prefer, you can import and pass the schema type directly:
 
 ```ts
-// In schema-a.ts (generated)
+import type { Schema as SchemaA } from './schema-a'
+import type { Schema as SchemaB } from './schema-b'
+import { createGazania } from 'gazania'
+
+const apiA = createGazania({} as SchemaA)
+const apiB = createGazania({} as SchemaB)
+```
+
+## Named schema registration
+
+Each generated schema file includes a module augmentation that registers the schema by its URL:
+
+```ts
+// Automatically included in schema-a.ts (generated)
 declare module 'gazania' {
   interface Schemas {
     'https://api-a.example.com/graphql': SchemaA
   }
 }
 
-// In schema-b.ts (generated)
+// Automatically included in schema-b.ts (generated)
 declare module 'gazania' {
   interface Schemas {
     'https://api-b.example.com/graphql': SchemaB
   }
 }
 ```
-
-Then use schemas by their registered names:
-
-```ts
-import { createGazania } from 'gazania'
-
-const apiA = createGazania('https://api-a.example.com/graphql')
-const apiB = createGazania('https://api-b.example.com/graphql')

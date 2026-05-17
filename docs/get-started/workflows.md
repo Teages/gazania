@@ -141,20 +141,19 @@ await writeFile('src/schema.ts', code)
 
 1. **Add a config file**: create `gazania.config.ts` with your schema source and output path.
 2. **Generate types**: run `npx gazania generate` to produce the schema types.
-3. **Use in code**: import the schema and build queries:
+3. **Use in code**: build queries using the schema URL:
 
-   ```ts
-   import type { Schema } from './schema'
-   import { createGazania } from 'gazania'
+    ```ts
+    import { createGazania } from 'gazania'
 
-   const gazania = createGazania({} as Schema)
+    const gazania = createGazania('https://api.example.com/graphql')
 
-   const query = gazania.query('GetUser')
-     .vars({ id: 'Int!' })
-     .select(($, vars) => $.select([{
-       user: $ => $.args({ id: vars.id }).select(['id', 'name']),
-     }]))
-   ```
+    const query = gazania.query('GetUser')
+      .vars({ id: 'Int!' })
+      .select(($, vars) => $.select([{
+        user: $ => $.args({ id: vars.id }).select(['id', 'name']),
+      }]))
+    ```
 
 4. **Regenerate on schema changes**: re-run the generate command when the schema changes.
 

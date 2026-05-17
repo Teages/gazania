@@ -19,8 +19,8 @@ function createGazania<T extends string>(url: T): UnknownSchema
 
 | Parameter | Type | Description |
 |---|---|---|
-| `schema` | `DefineSchema<any, any>` | A schema type definition (pass as `{} as Schema`) |
-| `url` | `string` | A registered schema URL |
+| `url` | `string` | A registered schema URL (recommended) |
+| `schema` | `DefineSchema<any, any>` | A schema type definition, passed as `{} as Schema` |
 
 ### Returns
 
@@ -29,14 +29,17 @@ A `Gazania` object with typed builder methods.
 ### Usage
 
 ```ts
-import type { Schema } from './schema'
 import { createGazania } from 'gazania'
 
-// With schema type
-const gazania = createGazania({} as Schema)
-
-// With registered URL
+// With registered URL (recommended — no import of generated types needed)
 const gazania = createGazania('https://api.example.com/graphql')
+```
+
+```ts
+// With schema type (alternative)
+import type { Schema } from './schema'
+
+const gazania = createGazania({} as Schema)
 
 // Without schema (untyped)
 const gazania = createGazania()
