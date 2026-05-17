@@ -10,617 +10,617 @@ type Scalar_Boolean = ScalarType<'Boolean', boolean, boolean>
 type Scalar_ID = ScalarType<'ID', string, string | number>
 
 /** User sort enums */
-export type UserSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'USERNAME'
-  | 'USERNAME_DESC'
-  | 'WATCHED_TIME'
-  | 'WATCHED_TIME_DESC'
-  | 'CHAPTERS_READ'
-  | 'CHAPTERS_READ_DESC'
-  | 'SEARCH_MATCH'
+export type UserSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'USERNAME'
+    | 'USERNAME_DESC'
+    | 'WATCHED_TIME'
+    | 'WATCHED_TIME_DESC'
+    | 'CHAPTERS_READ'
+    | 'CHAPTERS_READ_DESC'
+    | 'SEARCH_MATCH'
 type Enum_UserSort = EnumType<'UserSort', UserSort>
 
 /** The language the user wants to see media titles in */
-export type UserTitleLanguage =
+export type UserTitleLanguage
   /** The romanization of the native language title */
-  | 'ROMAJI'
+  = | 'ROMAJI'
   /** The official english title */
-  | 'ENGLISH'
+    | 'ENGLISH'
   /** Official title in it's native language */
-  | 'NATIVE'
+    | 'NATIVE'
   /** The romanization of the native language title, stylised by media creator */
-  | 'ROMAJI_STYLISED'
+    | 'ROMAJI_STYLISED'
   /** The official english title, stylised by media creator */
-  | 'ENGLISH_STYLISED'
+    | 'ENGLISH_STYLISED'
   /** Official title in it's native language, stylised by media creator */
-  | 'NATIVE_STYLISED'
+    | 'NATIVE_STYLISED'
 type Enum_UserTitleLanguage = EnumType<'UserTitleLanguage', UserTitleLanguage>
 
 /** Notification type enum */
-export type NotificationType =
+export type NotificationType
   /** A user has sent you message */
-  | 'ACTIVITY_MESSAGE'
+  = | 'ACTIVITY_MESSAGE'
   /** A user has replied to your activity */
-  | 'ACTIVITY_REPLY'
+    | 'ACTIVITY_REPLY'
   /** A user has followed you */
-  | 'FOLLOWING'
+    | 'FOLLOWING'
   /** A user has mentioned you in their activity */
-  | 'ACTIVITY_MENTION'
+    | 'ACTIVITY_MENTION'
   /** A user has mentioned you in a forum comment */
-  | 'THREAD_COMMENT_MENTION'
+    | 'THREAD_COMMENT_MENTION'
   /** A user has commented in one of your subscribed forum threads */
-  | 'THREAD_SUBSCRIBED'
+    | 'THREAD_SUBSCRIBED'
   /** A user has replied to your forum comment */
-  | 'THREAD_COMMENT_REPLY'
+    | 'THREAD_COMMENT_REPLY'
   /** An anime you are currently watching has aired */
-  | 'AIRING'
+    | 'AIRING'
   /** A user has liked your activity */
-  | 'ACTIVITY_LIKE'
+    | 'ACTIVITY_LIKE'
   /** A user has liked your activity reply */
-  | 'ACTIVITY_REPLY_LIKE'
+    | 'ACTIVITY_REPLY_LIKE'
   /** A user has liked your forum thread */
-  | 'THREAD_LIKE'
+    | 'THREAD_LIKE'
   /** A user has liked your forum comment */
-  | 'THREAD_COMMENT_LIKE'
+    | 'THREAD_COMMENT_LIKE'
   /** A user has replied to activity you have also replied to */
-  | 'ACTIVITY_REPLY_SUBSCRIBED'
+    | 'ACTIVITY_REPLY_SUBSCRIBED'
   /** A new anime or manga has been added to the site where its related media is on the user's list */
-  | 'RELATED_MEDIA_ADDITION'
+    | 'RELATED_MEDIA_ADDITION'
   /** An anime or manga has had a data change that affects how a user may track it in their lists */
-  | 'MEDIA_DATA_CHANGE'
+    | 'MEDIA_DATA_CHANGE'
   /** Anime or manga entries on the user's list have been merged into a single entry */
-  | 'MEDIA_MERGE'
+    | 'MEDIA_MERGE'
   /** An anime or manga on the user's list has been deleted from the site */
-  | 'MEDIA_DELETION'
+    | 'MEDIA_DELETION'
   /** A user's submission has been accepted, partially accepted, or rejected */
-  | 'MEDIA_SUBMISSION_UPDATE'
+    | 'MEDIA_SUBMISSION_UPDATE'
   /** A user's staff submission has been accepted, partially accepted, or rejected */
-  | 'STAFF_SUBMISSION_UPDATE'
+    | 'STAFF_SUBMISSION_UPDATE'
   /** A user's character submission has been accepted, partially accepted, or rejected */
-  | 'CHARACTER_SUBMISSION_UPDATE'
+    | 'CHARACTER_SUBMISSION_UPDATE'
 type Enum_NotificationType = EnumType<'NotificationType', NotificationType>
 
 /** The language the user wants to see staff and character names in */
-export type UserStaffNameLanguage =
+export type UserStaffNameLanguage
   /** The romanization of the staff or character's native name, with western name ordering */
-  | 'ROMAJI_WESTERN'
+  = | 'ROMAJI_WESTERN'
   /** The romanization of the staff or character's native name */
-  | 'ROMAJI'
+    | 'ROMAJI'
   /** The staff or character's name in their native language */
-  | 'NATIVE'
+    | 'NATIVE'
 type Enum_UserStaffNameLanguage = EnumType<'UserStaffNameLanguage', UserStaffNameLanguage>
 
 /** Media list watching/reading status enum. */
-export type MediaListStatus =
+export type MediaListStatus
   /** Currently watching/reading */
-  | 'CURRENT'
+  = | 'CURRENT'
   /** Planning to watch/read */
-  | 'PLANNING'
+    | 'PLANNING'
   /** Finished watching/reading */
-  | 'COMPLETED'
+    | 'COMPLETED'
   /** Stopped watching/reading before completing */
-  | 'DROPPED'
+    | 'DROPPED'
   /** Paused watching/reading */
-  | 'PAUSED'
+    | 'PAUSED'
   /** Re-watching/reading */
-  | 'REPEATING'
+    | 'REPEATING'
 type Enum_MediaListStatus = EnumType<'MediaListStatus', MediaListStatus>
 
 /** Media list scoring type */
-export type ScoreFormat =
+export type ScoreFormat
   /** An integer from 0-100 */
-  | 'POINT_100'
+  = | 'POINT_100'
   /** A float from 0-10 with 1 decimal place */
-  | 'POINT_10_DECIMAL'
+    | 'POINT_10_DECIMAL'
   /** An integer from 0-10 */
-  | 'POINT_10'
+    | 'POINT_10'
   /** An integer from 0-5. Should be represented in Stars */
-  | 'POINT_5'
+    | 'POINT_5'
   /** An integer from 0-3. Should be represented in Smileys. 0 => No Score, 1 => :(, 2 => :|, 3 => :) */
-  | 'POINT_3'
+    | 'POINT_3'
 type Enum_ScoreFormat = EnumType<'ScoreFormat', ScoreFormat>
 
 /** Media type enum, anime or manga. */
-export type MediaType =
+export type MediaType
   /** Japanese Anime */
-  | 'ANIME'
+  = | 'ANIME'
   /** Asian comic */
-  | 'MANGA'
+    | 'MANGA'
 type Enum_MediaType = EnumType<'MediaType', MediaType>
 
 /** The format the media was released in */
-export type MediaFormat =
+export type MediaFormat
   /** Anime broadcast on television */
-  | 'TV'
+  = | 'TV'
   /** Anime which are under 15 minutes in length and broadcast on television */
-  | 'TV_SHORT'
+    | 'TV_SHORT'
   /** Anime movies with a theatrical release */
-  | 'MOVIE'
+    | 'MOVIE'
   /** Special episodes that have been included in DVD/Blu-ray releases, picture dramas, pilots, etc */
-  | 'SPECIAL'
+    | 'SPECIAL'
   /** (Original Video Animation) Anime that have been released directly on DVD/Blu-ray without originally going through a theatrical release or television broadcast */
-  | 'OVA'
+    | 'OVA'
   /** (Original Net Animation) Anime that have been originally released online or are only available through streaming services. */
-  | 'ONA'
+    | 'ONA'
   /** Short anime released as a music video */
-  | 'MUSIC'
+    | 'MUSIC'
   /** Professionally published manga with more than one chapter */
-  | 'MANGA'
+    | 'MANGA'
   /** Written books released as a series of light novels */
-  | 'NOVEL'
+    | 'NOVEL'
   /** Manga with just one chapter */
-  | 'ONE_SHOT'
+    | 'ONE_SHOT'
 type Enum_MediaFormat = EnumType<'MediaFormat', MediaFormat>
 
 /** The current releasing status of the media */
-export type MediaStatus =
+export type MediaStatus
   /** Has completed and is no longer being released */
-  | 'FINISHED'
+  = | 'FINISHED'
   /** Currently releasing */
-  | 'RELEASING'
+    | 'RELEASING'
   /** To be released at a later date */
-  | 'NOT_YET_RELEASED'
+    | 'NOT_YET_RELEASED'
   /** Ended before the work could be finished */
-  | 'CANCELLED'
+    | 'CANCELLED'
   /** Version 2 only. Is currently paused from releasing and will resume at a later date */
-  | 'HIATUS'
+    | 'HIATUS'
 type Enum_MediaStatus = EnumType<'MediaStatus', MediaStatus>
 
-export type MediaSeason =
+export type MediaSeason
   /** Predominantly started airing between January and March */
-  | 'WINTER'
+  = | 'WINTER'
   /** Predominantly started airing between April and June */
-  | 'SPRING'
+    | 'SPRING'
   /** Predominantly started airing between July and September */
-  | 'SUMMER'
+    | 'SUMMER'
   /** Predominantly started airing between October and November */
-  | 'FALL'
+    | 'FALL'
 type Enum_MediaSeason = EnumType<'MediaSeason', MediaSeason>
 
 /** Source type the media was adapted from */
-export type MediaSource =
+export type MediaSource
   /** An original production not based of another work */
-  | 'ORIGINAL'
+  = | 'ORIGINAL'
   /** Asian comic book */
-  | 'MANGA'
+    | 'MANGA'
   /** Written work published in volumes */
-  | 'LIGHT_NOVEL'
+    | 'LIGHT_NOVEL'
   /** Video game driven primary by text and narrative */
-  | 'VISUAL_NOVEL'
+    | 'VISUAL_NOVEL'
   /** Video game */
-  | 'VIDEO_GAME'
+    | 'VIDEO_GAME'
   /** Other */
-  | 'OTHER'
+    | 'OTHER'
   /** Version 2+ only. Written works not published in volumes */
-  | 'NOVEL'
+    | 'NOVEL'
   /** Version 2+ only. Self-published works */
-  | 'DOUJINSHI'
+    | 'DOUJINSHI'
   /** Version 2+ only. Japanese Anime */
-  | 'ANIME'
+    | 'ANIME'
   /** Version 3 only. Written works published online */
-  | 'WEB_NOVEL'
+    | 'WEB_NOVEL'
   /** Version 3 only. Live action media such as movies or TV show */
-  | 'LIVE_ACTION'
+    | 'LIVE_ACTION'
   /** Version 3 only. Games excluding video games */
-  | 'GAME'
+    | 'GAME'
   /** Version 3 only. Comics excluding manga */
-  | 'COMIC'
+    | 'COMIC'
   /** Version 3 only. Multimedia project */
-  | 'MULTIMEDIA_PROJECT'
+    | 'MULTIMEDIA_PROJECT'
   /** Version 3 only. Picture book */
-  | 'PICTURE_BOOK'
+    | 'PICTURE_BOOK'
 type Enum_MediaSource = EnumType<'MediaSource', MediaSource>
 
 /** Character sort enums */
-export type CharacterSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'ROLE'
-  | 'ROLE_DESC'
-  | 'SEARCH_MATCH'
-  | 'FAVOURITES'
-  | 'FAVOURITES_DESC'
+export type CharacterSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'ROLE'
+    | 'ROLE_DESC'
+    | 'SEARCH_MATCH'
+    | 'FAVOURITES'
+    | 'FAVOURITES_DESC'
   /** Order manually decided by moderators */
-  | 'RELEVANCE'
+    | 'RELEVANCE'
 type Enum_CharacterSort = EnumType<'CharacterSort', CharacterSort>
 
 /** The role the character plays in the media */
-export type CharacterRole =
+export type CharacterRole
   /** A primary character role in the media */
-  | 'MAIN'
+  = | 'MAIN'
   /** A supporting character role in the media */
-  | 'SUPPORTING'
+    | 'SUPPORTING'
   /** A background character in the media */
-  | 'BACKGROUND'
+    | 'BACKGROUND'
 type Enum_CharacterRole = EnumType<'CharacterRole', CharacterRole>
 
 /** Media sort enums */
-export type MediaSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'TITLE_ROMAJI'
-  | 'TITLE_ROMAJI_DESC'
-  | 'TITLE_ENGLISH'
-  | 'TITLE_ENGLISH_DESC'
-  | 'TITLE_NATIVE'
-  | 'TITLE_NATIVE_DESC'
-  | 'TYPE'
-  | 'TYPE_DESC'
-  | 'FORMAT'
-  | 'FORMAT_DESC'
-  | 'START_DATE'
-  | 'START_DATE_DESC'
-  | 'END_DATE'
-  | 'END_DATE_DESC'
-  | 'SCORE'
-  | 'SCORE_DESC'
-  | 'POPULARITY'
-  | 'POPULARITY_DESC'
-  | 'TRENDING'
-  | 'TRENDING_DESC'
-  | 'EPISODES'
-  | 'EPISODES_DESC'
-  | 'DURATION'
-  | 'DURATION_DESC'
-  | 'STATUS'
-  | 'STATUS_DESC'
-  | 'CHAPTERS'
-  | 'CHAPTERS_DESC'
-  | 'VOLUMES'
-  | 'VOLUMES_DESC'
-  | 'UPDATED_AT'
-  | 'UPDATED_AT_DESC'
-  | 'SEARCH_MATCH'
-  | 'FAVOURITES'
-  | 'FAVOURITES_DESC'
+export type MediaSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'TITLE_ROMAJI'
+    | 'TITLE_ROMAJI_DESC'
+    | 'TITLE_ENGLISH'
+    | 'TITLE_ENGLISH_DESC'
+    | 'TITLE_NATIVE'
+    | 'TITLE_NATIVE_DESC'
+    | 'TYPE'
+    | 'TYPE_DESC'
+    | 'FORMAT'
+    | 'FORMAT_DESC'
+    | 'START_DATE'
+    | 'START_DATE_DESC'
+    | 'END_DATE'
+    | 'END_DATE_DESC'
+    | 'SCORE'
+    | 'SCORE_DESC'
+    | 'POPULARITY'
+    | 'POPULARITY_DESC'
+    | 'TRENDING'
+    | 'TRENDING_DESC'
+    | 'EPISODES'
+    | 'EPISODES_DESC'
+    | 'DURATION'
+    | 'DURATION_DESC'
+    | 'STATUS'
+    | 'STATUS_DESC'
+    | 'CHAPTERS'
+    | 'CHAPTERS_DESC'
+    | 'VOLUMES'
+    | 'VOLUMES_DESC'
+    | 'UPDATED_AT'
+    | 'UPDATED_AT_DESC'
+    | 'SEARCH_MATCH'
+    | 'FAVOURITES'
+    | 'FAVOURITES_DESC'
 type Enum_MediaSort = EnumType<'MediaSort', MediaSort>
 
 /** The primary language of the voice actor */
-export type StaffLanguage =
+export type StaffLanguage
   /** Japanese */
-  | 'JAPANESE'
+  = | 'JAPANESE'
   /** English */
-  | 'ENGLISH'
+    | 'ENGLISH'
   /** Korean */
-  | 'KOREAN'
+    | 'KOREAN'
   /** Italian */
-  | 'ITALIAN'
+    | 'ITALIAN'
   /** Spanish */
-  | 'SPANISH'
+    | 'SPANISH'
   /** Portuguese */
-  | 'PORTUGUESE'
+    | 'PORTUGUESE'
   /** French */
-  | 'FRENCH'
+    | 'FRENCH'
   /** German */
-  | 'GERMAN'
+    | 'GERMAN'
   /** Hebrew */
-  | 'HEBREW'
+    | 'HEBREW'
   /** Hungarian */
-  | 'HUNGARIAN'
+    | 'HUNGARIAN'
 type Enum_StaffLanguage = EnumType<'StaffLanguage', StaffLanguage>
 
 /** Staff sort enums */
-export type StaffSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'ROLE'
-  | 'ROLE_DESC'
-  | 'LANGUAGE'
-  | 'LANGUAGE_DESC'
-  | 'SEARCH_MATCH'
-  | 'FAVOURITES'
-  | 'FAVOURITES_DESC'
+export type StaffSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'ROLE'
+    | 'ROLE_DESC'
+    | 'LANGUAGE'
+    | 'LANGUAGE_DESC'
+    | 'SEARCH_MATCH'
+    | 'FAVOURITES'
+    | 'FAVOURITES_DESC'
   /** Order manually decided by moderators */
-  | 'RELEVANCE'
+    | 'RELEVANCE'
 type Enum_StaffSort = EnumType<'StaffSort', StaffSort>
 
 /** Studio sort enums */
-export type StudioSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'NAME'
-  | 'NAME_DESC'
-  | 'SEARCH_MATCH'
-  | 'FAVOURITES'
-  | 'FAVOURITES_DESC'
+export type StudioSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'NAME'
+    | 'NAME_DESC'
+    | 'SEARCH_MATCH'
+    | 'FAVOURITES'
+    | 'FAVOURITES_DESC'
 type Enum_StudioSort = EnumType<'StudioSort', StudioSort>
 
 /** Media trend sort enums */
-export type MediaTrendSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'MEDIA_ID'
-  | 'MEDIA_ID_DESC'
-  | 'DATE'
-  | 'DATE_DESC'
-  | 'SCORE'
-  | 'SCORE_DESC'
-  | 'POPULARITY'
-  | 'POPULARITY_DESC'
-  | 'TRENDING'
-  | 'TRENDING_DESC'
-  | 'EPISODE'
-  | 'EPISODE_DESC'
+export type MediaTrendSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'MEDIA_ID'
+    | 'MEDIA_ID_DESC'
+    | 'DATE'
+    | 'DATE_DESC'
+    | 'SCORE'
+    | 'SCORE_DESC'
+    | 'POPULARITY'
+    | 'POPULARITY_DESC'
+    | 'TRENDING'
+    | 'TRENDING_DESC'
+    | 'EPISODE'
+    | 'EPISODE_DESC'
 type Enum_MediaTrendSort = EnumType<'MediaTrendSort', MediaTrendSort>
 
-export type ExternalLinkType =
-  | 'INFO'
-  | 'STREAMING'
-  | 'SOCIAL'
+export type ExternalLinkType
+  = | 'INFO'
+    | 'STREAMING'
+    | 'SOCIAL'
 type Enum_ExternalLinkType = EnumType<'ExternalLinkType', ExternalLinkType>
 
 /** The type of ranking */
-export type MediaRankType =
+export type MediaRankType
   /** Ranking is based on the media's ratings/score */
-  | 'RATED'
+  = | 'RATED'
   /** Ranking is based on the media's popularity */
-  | 'POPULAR'
+    | 'POPULAR'
 type Enum_MediaRankType = EnumType<'MediaRankType', MediaRankType>
 
 /** Review sort enums */
-export type ReviewSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'SCORE'
-  | 'SCORE_DESC'
-  | 'RATING'
-  | 'RATING_DESC'
+export type ReviewSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'SCORE'
+    | 'SCORE_DESC'
+    | 'RATING'
+    | 'RATING_DESC'
   /** @deprecated Use ID instead */
-  | 'CREATED_AT'
+    | 'CREATED_AT'
   /** @deprecated Use ID_DESC instead */
-  | 'CREATED_AT_DESC'
-  | 'UPDATED_AT'
-  | 'UPDATED_AT_DESC'
+    | 'CREATED_AT_DESC'
+    | 'UPDATED_AT'
+    | 'UPDATED_AT_DESC'
 type Enum_ReviewSort = EnumType<'ReviewSort', ReviewSort>
 
 /** Review rating enums */
-export type ReviewRating =
-  | 'NO_VOTE'
-  | 'UP_VOTE'
-  | 'DOWN_VOTE'
+export type ReviewRating
+  = | 'NO_VOTE'
+    | 'UP_VOTE'
+    | 'DOWN_VOTE'
 type Enum_ReviewRating = EnumType<'ReviewRating', ReviewRating>
 
 /** Recommendation sort enums */
-export type RecommendationSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'RATING'
-  | 'RATING_DESC'
+export type RecommendationSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'RATING'
+    | 'RATING_DESC'
 type Enum_RecommendationSort = EnumType<'RecommendationSort', RecommendationSort>
 
 /** Recommendation rating enums */
-export type RecommendationRating =
-  | 'NO_RATING'
-  | 'RATE_UP'
-  | 'RATE_DOWN'
+export type RecommendationRating
+  = | 'NO_RATING'
+    | 'RATE_UP'
+    | 'RATE_DOWN'
 type Enum_RecommendationRating = EnumType<'RecommendationRating', RecommendationRating>
 
 /** Type of relation media has to its parent. */
-export type MediaRelation =
+export type MediaRelation
   /** An adaption of this media into a different format */
-  | 'ADAPTATION'
+  = | 'ADAPTATION'
   /** Released before the relation */
-  | 'PREQUEL'
+    | 'PREQUEL'
   /** Released after the relation */
-  | 'SEQUEL'
+    | 'SEQUEL'
   /** The media a side story is from */
-  | 'PARENT'
+    | 'PARENT'
   /** A side story of the parent media */
-  | 'SIDE_STORY'
+    | 'SIDE_STORY'
   /** Shares at least 1 character */
-  | 'CHARACTER'
+    | 'CHARACTER'
   /** A shortened and summarized version */
-  | 'SUMMARY'
+    | 'SUMMARY'
   /** An alternative version of the same media */
-  | 'ALTERNATIVE'
+    | 'ALTERNATIVE'
   /** An alternative version of the media with a different primary focus */
-  | 'SPIN_OFF'
+    | 'SPIN_OFF'
   /** Other */
-  | 'OTHER'
+    | 'OTHER'
   /** Version 2 only. The source material the media was adapted from */
-  | 'SOURCE'
+    | 'SOURCE'
   /** Version 2 only. */
-  | 'COMPILATION'
+    | 'COMPILATION'
   /** Version 2 only. */
-  | 'CONTAINS'
+    | 'CONTAINS'
 type Enum_MediaRelation = EnumType<'MediaRelation', MediaRelation>
 
 /** User statistics sort enum */
-export type UserStatisticsSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'COUNT'
-  | 'COUNT_DESC'
-  | 'PROGRESS'
-  | 'PROGRESS_DESC'
-  | 'MEAN_SCORE'
-  | 'MEAN_SCORE_DESC'
+export type UserStatisticsSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'COUNT'
+    | 'COUNT_DESC'
+    | 'PROGRESS'
+    | 'PROGRESS_DESC'
+    | 'MEAN_SCORE'
+    | 'MEAN_SCORE_DESC'
 type Enum_UserStatisticsSort = EnumType<'UserStatisticsSort', UserStatisticsSort>
 
 /** Mod role enums */
-export type ModRole =
+export type ModRole
   /** An AniList administrator */
-  | 'ADMIN'
+  = | 'ADMIN'
   /** A head developer of AniList */
-  | 'LEAD_DEVELOPER'
+    | 'LEAD_DEVELOPER'
   /** An AniList developer */
-  | 'DEVELOPER'
+    | 'DEVELOPER'
   /** A lead community moderator */
-  | 'LEAD_COMMUNITY'
+    | 'LEAD_COMMUNITY'
   /** A community moderator */
-  | 'COMMUNITY'
+    | 'COMMUNITY'
   /** A discord community moderator */
-  | 'DISCORD_COMMUNITY'
+    | 'DISCORD_COMMUNITY'
   /** A lead anime data moderator */
-  | 'LEAD_ANIME_DATA'
+    | 'LEAD_ANIME_DATA'
   /** An anime data moderator */
-  | 'ANIME_DATA'
+    | 'ANIME_DATA'
   /** A lead manga data moderator */
-  | 'LEAD_MANGA_DATA'
+    | 'LEAD_MANGA_DATA'
   /** A manga data moderator */
-  | 'MANGA_DATA'
+    | 'MANGA_DATA'
   /** A lead social media moderator */
-  | 'LEAD_SOCIAL_MEDIA'
+    | 'LEAD_SOCIAL_MEDIA'
   /** A social media moderator */
-  | 'SOCIAL_MEDIA'
+    | 'SOCIAL_MEDIA'
   /** A retired moderator */
-  | 'RETIRED'
+    | 'RETIRED'
   /** A character data moderator */
-  | 'CHARACTER_DATA'
+    | 'CHARACTER_DATA'
   /** A staff data moderator */
-  | 'STAFF_DATA'
+    | 'STAFF_DATA'
 type Enum_ModRole = EnumType<'ModRole', ModRole>
 
 /** Media list sort enums */
-export type MediaListSort =
-  | 'MEDIA_ID'
-  | 'MEDIA_ID_DESC'
-  | 'SCORE'
-  | 'SCORE_DESC'
-  | 'STATUS'
-  | 'STATUS_DESC'
-  | 'PROGRESS'
-  | 'PROGRESS_DESC'
-  | 'PROGRESS_VOLUMES'
-  | 'PROGRESS_VOLUMES_DESC'
-  | 'REPEAT'
-  | 'REPEAT_DESC'
-  | 'PRIORITY'
-  | 'PRIORITY_DESC'
-  | 'STARTED_ON'
-  | 'STARTED_ON_DESC'
-  | 'FINISHED_ON'
-  | 'FINISHED_ON_DESC'
-  | 'ADDED_TIME'
-  | 'ADDED_TIME_DESC'
-  | 'UPDATED_TIME'
-  | 'UPDATED_TIME_DESC'
-  | 'MEDIA_TITLE_ROMAJI'
-  | 'MEDIA_TITLE_ROMAJI_DESC'
-  | 'MEDIA_TITLE_ENGLISH'
-  | 'MEDIA_TITLE_ENGLISH_DESC'
-  | 'MEDIA_TITLE_NATIVE'
-  | 'MEDIA_TITLE_NATIVE_DESC'
-  | 'MEDIA_POPULARITY'
-  | 'MEDIA_POPULARITY_DESC'
+export type MediaListSort
+  = | 'MEDIA_ID'
+    | 'MEDIA_ID_DESC'
+    | 'SCORE'
+    | 'SCORE_DESC'
+    | 'STATUS'
+    | 'STATUS_DESC'
+    | 'PROGRESS'
+    | 'PROGRESS_DESC'
+    | 'PROGRESS_VOLUMES'
+    | 'PROGRESS_VOLUMES_DESC'
+    | 'REPEAT'
+    | 'REPEAT_DESC'
+    | 'PRIORITY'
+    | 'PRIORITY_DESC'
+    | 'STARTED_ON'
+    | 'STARTED_ON_DESC'
+    | 'FINISHED_ON'
+    | 'FINISHED_ON_DESC'
+    | 'ADDED_TIME'
+    | 'ADDED_TIME_DESC'
+    | 'UPDATED_TIME'
+    | 'UPDATED_TIME_DESC'
+    | 'MEDIA_TITLE_ROMAJI'
+    | 'MEDIA_TITLE_ROMAJI_DESC'
+    | 'MEDIA_TITLE_ENGLISH'
+    | 'MEDIA_TITLE_ENGLISH_DESC'
+    | 'MEDIA_TITLE_NATIVE'
+    | 'MEDIA_TITLE_NATIVE_DESC'
+    | 'MEDIA_POPULARITY'
+    | 'MEDIA_POPULARITY_DESC'
 type Enum_MediaListSort = EnumType<'MediaListSort', MediaListSort>
 
 /** Airing schedule sort enums */
-export type AiringSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'MEDIA_ID'
-  | 'MEDIA_ID_DESC'
-  | 'TIME'
-  | 'TIME_DESC'
-  | 'EPISODE'
-  | 'EPISODE_DESC'
+export type AiringSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'MEDIA_ID'
+    | 'MEDIA_ID_DESC'
+    | 'TIME'
+    | 'TIME_DESC'
+    | 'EPISODE'
+    | 'EPISODE_DESC'
 type Enum_AiringSort = EnumType<'AiringSort', AiringSort>
 
 /** Activity type enum. */
-export type ActivityType =
+export type ActivityType
   /** A text activity */
-  | 'TEXT'
+  = | 'TEXT'
   /** A anime list update activity */
-  | 'ANIME_LIST'
+    | 'ANIME_LIST'
   /** A manga list update activity */
-  | 'MANGA_LIST'
+    | 'MANGA_LIST'
   /** A text message activity sent to another user */
-  | 'MESSAGE'
+    | 'MESSAGE'
   /** Anime & Manga list update, only used in query arguments */
-  | 'MEDIA_LIST'
+    | 'MEDIA_LIST'
 type Enum_ActivityType = EnumType<'ActivityType', ActivityType>
 
 /** Activity sort enums */
-export type ActivitySort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'PINNED'
+export type ActivitySort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'PINNED'
 type Enum_ActivitySort = EnumType<'ActivitySort', ActivitySort>
 
 /** Thread sort enums */
-export type ThreadSort =
-  | 'ID'
-  | 'ID_DESC'
-  | 'TITLE'
-  | 'TITLE_DESC'
+export type ThreadSort
+  = | 'ID'
+    | 'ID_DESC'
+    | 'TITLE'
+    | 'TITLE_DESC'
   /** @deprecated Use ID instead */
-  | 'CREATED_AT'
+    | 'CREATED_AT'
   /** @deprecated Use ID_DESC instead */
-  | 'CREATED_AT_DESC'
-  | 'UPDATED_AT'
-  | 'UPDATED_AT_DESC'
-  | 'REPLIED_AT'
-  | 'REPLIED_AT_DESC'
-  | 'REPLY_COUNT'
-  | 'REPLY_COUNT_DESC'
-  | 'VIEW_COUNT'
-  | 'VIEW_COUNT_DESC'
-  | 'IS_STICKY'
-  | 'SEARCH_MATCH'
+    | 'CREATED_AT_DESC'
+    | 'UPDATED_AT'
+    | 'UPDATED_AT_DESC'
+    | 'REPLIED_AT'
+    | 'REPLIED_AT_DESC'
+    | 'REPLY_COUNT'
+    | 'REPLY_COUNT_DESC'
+    | 'VIEW_COUNT'
+    | 'VIEW_COUNT_DESC'
+    | 'IS_STICKY'
+    | 'SEARCH_MATCH'
 type Enum_ThreadSort = EnumType<'ThreadSort', ThreadSort>
 
 /** Thread comments sort enums */
-export type ThreadCommentSort =
-  | 'ID'
-  | 'ID_DESC'
+export type ThreadCommentSort
+  = | 'ID'
+    | 'ID_DESC'
 type Enum_ThreadCommentSort = EnumType<'ThreadCommentSort', ThreadCommentSort>
 
 /** Types that can be liked */
-export type LikeableType =
-  | 'THREAD'
-  | 'THREAD_COMMENT'
-  | 'ACTIVITY'
-  | 'ACTIVITY_REPLY'
+export type LikeableType
+  = | 'THREAD'
+    | 'THREAD_COMMENT'
+    | 'ACTIVITY'
+    | 'ACTIVITY_REPLY'
 type Enum_LikeableType = EnumType<'LikeableType', LikeableType>
 
 /** Site trend sort enums */
-export type SiteTrendSort =
-  | 'DATE'
-  | 'DATE_DESC'
-  | 'COUNT'
-  | 'COUNT_DESC'
-  | 'CHANGE'
-  | 'CHANGE_DESC'
+export type SiteTrendSort
+  = | 'DATE'
+    | 'DATE_DESC'
+    | 'COUNT'
+    | 'COUNT_DESC'
+    | 'CHANGE'
+    | 'CHANGE_DESC'
 type Enum_SiteTrendSort = EnumType<'SiteTrendSort', SiteTrendSort>
 
-export type ExternalLinkMediaType =
-  | 'ANIME'
-  | 'MANGA'
-  | 'STAFF'
+export type ExternalLinkMediaType
+  = | 'ANIME'
+    | 'MANGA'
+    | 'STAFF'
 type Enum_ExternalLinkMediaType = EnumType<'ExternalLinkMediaType', ExternalLinkMediaType>
 
 /** Submission status */
-export type SubmissionStatus =
-  | 'PENDING'
-  | 'REJECTED'
-  | 'PARTIALLY_ACCEPTED'
-  | 'ACCEPTED'
+export type SubmissionStatus
+  = | 'PENDING'
+    | 'REJECTED'
+    | 'PARTIALLY_ACCEPTED'
+    | 'ACCEPTED'
 type Enum_SubmissionStatus = EnumType<'SubmissionStatus', SubmissionStatus>
 
 /** Submission sort enums */
-export type SubmissionSort =
-  | 'ID'
-  | 'ID_DESC'
+export type SubmissionSort
+  = | 'ID'
+    | 'ID_DESC'
 type Enum_SubmissionSort = EnumType<'SubmissionSort', SubmissionSort>
 
 /** Revision history actions */
-export type RevisionHistoryAction =
-  | 'CREATE'
-  | 'EDIT'
+export type RevisionHistoryAction
+  = | 'CREATE'
+    | 'EDIT'
 type Enum_RevisionHistoryAction = EnumType<'RevisionHistoryAction', RevisionHistoryAction>
 
-export type ModActionType =
-  | 'NOTE'
-  | 'BAN'
-  | 'DELETE'
-  | 'EDIT'
-  | 'EXPIRE'
-  | 'REPORT'
-  | 'RESET'
-  | 'ANON'
+export type ModActionType
+  = | 'NOTE'
+    | 'BAN'
+    | 'DELETE'
+    | 'EDIT'
+    | 'EXPIRE'
+    | 'REPORT'
+    | 'RESET'
+    | 'ANON'
 type Enum_ModActionType = EnumType<'ModActionType', ModActionType>
 
 /** Notification option input */
