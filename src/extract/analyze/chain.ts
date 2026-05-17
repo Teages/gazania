@@ -48,6 +48,22 @@ function hasGazaniaMarker(
   return !!checker.getPropertyOfType(type, '~isGazania')
 }
 
+export function getGazaniaSchemaHash(
+  checker: import('typescript').TypeChecker,
+  type: import('typescript').Type,
+): string | undefined {
+  const hashProp = checker.getPropertyOfType(type, '~schemaHash')
+  if (!hashProp) {
+    return undefined
+  }
+  let hashType = checker.getTypeOfSymbol(hashProp)
+  hashType = unwrapOptional(checker, hashType)
+  if (hashType.isStringLiteral()) {
+    return hashType.value
+  }
+  return undefined
+}
+
 function isGazaniaNode(
   node: Node,
   ctx: TypeContext,
@@ -318,12 +334,25 @@ export function analyzeBuilderChain(
     return null
   }
 
+  let schemaHash: string | undefined
+  if (typeCtx?.nodeMap) {
+    let root: Node = callee.object
+    while (root.type === 'CallExpression' && root.callee.type === 'MemberExpression') {
+      root = root.callee.object
+    }
+    const tsNode = typeCtx.nodeMap.get(root)
+    if (tsNode) {
+      schemaHash = getGazaniaSchemaHash(typeCtx.checker, typeCtx.checker.getTypeAtLocation(tsNode))
+    }
+  }
+
   return {
     type,
     name: name ?? '',
     typeName,
     variableDefs,
     directives: directives.length > 0 ? directives : undefined,
+    schemaHash,
     selectCallback,
     callbackParams,
     loc: {

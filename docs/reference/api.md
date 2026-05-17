@@ -10,7 +10,7 @@ Creates a typed GraphQL query builder from a schema definition.
 
 ```ts
 function createGazania(): UnknownSchema
-function createGazania<T extends DefineSchema<any>>(schema: T): TypedGazania<T>
+function createGazania<T extends DefineSchema<any, any>>(schema: T): TypedGazania<T>
 function createGazania<T extends keyof Schemas>(url: T): TypedGazania<Schemas[T]>
 function createGazania<T extends string>(url: T): UnknownSchema
 ```
@@ -19,7 +19,7 @@ function createGazania<T extends string>(url: T): UnknownSchema
 
 | Parameter | Type | Description |
 |---|---|---|
-| `schema` | `DefineSchema<any>` | A schema type definition (pass as `{} as Schema`) |
+| `schema` | `DefineSchema<any, any>` | A schema type definition (pass as `{} as Schema`) |
 | `url` | `string` | A registered schema URL |
 
 ### Returns
@@ -531,6 +531,22 @@ declare module 'gazania' {
     'https://api.example.com/graphql': MySchema
   }
 }
+```
+
+### `DefineSchema<Namespace, SchemaHash>`
+
+The type emitted by `gazania generate` to represent a GraphQL schema in the TypeScript type system.
+
+- **`Namespace`** — Maps GraphQL type names to their TypeScript representations.
+- **`SchemaHash`** — A schema identity string injected by codegen. This allows Gazania to distinguish operations from different schemas in projects that use multiple schemas. The second parameter has a default value and does not need to be specified manually.
+
+```ts
+// Generated output (simplified):
+export type Schema = DefineSchema<{
+  Query: Type_Query
+  User: Type_User
+  // ...
+}, 'sha256:...'>
 ```
 
 ---

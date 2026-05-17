@@ -17,6 +17,7 @@ export interface ManifestEntry {
   body: string
   hash: string
   locs: SourceLoc[]
+  schemaHash?: string
 }
 
 export type FragmentMode = 'fragment' | 'partial' | 'section'
@@ -83,6 +84,7 @@ export function addDocumentToManifest(
   hash: HashFn,
   loc: SourceLoc,
   mode?: FragmentMode,
+  schemaHash?: string,
 ): void {
   const body = print(doc)
   const hashStr = hash(body)
@@ -94,29 +96,29 @@ export function addDocumentToManifest(
     let anonKey = `Anonymous_${hashStr.slice(hashStart, hashStart + HASH_PREFIX_LENGTH)}`
     const existing = manifest.operations[anonKey]
     if (existing) {
-      if (existing.hash === hashStr) {
+      if (existing.hash === hashStr && existing.schemaHash === schemaHash) {
         existing.locs.push(loc)
         return
       }
-      // Hash collision — extend prefix until unique
+      // Hash collision or different schema — extend prefix until unique
       for (let len = HASH_PREFIX_LENGTH + 1; len <= hashStr.length - hashStart; len++) {
         anonKey = `Anonymous_${hashStr.slice(hashStart, hashStart + len)}`
         if (!manifest.operations[anonKey]) {
           break
         }
-        if (manifest.operations[anonKey]!.hash === hashStr) {
+        if (manifest.operations[anonKey]!.hash === hashStr && manifest.operations[anonKey]!.schemaHash === schemaHash) {
           manifest.operations[anonKey]!.locs.push(loc)
           return
         }
       }
     }
-    manifest.operations[anonKey] = { body, hash: hashStr, locs: [loc] }
+    manifest.operations[anonKey] = { body, hash: hashStr, locs: [loc], schemaHash }
   }
   else if (type === 'fragment') {
     const fragmentMode: FragmentMode = mode ?? 'fragment'
     const existing = manifest.fragments[name]
     if (existing) {
-      if (existing.hash === hashStr) {
+      if (existing.hash === hashStr && existing.schemaHash === schemaHash) {
         existing.locs.push({ ...loc, fragmentMode })
         return
       }
@@ -124,12 +126,12 @@ export function addDocumentToManifest(
         `Duplicate fragment name "${name}": first defined at ${existing.locs[0]!.start.line}:${existing.locs[0]!.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.fragments[name] = { body, hash: hashStr, locs: [{ ...loc, fragmentMode }] }
+    manifest.fragments[name] = { body, hash: hashStr, locs: [{ ...loc, fragmentMode }], schemaHash }
   }
   else {
     const existing = manifest.operations[name]
     if (existing) {
-      if (existing.hash === hashStr) {
+      if (existing.hash === hashStr && existing.schemaHash === schemaHash) {
         existing.locs.push(loc)
         return
       }
@@ -137,6 +139,6 @@ export function addDocumentToManifest(
         `Duplicate operation name "${name}": first defined at ${existing.locs[0]!.start.line}:${existing.locs[0]!.start.column}, redefined at ${loc.start.line}:${loc.start.column}`,
       )
     }
-    manifest.operations[name] = { body, hash: hashStr, locs: [loc] }
+    manifest.operations[name] = { body, hash: hashStr, locs: [loc], schemaHash }
   }
 }

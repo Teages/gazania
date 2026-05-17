@@ -11,7 +11,7 @@ export type { CreateHostFn, ExtractFS } from './ts-program'
 export type { TypeCheckerProgram } from './ts-program'
 export { parseTSConfig } from './ts-program'
 export type { ValidationError, ValidationWarning } from './validate'
-export { validateManifest } from './validate'
+export { validateManifest, validateManifestBySchema } from './validate'
 
 export interface ExtractLogger {
   debug: (...args: any[]) => void

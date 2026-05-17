@@ -22,10 +22,34 @@ export type GetterSource = () => string | GraphQLSchema | Promise<string | Graph
 
 export type SchemaLoader = string | UrlSource | SdlSource | JsonSource | GetterSource
 
-export interface Config {
+export interface SchemaConfig {
   schema: SchemaLoader
   output: string
   scalars?: Record<string, string | { input: string, output: string }>
+}
+
+export interface ExtractConfig {
+  /** Directory to scan for source files. Default: `'src'` */
+  dir?: string
+  /** Output manifest file path. Default: `null` (stdout). Use `'-'` for explicit stdout. */
+  output?: string | null
+  /** File glob pattern to include. Default: `'**\/*.{ts,tsx,js,jsx,vue,svelte}'` */
+  include?: string
+  /** Hash algorithm for operation identifiers. Default: `'sha256'` */
+  algorithm?: string
+  /** Path to tsconfig.json. Default: `'tsconfig.json'` (relative to config file) */
+  tsconfig?: string
+  /** Treat validation warnings (deprecated fields) as errors. Default: `false` */
+  strict?: boolean
+  /** Suppress manifest output. Default: `false` */
+  noEmit?: boolean
+  /** Categories of extraction errors to ignore. */
+  ignoreCategories?: import('../extract/manifest').SkippedExtractionCategory[]
+}
+
+export interface Config {
+  schemas: SchemaConfig[]
+  extract?: ExtractConfig
 }
 
 export type UserConfig = Config | Config[]
@@ -37,6 +61,20 @@ export function defineConfig(config: UserConfig): UserConfig {
 }
 
 const CONFIG_CANDIDATES = ['gazania.config.ts', 'gazania.config.js']
+
+function isValidConfigEntry(value: unknown): value is Config {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  if (!('schemas' in value) || !Array.isArray((value as Config).schemas) || (value as Config).schemas.length === 0) {
+    return false
+  }
+  return (value as Config).schemas.every(
+    s => typeof s === 'object' && s !== null
+      && 'schema' in s && s.schema != null
+      && 'output' in s && typeof s.output === 'string' && s.output.trim() !== '',
+  )
+}
 
 /**
  * Load gazania config using native import().
@@ -79,17 +117,17 @@ export async function loadConfig(cwd: string = getCwd()): Promise<Config[] | und
     }
 
     if (Array.isArray(mod.default)) {
-      if (mod.default.length === 0 || !mod.default.every(item => typeof item === 'object' && item !== null && 'schema' in item && 'output' in item)) {
+      if (mod.default.length === 0 || !mod.default.every(isValidConfigEntry)) {
         throw new Error(
-          `Config file "${filePath}" exports an invalid config array. Each entry must have "schema" and "output" fields.`,
+          `Config file "${filePath}" exports an invalid config array. Each entry must have a "schemas" field with at least one schema entry containing "schema" and "output".`,
         )
       }
       return mod.default as Config[]
     }
 
-    if (!('schema' in mod.default) || !('output' in mod.default)) {
+    if (!isValidConfigEntry(mod.default)) {
       throw new Error(
-        `Config file "${filePath}" must export a default config object or array. Use defineConfig() from 'gazania/config'.`,
+        `Config file "${filePath}" must have a "schemas" field with at least one schema entry. Use defineConfig() from 'gazania/config'.`,
       )
     }
 
@@ -111,23 +149,31 @@ if (import.meta.vitest) {
   describe('defineConfig', () => {
     it('returns single config as-is', () => {
       const config = defineConfig({
-        schema: 'https://api.example.com/graphql',
-        output: './schema.d.ts',
-        scalars: { DateTime: 'string' },
+        schemas: [{ schema: 'https://api.example.com/graphql', output: './schema.d.ts', scalars: { DateTime: 'string' } }],
       })
-      expect(config.schema).toBe('https://api.example.com/graphql')
-      expect(config.output).toBe('./schema.d.ts')
+      expect(config.schemas).toHaveLength(1)
+      expect(config.schemas[0]!.schema).toBe('https://api.example.com/graphql')
+      expect(config.schemas[0]!.output).toBe('./schema.d.ts')
+    })
+
+    it('returns config with extract options as-is', () => {
+      const config = defineConfig({
+        schemas: [{ schema: 'https://api.example.com/graphql', output: './schema.d.ts' }],
+        extract: { dir: 'lib', algorithm: 'sha512', tsconfig: 'tsconfig.build.json' },
+      })
+      expect(config.extract?.dir).toBe('lib')
+      expect(config.extract?.algorithm).toBe('sha512')
     })
 
     it('returns config array as-is', () => {
       const configs = defineConfig([
-        { schema: 'https://api.example.com/graphql', output: './schema-a.d.ts' },
-        { schema: { sdl: 'type Query { noop: String }' }, output: './schema-b.d.ts' },
+        { schemas: [{ schema: 'https://api.example.com/graphql', output: './schema-a.d.ts' }] },
+        { schemas: [{ schema: { sdl: 'type Query { noop: String }' }, output: './schema-b.d.ts' }] },
       ])
       expect(Array.isArray(configs)).toBe(true)
       expect(configs).toHaveLength(2)
-      expect(configs[0]!.output).toBe('./schema-a.d.ts')
-      expect(configs[1]!.output).toBe('./schema-b.d.ts')
+      expect(configs[0]!.schemas[0]!.output).toBe('./schema-a.d.ts')
+      expect(configs[1]!.schemas[0]!.output).toBe('./schema-b.d.ts')
     })
   })
 
@@ -151,35 +197,78 @@ if (import.meta.vitest) {
     it('loads single config as a one-element array', async () => {
       await writeFile(
         join(dir, 'gazania.config.js'),
-        `export default { schema: { sdl: '${SIMPLE_SDL}' }, output: './out.ts' }`,
+        `export default { schemas: [{ schema: { sdl: '${SIMPLE_SDL}' }, output: './out.ts' }] }`,
       )
       const result = await loadConfig(dir)
       expect(Array.isArray(result)).toBe(true)
       expect(result).toHaveLength(1)
-      expect(result![0]!.output).toBe('./out.ts')
+      expect(result![0]!.schemas[0]!.output).toBe('./out.ts')
+    })
+
+    it('loads config with extract options', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { schemas: [{ schema: { sdl: '${SIMPLE_SDL}' }, output: './out.ts' }], extract: { dir: 'lib', tsconfig: 'tsconfig.build.json' } }`,
+      )
+      const result = await loadConfig(dir)
+      expect(result).toHaveLength(1)
+      expect(result![0]!.extract?.dir).toBe('lib')
+      expect(result![0]!.extract?.tsconfig).toBe('tsconfig.build.json')
     })
 
     it('loads array config as-is', async () => {
       await writeFile(
         join(dir, 'gazania.config.js'),
         `export default [
-        { schema: { sdl: 'type Query { a: String }' }, output: './out-a.ts' },
-        { schema: { sdl: 'type Query { b: String }' }, output: './out-b.ts' },
+        { schemas: [{ schema: { sdl: 'type Query { a: String }' }, output: './out-a.ts' }] },
+        { schemas: [{ schema: { sdl: 'type Query { b: String }' }, output: './out-b.ts' }] },
       ]`,
       )
       const result = await loadConfig(dir)
       expect(Array.isArray(result)).toBe(true)
       expect(result).toHaveLength(2)
-      expect(result![0]!.output).toBe('./out-a.ts')
-      expect(result![1]!.output).toBe('./out-b.ts')
+      expect(result![0]!.schemas[0]!.output).toBe('./out-a.ts')
+      expect(result![1]!.schemas[0]!.output).toBe('./out-b.ts')
     })
 
-    it('throws when array entries are missing required fields', async () => {
+    it('throws when config is missing schemas', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { output: './out.ts' }`,
+      )
+      await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
+    })
+
+    it('throws when schemas array is empty', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { schemas: [] }`,
+      )
+      await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
+    })
+
+    it('throws when array entries are missing schemas', async () => {
       await writeFile(
         join(dir, 'gazania.config.js'),
         `export default [{ output: './out.ts' }]`,
       )
       await expect(loadConfig(dir)).rejects.toThrow('invalid config array')
+    })
+
+    it('throws when schema entry has empty output', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { schemas: [{ schema: { sdl: '${SIMPLE_SDL}' }, output: '' }] }`,
+      )
+      await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
+    })
+
+    it('throws when schema entry has null schema', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { schemas: [{ schema: null, output: './out.ts' }] }`,
+      )
+      await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
     })
   })
 }

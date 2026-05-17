@@ -8,7 +8,7 @@ import type { Expand } from './utils'
 import type { AnyVariables, PrepareVariables, RequireVariables, VariablesDefinition } from './variable'
 
 export type OperationTypeObject<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   Type extends string,
 > = Schema extends DefineSchema<infer Namespace>
   ? Type extends keyof Namespace
@@ -17,7 +17,7 @@ export type OperationTypeObject<
   : never
 
 export interface TypedOperationBuilderWithoutVars<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   OpType extends BaseObject<any, any, any>,
 > {
   vars: <const V extends VariablesDefinition<string>>(
@@ -37,7 +37,7 @@ export interface TypedOperationBuilderWithoutVars<
 }
 
 export interface TypedOperationBuilderWithVars<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   OpType extends BaseObject<any, any, any>,
   V extends VariablesDefinition<string>,
 > {
@@ -56,19 +56,19 @@ export interface TypedOperationBuilderWithVars<
   >
 }
 
-export type FragmentBase<Schema extends DefineSchema<any>>
+export type FragmentBase<Schema extends DefineSchema<any, any>>
   = Schema extends DefineSchema<infer Namespace>
     ? { [K in keyof Namespace as Namespace[K] extends BaseObject<any, any, any> ? K : never]: Namespace[K] }
     : never
 
-export interface TypedFragmentBuilder<Schema extends DefineSchema<any>> {
+export interface TypedFragmentBuilder<Schema extends DefineSchema<any, any>> {
   on: <Type extends string & keyof FragmentBase<Schema>>(
     typeName: Type,
   ) => TypedFragmentBuilderOnType<Schema, FragmentBase<Schema>[Type]>
 }
 
 export interface TypedFragmentBuilderOnType<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   T extends BaseObject<any, any, any>,
 > {
   vars: <const V extends VariablesDefinition<string>>(
@@ -88,7 +88,7 @@ export interface TypedFragmentBuilderOnType<
 }
 
 export interface TypedFragmentBuilderOnTypeWithVar<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   T extends BaseObject<any, any, any>,
   V extends VariablesDefinition<string>,
 > {
@@ -108,7 +108,7 @@ export interface TypedFragmentBuilderOnTypeWithVar<
 }
 
 export interface TypedPartialBuilder<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   Name extends string = string,
 > {
   on: <Type extends string & keyof FragmentBase<Schema>>(
@@ -117,7 +117,7 @@ export interface TypedPartialBuilder<
 }
 
 export interface TypedSectionBuilder<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   Name extends string = string,
 > {
   on: <Type extends string & keyof FragmentBase<Schema>>(
@@ -126,7 +126,7 @@ export interface TypedSectionBuilder<
 }
 
 export interface TypedSectionBuilderOnType<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   T extends BaseObject<any, any, any>,
   Name extends string = string,
 > {
@@ -144,7 +144,7 @@ export interface TypedSectionBuilderOnType<
 }
 
 export interface TypedSectionBuilderOnTypeWithVar<
-  _Schema extends DefineSchema<any>,
+  _Schema extends DefineSchema<any, any>,
   T extends BaseObject<any, any, any>,
   V extends VariablesDefinition<string>,
   Name extends string = string,
@@ -159,7 +159,7 @@ export interface TypedSectionBuilderOnTypeWithVar<
 }
 
 export interface TypedPartialBuilderOnType<
-  Schema extends DefineSchema<any>,
+  Schema extends DefineSchema<any, any>,
   T extends BaseObject<any, any, any>,
   Name extends string = string,
 > {
@@ -177,7 +177,7 @@ export interface TypedPartialBuilderOnType<
 }
 
 export interface TypedPartialBuilderOnTypeWithVar<
-  _Schema extends DefineSchema<any>,
+  _Schema extends DefineSchema<any, any>,
   T extends BaseObject<any, any, any>,
   V extends VariablesDefinition<string>,
   Name extends string = string,
@@ -269,8 +269,9 @@ export interface ReadFragmentFn {
   ): ReadonlyArray<RequireOperationPartialData<T> | null | undefined>
 }
 
-export interface TypedGazania<Schema extends DefineSchema<any>> {
+export interface TypedGazania<Schema extends DefineSchema<any, any>> {
   readonly '~isGazania': true
+  readonly '~schemaHash'?: Schema extends DefineSchema<any, infer H> ? H : undefined
   'query': (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>
   'mutation': (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>
   'subscription': (name?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>

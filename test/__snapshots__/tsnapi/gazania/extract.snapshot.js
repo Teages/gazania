@@ -5,4 +5,5 @@
 export { extract }
 export { parseTSConfig }
 export { validateManifest }
+export { validateManifestBySchema }
 // #endregion

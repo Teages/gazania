@@ -23,8 +23,10 @@ export interface BaseObject<
 
 export interface DefineSchema<
   Namespace extends Record<string, BaseType<any, any>>,
+  SchemaHash extends string = string,
 > {
-  __define__?: () => Namespace
+  '__define__'?: () => Namespace
+  readonly '~schemaHash'?: SchemaHash
 }
 
 export interface Input<

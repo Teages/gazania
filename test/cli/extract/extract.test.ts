@@ -142,28 +142,37 @@ describe('feature: skipped call diagnostics', () => {
       .toThrow('tsconfig is required')
   })
 
-  it('runExtract throws when tsconfig is not provided', async () => {
+  it('runExtract uses default tsconfig.json when not provided', async () => {
     const { join } = await import('node:path')
     const { mkdir, rm, writeFile } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
 
     const dir = join(tmpdir(), `gazania-e2e-warn-${randomUUID()}`)
     await mkdir(join(dir, 'src'), { recursive: true })
+    await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({
+      compilerOptions: {
+        target: 'esnext',
+        module: 'esnext',
+        moduleResolution: 'bundler',
+      },
+      include: ['src'],
+    }))
     await writeFile(
       join(dir, 'src', 'query.ts'),
-      `import { gazania } from 'gazania'\nconst doc = gazania.query('E2EFail').select($ => $.select([...e2eMissing({})]))`,
+      `import { gazania } from 'gazania'\nconst doc = gazania.query('E2EDefault').select($ => $.select(['id']))`,
     )
 
     try {
-      await expect(runExtract({
+      await runExtract({
         dir: 'src',
         output: 'manifest.json',
-        noEmit: false,
-        include: '**/*.{ts,tsx,js,jsx}',
-        algorithm: 'sha256',
-        silent: false,
+        silent: true,
         cwd: dir,
-      })).rejects.toThrow('tsconfig is required')
+      })
+
+      const { readFile: readFileTest } = await import('node:fs/promises')
+      const manifest = JSON.parse(await readFileTest(join(dir, 'manifest.json'), 'utf-8'))
+      expect(manifest.operations).toHaveProperty('E2EDefault')
     }
     finally {
       await rm(dir, { recursive: true, force: true })

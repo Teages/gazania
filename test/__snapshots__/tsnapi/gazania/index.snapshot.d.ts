@@ -12,8 +12,9 @@ export interface BaseType<Base extends string, Name extends string> {
   __base__?: () => Base;
   __name__?: () => Name;
 }
-export interface DefineSchema<Namespace extends Record<string, BaseType<any, any>>> {
-  __define__?: () => Namespace;
+export interface DefineSchema<Namespace extends Record<string, BaseType<any, any>>, SchemaHash extends string = string> {
+  '__define__'?: () => Namespace;
+  readonly '~schemaHash'?: SchemaHash;
 }
 export interface EnumType<Name extends string, Definition extends string> extends BaseScalar<Name, Definition, PackedEnum<Definition>> {
   __type__?: () => 'Enum';
@@ -54,8 +55,9 @@ export interface TypedDocumentNode<Result = Record<string, any>, Variables = Rec
   __apiType?: (_: Variables) => Result;
   __ensureTypesOfVariablesAndResultMatching?: (_: Variables) => Result;
 }
-export interface TypedGazania<Schema extends DefineSchema<any>> {
+export interface TypedGazania<Schema extends DefineSchema<any, any>> {
   readonly '~isGazania': true;
+  readonly '~schemaHash'?: Schema extends DefineSchema<any, infer H> ? H : undefined;
   'query': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>;
   'mutation': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>;
   'subscription': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>;

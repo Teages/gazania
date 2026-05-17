@@ -9,6 +9,7 @@ export interface GenerateConfig {
     output: string;
   }>;
   url?: string;
+  sourceHash?: string;
 }
 // #endregion
 

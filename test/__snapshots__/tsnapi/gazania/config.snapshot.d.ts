@@ -3,15 +3,29 @@
  */
 // #region Interfaces
 export interface Config {
+  schemas: SchemaConfig[];
+  extract?: ExtractConfig;
+}
+export interface ExtractConfig {
+  dir?: string;
+  output?: string | null;
+  include?: string;
+  algorithm?: string;
+  tsconfig?: string;
+  strict?: boolean;
+  noEmit?: boolean;
+  ignoreCategories?: SkippedExtractionCategory[];
+}
+export interface JsonSource {
+  json: string;
+}
+export interface SchemaConfig {
   schema: SchemaLoader;
   output: string;
   scalars?: Record<string, string | {
     input: string;
     output: string;
   }>;
-}
-export interface JsonSource {
-  json: string;
 }
 export interface SdlSource {
   sdl: string;
