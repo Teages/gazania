@@ -19,7 +19,9 @@ import { collectBuilderNamesForFile } from './type-aware-ids'
 import { CircularPartialError } from './types'
 
 function relativePath(basePath: string, file: string): string {
-  if (!basePath || !file.startsWith(basePath)) return file
+  if (!basePath || !file.startsWith(basePath)) {
+    return file
+  }
   const rel = file.slice(basePath.length)
   return rel.startsWith('/') || rel.startsWith('\\') ? rel.slice(1) : rel
 }
