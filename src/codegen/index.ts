@@ -85,5 +85,53 @@ if (import.meta.vitest) {
       const code = generate({ source: SIMPLE_SDL, sourceHash: 'sha256:test' })
       expect(code).toContain(`, 'sha256:test'>`)
     })
+
+    it('outputs JSDoc descriptions on object types and fields', () => {
+      const sdl = `
+        """The root query type"""
+        type Query {
+          """Say hello to the world"""
+          hello: String
+        }
+      `
+      const code = generate({ source: sdl })
+      expect(code).toContain('/** The root query type */')
+      expect(code).toContain('/** Say hello to the world */')
+    })
+
+    it('outputs @deprecated JSDoc for deprecated fields', () => {
+      const sdl = `
+        type Query {
+          old: String @deprecated(reason: "Use new instead")
+          new: String
+        }
+      `
+      const code = generate({ source: sdl })
+      expect(code).toContain('@deprecated Use new instead')
+    })
+
+    it('outputs @deprecated without reason', () => {
+      const sdl = `
+        type Query {
+          old: String @deprecated
+        }
+      `
+      const code = generate({ source: sdl })
+      expect(code).toContain('/** @deprecated */')
+    })
+
+    it('outputs JSDoc on enum values', () => {
+      const sdl = `
+        enum Status {
+          """Currently active"""
+          ACTIVE
+          INACTIVE @deprecated(reason: "Use ACTIVE only")
+        }
+        type Query { noop: String }
+      `
+      const code = generate({ source: sdl })
+      expect(code).toContain('/** Currently active */')
+      expect(code).toContain('@deprecated Use ACTIVE only')
+    })
   })
 }

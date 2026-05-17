@@ -1,6 +1,41 @@
 import type { SchemaData } from './parse'
 import type { GenerateConfig } from './schema'
 
+/**
+ * Generate JSDoc comment lines from optional description and deprecation reason.
+ * Returns empty array when neither is present.
+ */
+function jsdoc(description: string | undefined, deprecationReason: string | undefined, indent = ''): string[] {
+  if (!description && deprecationReason === undefined) {
+    return []
+  }
+
+  if (description && deprecationReason !== undefined) {
+    return [
+      `${indent}/**`,
+      `${indent} * ${description}`,
+      deprecationReason ? `${indent} * @deprecated ${deprecationReason}` : `${indent} * @deprecated`,
+      `${indent} */`,
+    ]
+  }
+
+  if (deprecationReason !== undefined) {
+    return deprecationReason
+      ? [`${indent}/** @deprecated ${deprecationReason} */`]
+      : [`${indent}/** @deprecated */`]
+  }
+
+  if (!description!.includes('\n')) {
+    return [`${indent}/** ${description} */`]
+  }
+  const out = [`${indent}/**`]
+  for (const line of description!.split('\n')) {
+    out.push(`${indent} * ${line}`)
+  }
+  out.push(`${indent} */`)
+  return out
+}
+
 export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig, 'scalars' | 'url' | 'sourceHash'> = {}): string {
   const lines: string[] = []
   const push = (...strs: string[]) => lines.push(...strs)
@@ -38,10 +73,14 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
   }
 
   // Enums
-  for (const [name, { values }] of Object.entries(schemaData.enumTypes)) {
+  for (const [name, { description, values }] of Object.entries(schemaData.enumTypes)) {
+    push(...jsdoc(description, undefined))
     push(
       `export type ${name} =`,
-      ...values.map(v => `  | '${v}'`),
+      ...values.flatMap((v) => {
+        const doc = jsdoc(v.description, v.deprecationReason, '  ')
+        return [...doc, `  | '${v.name}'`]
+      }),
       `type ${nameMap.get(name)} = EnumType<'${name}', ${name}>`,
       '',
     )
@@ -51,12 +90,14 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
   }
 
   // Input objects
-  for (const [name, { args }] of Object.entries(schemaData.inputObjects)) {
+  for (const [name, { description, args }] of Object.entries(schemaData.inputObjects)) {
+    push(...jsdoc(description, undefined))
     push(
       `type ${nameMap.get(name)} = InputObjectType<'${name}', {`,
-      ...Object.entries(args).map(
-        ([key, val]) => `  ${key}: Input<${modifierToTypeStr(val, nameMap)}>`,
-      ),
+      ...args.flatMap((field) => {
+        const doc = jsdoc(field.description, field.deprecationReason, '  ')
+        return [...doc, `  ${field.name}: Input<${modifierToTypeStr(field.type, nameMap)}>`]
+      }),
       `}>`,
       '',
     )
@@ -67,11 +108,14 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
   }
 
   // Object types
-  for (const [name, { fields }] of Object.entries(schemaData.typeObjects)) {
+  for (const [name, { description, fields }] of Object.entries(schemaData.typeObjects)) {
+    push(...jsdoc(description, undefined))
     push(`type ${nameMap.get(name)} = ObjectType<'${name}', {`)
-    for (const { name: fieldName, res, args } of fields) {
+    for (const { name: fieldName, res, args, description: fieldDesc, deprecationReason } of fields) {
+      const doc = jsdoc(fieldDesc, deprecationReason, '  ')
       if (Object.keys(args).length > 0) {
         push(
+          ...doc,
           `  ${fieldName}: Field<${modifierToTypeStr(res, nameMap)}, {`,
           ...Object.entries(args).map(
             ([key, val]) => `    ${key}: Input<${modifierToTypeStr(val, nameMap)}>`,
@@ -81,6 +125,7 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
         helpers.add('Input')
       }
       else {
+        push(...doc)
         push(`  ${fieldName}: Field<${modifierToTypeStr(res, nameMap)}>`)
       }
       helpers.add('Field')
@@ -92,8 +137,7 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
   }
 
   // Interface types
-  for (const [name, { fields }] of Object.entries(schemaData.interfaceObjects)) {
-    // Collect all interface names (including transitive)
+  for (const [name, { description, fields }] of Object.entries(schemaData.interfaceObjects)) {
     const inheritedInterfaces = new Set<string>([name])
     const collectInherited = (ifaceName: string) => {
       for (const [n, { impl }] of Object.entries(schemaData.interfaceObjects)) {
@@ -105,7 +149,6 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
     }
     collectInherited(name)
 
-    // Collect implementing object types
     const entities = new Set<string>()
     for (const [typeName, { impl }] of Object.entries(schemaData.typeObjects)) {
       if (impl.some(i => inheritedInterfaces.has(i))) {
@@ -114,8 +157,12 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
     }
 
     push(
+      ...jsdoc(description, undefined),
       `type ${nameMap.get(name)} = InterfaceType<'${name}', {`,
-      ...fields.map(({ name: fn, res }) => `  ${fn}: Field<${modifierToTypeStr(res, nameMap)}>`),
+      ...fields.flatMap(({ name: fn, res, description: fieldDesc, deprecationReason }) => [
+        ...jsdoc(fieldDesc, deprecationReason, '  '),
+        `  ${fn}: Field<${modifierToTypeStr(res, nameMap)}>`,
+      ]),
       `}, {`,
       ...Array.from(entities).map(k => `  ${k}: ${nameMap.get(k)}`),
       `}>`,
@@ -128,8 +175,7 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
   }
 
   // Union types
-  for (const [name, { types }] of Object.entries(schemaData.unions)) {
-    // Collect all union member types (including transitive via nested unions)
+  for (const [name, { description, types }] of Object.entries(schemaData.unions)) {
     const inheritedUnions = new Set<string>([name])
     const collectUnions = (members: string[]) => {
       for (const member of members) {
@@ -152,6 +198,7 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
     }
 
     push(
+      ...jsdoc(description, undefined),
       `type ${nameMap.get(name)} = UnionType<'${name}', {`,
       ...Array.from(entities).map(k => `  ${k}: ${nameMap.get(k)}`),
       `}>`,

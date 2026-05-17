@@ -1,4 +1,5 @@
 import type {
+  ConstDirectiveNode,
   DocumentNode,
   EnumTypeDefinitionNode,
   FieldDefinitionNode,
@@ -7,6 +8,7 @@ import type {
   NameNode,
   ObjectTypeDefinitionNode,
   ScalarTypeDefinitionNode,
+  StringValueNode,
   UnionTypeDefinitionNode,
 } from 'graphql'
 import type { GenerateConfig } from './schema'
@@ -233,18 +235,20 @@ function parseName(node: NameNode): string {
   return node.value
 }
 
-function getDescription(desc: { kind: 'StringValue', value: string } | undefined): string | undefined {
+function getDescription(desc: StringValueNode | undefined): string | undefined {
   return desc?.value || undefined
 }
 
-function getDeprecationReason(directives: readonly { name: { value: string }, arguments?: readonly { name: { value: string }, value: { kind: string, value?: string } }[] }[] | undefined): string | undefined {
-  if (!directives) return undefined
+function getDeprecationReason(directives: readonly ConstDirectiveNode[] | undefined): string | undefined {
+  if (!directives) {
+    return undefined
+  }
   for (const dir of directives) {
     if (dir.name.value === 'deprecated') {
       if (dir.arguments) {
         for (const arg of dir.arguments) {
-          if (arg.name.value === 'reason' && arg.value.kind === 'StringValue' && arg.value.value) {
-            return arg.value.value
+          if (arg.name.value === 'reason' && arg.value.kind === 'StringValue') {
+            return arg.value.value || undefined
           }
         }
       }
