@@ -330,14 +330,3 @@ export default defineConfig({
   ],
 })
 ```
-
-## Codegen API
-
-The config format matches the `Config` and `UserConfig` types exported from `gazania/config`:
-
-```ts
-import type { Config, ExtractConfig, SchemaConfig, UserConfig } from 'gazania/config'
-// UserConfig = Config | Config[]
-```
-
-You can also use the codegen API programmatically. See the [Workflows](/get-started/workflows#programmatic-api) page for details.
