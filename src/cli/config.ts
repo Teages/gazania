@@ -70,7 +70,9 @@ function isValidConfigEntry(value: unknown): value is Config {
     return false
   }
   return (value as Config).schemas.every(
-    s => typeof s === 'object' && s !== null && 'schema' in s && 'output' in s,
+    s => typeof s === 'object' && s !== null
+      && 'schema' in s && s.schema != null
+      && 'output' in s && typeof s.output === 'string' && s.output.trim() !== '',
   )
 }
 
@@ -251,6 +253,22 @@ if (import.meta.vitest) {
         `export default [{ output: './out.ts' }]`,
       )
       await expect(loadConfig(dir)).rejects.toThrow('invalid config array')
+    })
+
+    it('throws when schema entry has empty output', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { schemas: [{ schema: { sdl: '${SIMPLE_SDL}' }, output: '' }] }`,
+      )
+      await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
+    })
+
+    it('throws when schema entry has null schema', async () => {
+      await writeFile(
+        join(dir, 'gazania.config.js'),
+        `export default { schemas: [{ schema: null, output: './out.ts' }] }`,
+      )
+      await expect(loadConfig(dir)).rejects.toThrow('"schemas" field')
     })
   })
 }
