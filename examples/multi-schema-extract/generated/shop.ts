@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DefineSchema, Field, Input, ObjectType, ScalarType } from 'gazania'
 
 type Scalar_Int = ScalarType<'Int', number, number>
