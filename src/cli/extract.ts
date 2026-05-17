@@ -54,17 +54,17 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
     throw new Error('--strict requires --schema or a config with schemas')
   }
 
-  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, schemas, cwd }
+  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, schemas, cwd, configDir }
 }
 
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, noEmit, include, algorithm, cwd, tsconfig, ignoreCategories, schemaSource, schemas, strict } = await resolveExtractOptions(options)
+  const { dir, output, noEmit, include, algorithm, cwd, tsconfig, ignoreCategories, schemaSource, schemas, strict, configDir } = await resolveExtractOptions(options)
   const silent = options.silent ?? false
   const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
   const warn = (msg: string) => stderr.write(`${msg}\n`)
 
-  const tsconfigPath = join(cwd, tsconfig)
-  const scanDir = join(cwd, dir)
+  const tsconfigPath = join(configDir, tsconfig)
+  const scanDir = join(configDir, dir)
   log(`Scanning ${relative(cwd, scanDir) || '.'}...`)
 
   let manifest
@@ -184,7 +184,7 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
       stdout.write(`${JSON.stringify(manifest, null, 2)}\n`)
     }
     else {
-      const outputPath = isAbsolute(output) ? output : join(cwd, output)
+      const outputPath = isAbsolute(output) ? output : join(configDir, output)
       await mkdir(dirname(outputPath), { recursive: true })
       await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
       log(`Manifest written to ${relative(cwd, outputPath)}`)
