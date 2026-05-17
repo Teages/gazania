@@ -24,10 +24,10 @@ export interface Schemas {}
 export interface UnknownSchema extends Gazania {}
 
 export function createGazania(): UnknownSchema
-export function createGazania<T extends DefineSchema<any>>(schema: T): TypedGazania<T>
+export function createGazania<T extends DefineSchema<any, any>>(schema: T): TypedGazania<T>
 export function createGazania<T extends keyof Schemas>(url: T): TypedGazania<Schemas[T]>
 export function createGazania<T extends string>(url: T): UnknownSchema
-export function createGazania<T extends string | DefineSchema<any> = string>(_schemaOrUrl?: T) {
+export function createGazania<T extends string | DefineSchema<any, any> = string>(_schemaOrUrl?: T) {
   return gazania as any
 }
 
