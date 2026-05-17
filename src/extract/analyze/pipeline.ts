@@ -35,13 +35,13 @@ export function processFileStatic(
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
   builderExports: string[]
-  documents: Array<{ doc: DocumentNode, loc: SourceLoc, mode?: 'fragment' | 'partial' | 'section' }>
+  documents: Array<{ doc: DocumentNode, loc: SourceLoc, mode?: 'fragment' | 'partial' | 'section', schemaHash?: string }>
   skipped: SkippedExtraction[]
 } {
   const mergedPartialDefs = new Map<string, StaticPartialDef>()
   const mergedExportMap = new Map<string, string>()
   const mergedBuilderExports: string[] = []
-  const documents: Array<{ doc: DocumentNode, loc: SourceLoc, mode?: 'fragment' | 'partial' | 'section' }> = []
+  const documents: Array<{ doc: DocumentNode, loc: SourceLoc, mode?: 'fragment' | 'partial' | 'section', schemaHash?: string }> = []
   const skipped: SkippedExtraction[] = []
 
   const accumulatedBuilderNames: string[] = []
@@ -151,7 +151,7 @@ export function processFileStatic(
           start: { line: startPos.line + block.lineOffset, column: startPos.column, offset: startPos.offset },
           end: { line: endPos.line + block.lineOffset, column: endPos.column, offset: endPos.offset },
         }
-        documents.push({ doc, loc, mode })
+        documents.push({ doc, loc, mode, schemaHash: chain.schemaHash })
       }
       catch (err) {
         if (err instanceof CircularPartialError) {
@@ -312,8 +312,8 @@ export function staticExtractCrossFile(
     const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
     const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace, checker)
 
-    for (const { doc, loc, mode } of result.documents) {
-      addDocumentToManifest(manifest, doc, hash, loc, mode)
+    for (const { doc, loc, mode, schemaHash } of result.documents) {
+      addDocumentToManifest(manifest, doc, hash, loc, mode, schemaHash)
     }
 
     fileSkipped.set(file, result.skipped)

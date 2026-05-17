@@ -18,6 +18,8 @@ export interface StaticBuilderChain {
   variableDefs?: Record<string, string>
   /** Directive definitions attached to this builder chain */
   directives?: StaticDirectiveDef[]
+  /** Schema hash from the TypedGazania<Schema> type, used to associate operations with their schema */
+  schemaHash?: string
   /** The ESTree AST node of the select callback (FunctionExpression or ArrowFunctionExpression) */
   selectCallback: Node
   /** Parameter names from the callback signature */
