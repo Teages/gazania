@@ -74,7 +74,7 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
       const hex = createHash(algorithm).update(body).digest('hex')
       return `${algorithm}:${hex}`
     }
-    const result = await extract({ dir: scanDir, include, hash, tsconfig: parsed, ignoreCategories, logger: { debug: env.GAZANIA_DEBUG === '1' ? (msg: any) => stderr.write(`${msg}\n`) : () => {}, warn: (msg: any) => stderr.write(`${msg}\n`), error: (msg: any) => stderr.write(`${msg}\n`) } })
+    const result = await extract({ dir: scanDir, include, hash, tsconfig: parsed, ignoreCategories, basePath: cwd, logger: { debug: env.GAZANIA_DEBUG === '1' ? (msg: any) => stderr.write(`${msg}\n`) : () => {}, warn: (msg: any) => stderr.write(`${msg}\n`), error: (msg: any) => stderr.write(`${msg}\n`) } })
     manifest = result.manifest
   }
   catch (err) {
@@ -83,9 +83,8 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
       warn(``)
       warn(`⚠ ${skipped.length} Gazania call(s) were detected but could not be extracted:`)
       for (const entry of skipped) {
-        const filePath = relative(cwd, entry.file) || entry.file
         warn(``)
-        warn(`  ${filePath}:${entry.line}`)
+        warn(`  ${entry.file}:${entry.line}`)
         warn(`    Reason: ${entry.reason}`)
 
         if (entry.category === 'unresolved' && entry.reason.includes('is not defined')) {
@@ -110,16 +109,16 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
     if (errors.length > 0) {
       for (const e of errors) {
-        warn(`✗ ${relative(cwd, e.loc.file) || e.loc.file}:${e.loc.start.line} ${e.message}`)
+        warn(`✗ ${e.loc.file}:${e.loc.start.line} ${e.message}`)
       }
       for (const w of warnings) {
-        warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
+        warn(`⚠ ${w.loc.file}:${w.loc.start.line} ${w.message}`)
       }
       throw new Error(`GraphQL validation failed with ${errors.length} error(s)`)
     }
 
     for (const w of warnings) {
-      warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
+      warn(`⚠ ${w.loc.file}:${w.loc.start.line} ${w.message}`)
     }
 
     if (strict && warnings.length > 0) {
@@ -147,23 +146,23 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
           warn(`  This may be because the type definitions are outdated.`)
           warn(`  Run "gazania generate" to regenerate type definitions with schema hashes.`)
           for (const { name, loc } of unmatched) {
-            warn(`  ${relative(cwd, loc.file) || loc.file}:${loc.start.line} ${name}`)
+            warn(`  ${loc.file}:${loc.start.line} ${name}`)
           }
         }
       }
 
       if (errors.length > 0) {
         for (const e of errors) {
-          warn(`✗ ${relative(cwd, e.loc.file) || e.loc.file}:${e.loc.start.line} ${e.message}`)
+          warn(`✗ ${e.loc.file}:${e.loc.start.line} ${e.message}`)
         }
         for (const w of warnings) {
-          warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
+          warn(`⚠ ${w.loc.file}:${w.loc.start.line} ${w.message}`)
         }
         throw new Error(`GraphQL validation failed with ${errors.length} error(s)`)
       }
 
       for (const w of warnings) {
-        warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
+        warn(`⚠ ${w.loc.file}:${w.loc.start.line} ${w.message}`)
       }
 
       if (strict && warnings.length > 0) {

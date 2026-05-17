@@ -18,6 +18,14 @@ import { collectPartialDefs, detectCircularPartialRefs, findUnresolvedSpreadRef 
 import { collectBuilderNamesForFile } from './type-aware-ids'
 import { CircularPartialError } from './types'
 
+function relativePath(basePath: string | undefined, file: string): string {
+  if (!basePath || !file.startsWith(basePath)) {
+    return file
+  }
+  const rel = file.slice(basePath.length)
+  return rel.startsWith('/') || rel.startsWith('\\') ? rel.slice(1) : rel
+}
+
 interface FileStaticBindings {
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
@@ -31,6 +39,7 @@ export function processFileStatic(
   builderNames: string[],
   namespace: string | undefined,
   checker?: import('typescript').TypeChecker,
+  basePath?: string,
 ): {
   partialDefs: Map<string, StaticPartialDef>
   exportMap: Map<string, string>
@@ -129,7 +138,7 @@ export function processFileStatic(
       const unresolvedRef = findUnresolvedSpreadRef(chain.selectCallback, mergedPartialDefs, declaredNames, typeCtx)
       if (unresolvedRef) {
         skipped.push({
-          file,
+          file: relativePath(basePath, file),
           line: staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset,
           reason: unresolvedRef.reason,
           category: 'unresolved' as SkippedExtractionCategory,
@@ -147,7 +156,7 @@ export function processFileStatic(
         const startPos = offsetToLineColumn(block.code, chain.loc.start)
         const endPos = offsetToLineColumn(block.code, chain.loc.end)
         const loc: SourceLoc = {
-          file,
+          file: relativePath(basePath, file),
           start: { line: startPos.line + block.lineOffset, column: startPos.column, offset: startPos.offset },
           end: { line: endPos.line + block.lineOffset, column: endPos.column, offset: endPos.offset },
         }
@@ -160,7 +169,7 @@ export function processFileStatic(
         const line = staticOffsetToLine(block.code, chain.loc.start) + block.lineOffset
         const errMsg = err instanceof Error ? err.message : String(err)
         skipped.push({
-          file,
+          file: relativePath(basePath, file),
           line,
           reason: `Failed to statically analyze ${chain.type} "${chain.name}": ${errMsg}`,
           category: 'analysis' as SkippedExtractionCategory,
@@ -189,12 +198,13 @@ export function staticExtractCrossFile(
     ts: typeof import('typescript')
     compilers: readonly SFCCompiler[]
     program?: TypeCheckerProgram
+    basePath?: string
   },
 ): {
   manifest: ExtractManifest
   skipped: SkippedExtraction[]
 } {
-  const { hash, logger, system, createHost: createHostFn, ts, compilers } = options
+  const { hash, logger, system, createHost: createHostFn, ts, compilers, basePath } = options
   const sfcExtensions = new Set(compilers.flatMap(c => c.extensions))
   const virtualFiles = compilers.length > 0
     ? buildSFCVirtualFiles(files, system, compilers)
@@ -310,7 +320,7 @@ export function staticExtractCrossFile(
 
     const { builderNames, namespace } = getBuilderInfoForFile(file, blocks)
     const mergedBuilderNames = [...builderNames, ...crossFileBuilderNames]
-    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace, checker)
+    const result = processFileStatic(blocks, file, crossFilePartials, mergedBuilderNames, namespace, checker, basePath)
 
     for (const { doc, loc, mode, schemaHash } of result.documents) {
       addDocumentToManifest(manifest, doc, hash, loc, mode, schemaHash)

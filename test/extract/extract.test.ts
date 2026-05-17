@@ -469,8 +469,7 @@ describe('extract: skipped calls', () => {
     }
   })
 
-  it('extractionError.skipped entry includes the absolute file path', async () => {
-    const { join: pathJoin } = await import('node:path')
+  it('extractionError.skipped entry has the relative file path', async () => {
     const files = {
       [`${baseDir}/tsconfig.json`]: makeTSConfig(),
       [`${baseDir}/src/query.ts`]: `import { gazania } from 'gazania'\nconst doc = gazania.query('X').select($ => $.select([...gone({})]))`,
@@ -482,7 +481,7 @@ describe('extract: skipped calls', () => {
     }
     catch (err) {
       expect(err).toBeInstanceOf(ExtractionError)
-      expect((err as ExtractionError).skipped[0]!.file).toBe(pathJoin(baseDir, 'src', 'query.ts'))
+      expect((err as ExtractionError).skipped[0]!.file).toBe('query.ts')
     }
   })
 

@@ -55,6 +55,13 @@ export interface ExtractOptions {
    */
   createHost?: import('./ts-program').CreateHostFn
   program?: TypeCheckerProgram
+  /**
+   * Base directory used to relativize file paths in manifest output.
+   * When provided, all `loc.file` and `SkippedExtraction.file` paths in the
+   * result will be relative to this directory instead of absolute.
+   * Defaults to `dir` when omitted.
+   */
+  basePath?: string
 }
 
 /**
@@ -84,6 +91,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     fs,
     createHost: createHostFn,
     program: prebuiltProgram,
+    basePath,
   } = options
 
   if (!tsconfig) {
@@ -124,6 +132,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     ts,
     compilers,
     program: prebuiltProgram,
+    basePath: basePath ?? dir,
   })
 
   const unignoredSkipped = result.skipped.filter(s => !ignoreCategories.includes(s.category))

@@ -22,6 +22,7 @@ export interface ExtractOptions {
   fs?: ExtractFS;
   createHost?: CreateHostFn;
   program?: TypeCheckerProgram;
+  basePath?: string;
 }
 export interface TypeCheckerProgram {
   program: _$typescript.Program;
