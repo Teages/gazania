@@ -5,46 +5,38 @@ Gazania lets you write GraphQL operations as TypeScript code with full type infe
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 
-<!-- [![bundle][bundle-src]][bundle-href] -->
-<!-- [![Codecov][codecov-src]][codecov-href] -->
+## Quick Start
 
-## Usage
-
-Install package:
+Install:
 
 ```sh
-# npm
-npm install gazania
-
-# yarn
-yarn add gazania
-
-# pnpm
-pnpm install gazania
-
-# bun
-bun install gazania
+pnpm add gazania
 ```
 
-Import:
+Generate types from your schema, then build typed queries:
 
-```js
-// ESM
+```ts
+import type { ResultOf } from 'gazania'
+import type { Schema } from './generated-schema'
 import { createGazania } from 'gazania'
+
+const gazania = createGazania({} as Schema)
+
+const userQuery = gazania.query('GetUser')
+  .vars({ id: 'Int!' })
+  .select(($, vars) => $.select([{
+    user: $ => $.args({ id: vars.id }).select([
+      'id',
+      'name',
+      'email',
+    ]),
+  }]))
+
+type Result = ResultOf<typeof userQuery>
+// { user: { id: number, name: string, email: string } }
 ```
 
-```js
-// CommonJS
-const { createGazania } = require('gazania')
-```
-
-## Development
-
-- Clone this repository
-- Install latest LTS version of [Node.js](https://nodejs.org/en/)
-- Enable [Corepack](https://github.com/nodejs/corepack) using `corepack enable`
-- Install dependencies using `pnpm install`
-- Run interactive tests using `pnpm dev`
+📖 **Full documentation**: [gazania.teages.dev](https://gazania.teages.dev/)
 
 ## License
 
@@ -56,9 +48,3 @@ Published under [MIT License](./LICENSE).
 [npm-version-href]: https://npmjs.com/package/gazania
 [npm-downloads-src]: https://img.shields.io/npm/dm/gazania?style=flat&color=blue
 [npm-downloads-href]: https://npmjs.com/package/gazania
-
-<!-- [codecov-src]: https://img.shields.io/codecov/c/gh/Teages/gazania/main?style=flat&color=blue
-[codecov-href]: https://codecov.io/gh/Teages/gazania
-
-[bundle-src]: https://img.shields.io/bundlephobia/minzip/gazania?style=flat&color=blue
-[bundle-href]: https://bundlephobia.com/result?p=gazania -->
