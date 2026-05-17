@@ -7,7 +7,8 @@ import { buildASTSchema, parse } from 'graphql'
 import { extract } from '../extract'
 import { ExtractionError } from '../extract/manifest'
 import { loadTS, parseTSConfig } from '../extract/ts-program'
-import { validateManifest } from '../extract/validate'
+import { validateManifest, validateManifestBySchema } from '../extract/validate'
+import { computeSchemaSourceHash } from '../lib/schema-hash'
 import { loadConfig } from './config'
 import { resolveSchema } from './loader'
 
@@ -47,17 +48,18 @@ async function resolveExtractOptions(options: ExtractCommandOptions) {
   const ignoreCategories = options.ignoreCategories ?? cfg?.extract?.ignoreCategories ?? []
 
   const validate = cfg?.extract?.validate ?? false
-  const schemaSource = options.schema ?? (validate ? cfg?.schemas?.[0]?.schema : undefined)
+  const schemaSource = options.schema
+  const schemas = validate ? (cfg?.schemas ?? []) : []
 
-  if (strict && !schemaSource) {
-    throw new Error('--strict requires --schema')
+  if (strict && schemaSource === undefined && schemas.length === 0) {
+    throw new Error('--strict requires --schema or a config with schemas')
   }
 
-  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, cwd }
+  return { dir, output, noEmit, include, algorithm, tsconfig, strict, ignoreCategories, schemaSource, schemas, cwd }
 }
 
 export async function runExtract(options: ExtractCommandOptions): Promise<void> {
-  const { dir, output, noEmit, include, algorithm, cwd, tsconfig, ignoreCategories, schemaSource, strict } = await resolveExtractOptions(options)
+  const { dir, output, noEmit, include, algorithm, cwd, tsconfig, ignoreCategories, schemaSource, schemas, strict } = await resolveExtractOptions(options)
   const silent = options.silent ?? false
   const log = silent ? () => {} : (msg: string) => stderr.write(`${msg}\n`)
   const warn = (msg: string) => stderr.write(`${msg}\n`)
@@ -124,6 +126,51 @@ export async function runExtract(options: ExtractCommandOptions): Promise<void> 
 
     if (strict && warnings.length > 0) {
       throw new Error(`GraphQL validation failed with ${warnings.length} warning(s) in strict mode`)
+    }
+  }
+  else if (schemas.length > 0) {
+    const schemasByHash = new Map<string, import('graphql').GraphQLSchema>()
+    for (const sc of schemas) {
+      const sdl = await resolveSchema(sc.schema)
+      const sourceHash = await computeSchemaSourceHash(sdl)
+      const gqlSchema = buildASTSchema(parse(sdl))
+      schemasByHash.set(sourceHash, gqlSchema)
+    }
+
+    if (schemasByHash.size > 0) {
+      const { errors, warnings, unmatched } = validateManifestBySchema(manifest, schemasByHash)
+
+      if (unmatched.length > 0) {
+        const hasAnyHash = Object.values(manifest.operations).some(e => e.schemaHash)
+          || Object.values(manifest.fragments).some(e => e.schemaHash)
+        if (hasAnyHash) {
+          warn(``)
+          warn(`⚠ ${unmatched.length} operation(s) could not be matched to a schema.`)
+          warn(`  This may be because the type definitions are outdated.`)
+          warn(`  Run "gazania generate" to regenerate type definitions with schema hashes.`)
+          for (const { name, loc } of unmatched) {
+            warn(`  ${relative(cwd, loc.file) || loc.file}:${loc.start.line} ${name}`)
+          }
+        }
+      }
+
+      if (errors.length > 0) {
+        for (const e of errors) {
+          warn(`✗ ${relative(cwd, e.loc.file) || e.loc.file}:${e.loc.start.line} ${e.message}`)
+        }
+        for (const w of warnings) {
+          warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
+        }
+        throw new Error(`GraphQL validation failed with ${errors.length} error(s)`)
+      }
+
+      for (const w of warnings) {
+        warn(`⚠ ${relative(cwd, w.loc.file) || w.loc.file}:${w.loc.start.line} ${w.message}`)
+      }
+
+      if (strict && warnings.length > 0) {
+        throw new Error(`GraphQL validation failed with ${warnings.length} warning(s) in strict mode`)
+      }
     }
   }
 
