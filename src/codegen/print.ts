@@ -1,7 +1,7 @@
 import type { SchemaData } from './parse'
 import type { GenerateConfig } from './schema'
 
-export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig, 'scalars' | 'url'> = {}): string {
+export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig, 'scalars' | 'url' | 'sourceHash'> = {}): string {
   const lines: string[] = []
   const push = (...strs: string[]) => lines.push(...strs)
 
@@ -163,12 +163,22 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
   }
 
   // Schema declaration
-  push(
-    `export type Schema = DefineSchema<{`,
-    ...Array.from(nameMap.entries()).map(([n, tn]) => `  ${n}: ${tn}`),
-    `}>`,
-    '',
-  )
+  if (options.sourceHash) {
+    push(
+      `export type Schema = DefineSchema<{`,
+      ...Array.from(nameMap.entries()).map(([n, tn]) => `  ${n}: ${tn}`),
+      `}, '${options.sourceHash}'>`,
+      '',
+    )
+  }
+  else {
+    push(
+      `export type Schema = DefineSchema<{`,
+      ...Array.from(nameMap.entries()).map(([n, tn]) => `  ${n}: ${tn}`),
+      `}>`,
+      '',
+    )
+  }
   helpers.add('DefineSchema')
 
   // Module augmentation for URL sources
@@ -286,6 +296,22 @@ if (import.meta.vitest) {
       const data = parseSchema(SIMPLE_SDL)
       const code = printSchema(data)
       expect(code).not.toContain(`declare module 'gazania'`)
+    })
+
+    it('outputs hash as second type argument to DefineSchema', async () => {
+      const { parseSchema } = await import('./parse')
+      const data = parseSchema(SIMPLE_SDL)
+      const code = printSchema(data, { sourceHash: 'sha256:abc123' })
+      expect(code).toContain(`DefineSchema<{`)
+      expect(code).toContain(`}, 'sha256:abc123'>`)
+    })
+
+    it('does not output hash when sourceHash is not provided', async () => {
+      const { parseSchema } = await import('./parse')
+      const data = parseSchema(SIMPLE_SDL)
+      const code = printSchema(data)
+      expect(code).not.toContain(`, 'sha256:`)
+      expect(code).toMatch(/DefineSchema<\{[^>]*\}>/)
     })
   })
 }

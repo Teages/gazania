@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { cwd as getCwd } from 'node:process'
 import { generate } from '../codegen'
+import { computeSchemaSourceHash } from '../lib/schema-hash'
 import { loadConfig } from './config'
 import { resolveSchema } from './loader'
 
@@ -79,7 +80,8 @@ async function generateOne(
   log(`Generating schema types...`)
 
   const sdl = await resolveSchema(source)
-  const code = generate({ source: sdl, scalars: schemaConfig.scalars, url })
+  const sourceHash = await computeSchemaSourceHash(sdl)
+  const code = generate({ source: sdl, scalars: schemaConfig.scalars, url, sourceHash })
 
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, code, 'utf-8')

@@ -80,5 +80,10 @@ if (import.meta.vitest) {
       const code = generate({ source: schema })
       expect(code).toContain('export type Schema = DefineSchema<{')
     })
+
+    it('passes sourceHash through to output', () => {
+      const code = generate({ source: SIMPLE_SDL, sourceHash: 'sha256:test' })
+      expect(code).toContain(`, 'sha256:test'>`)
+    })
   })
 }
