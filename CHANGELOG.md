@@ -1,6 +1,37 @@
 # Changelog
 
 
+## v0.14.0
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.13.1...v0.14.0)
+
+### 🚀 Enhancements
+
+- **extract:** Track all duplicate locs in manifest entries ([#17](https://github.com/Teages/gazania/pull/17))
+- ⚠️  Restructure config and support multi-schema extract ([#20](https://github.com/Teages/gazania/pull/20))
+
+### 🔥 Performance
+
+- **extract:** Convert integration tests to in-memory VFS ([#18](https://github.com/Teages/gazania/pull/18))
+
+### 💅 Refactors
+
+- **extract:** Type-aware fragment tracking ([#16](https://github.com/Teages/gazania/pull/16))
+- **codegen:** ⚠️  Redesign public API surface ([#19](https://github.com/Teages/gazania/pull/19))
+
+### ✅ Tests
+
+- Increase timeout for extract skipped-diagnostics test on slow CI ([cf72366](https://github.com/Teages/gazania/commit/cf72366))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Restructure config and support multi-schema extract ([#20](https://github.com/Teages/gazania/pull/20))
+- **codegen:** ⚠️  Redesign public API surface ([#19](https://github.com/Teages/gazania/pull/19))
+
+### ❤️ Contributors
+
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.13.1
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.13.0...v0.13.1)
