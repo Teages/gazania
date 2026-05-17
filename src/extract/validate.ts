@@ -134,7 +134,6 @@ export function validateManifest(
 export function validateManifestBySchema(
   manifest: ExtractManifest,
   schemasByHash: Map<string, GraphQLSchema>,
-  _options?: { strict?: boolean },
 ): { errors: ValidationError[], warnings: ValidationWarning[], unmatched: Array<{ name: string, loc: SourceLoc }> } {
   const errors: ValidationError[] = []
   const warnings: ValidationWarning[] = []

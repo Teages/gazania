@@ -49,9 +49,7 @@ export declare function validateManifest(_: ExtractManifest, _: GraphQLSchema): 
   errors: ValidationError[];
   warnings: ValidationWarning[];
 };
-export declare function validateManifestBySchema(_: ExtractManifest, _: Map<string, GraphQLSchema>, _?: {
-  strict?: boolean;
-}): {
+export declare function validateManifestBySchema(_: ExtractManifest, _: Map<string, GraphQLSchema>): {
   errors: ValidationError[];
   warnings: ValidationWarning[];
   unmatched: Array<{
