@@ -13,7 +13,7 @@ export interface BaseType<Base extends string, Name extends string> {
   __name__?: () => Name;
 }
 export interface DefineSchema<Namespace extends Record<string, BaseType<any, any>>, SchemaHash extends string = string> {
-  __define__?: () => Namespace;
+  '__define__'?: () => Namespace;
   readonly '~schemaHash'?: SchemaHash;
 }
 export interface EnumType<Name extends string, Definition extends string> extends BaseScalar<Name, Definition, PackedEnum<Definition>> {
