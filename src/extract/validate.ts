@@ -1,6 +1,6 @@
 import type { GraphQLSchema } from 'graphql'
 import type { DocumentNode, FragmentDefinitionNode } from '../lib/graphql'
-import type { ExtractManifest, SourceLoc } from './manifest'
+import type { ExtractManifest, ManifestEntry, ManifestFragmentEntry, SourceLoc } from './manifest'
 import { NoDeprecatedCustomRule, parse, specifiedRules, validate, visit } from 'graphql'
 import { Kind } from '../lib/graphql'
 
@@ -124,6 +124,81 @@ export function validateManifest(
   }
 
   return { errors, warnings }
+}
+
+/**
+ * Validate operations in a manifest against multiple schemas matched by schema hash.
+ * Operations are grouped by their schemaHash and validated against the matching schema.
+ * Fragments are resolved only within the same schema hash group.
+ */
+export function validateManifestBySchema(
+  manifest: ExtractManifest,
+  schemasByHash: Map<string, GraphQLSchema>,
+  _options?: { strict?: boolean },
+): { errors: ValidationError[], warnings: ValidationWarning[], unmatched: Array<{ name: string, loc: SourceLoc }> } {
+  const errors: ValidationError[] = []
+  const warnings: ValidationWarning[] = []
+  const unmatched: Array<{ name: string, loc: SourceLoc }> = []
+
+  const groups = new Map<string, {
+    operations: Record<string, ManifestEntry>
+    fragments: Record<string, ManifestFragmentEntry>
+  }>()
+
+  for (const [name, entry] of Object.entries(manifest.operations)) {
+    const hash = entry.schemaHash
+    if (!hash) {
+      for (const loc of entry.locs) {
+        unmatched.push({ name, loc })
+      }
+      continue
+    }
+    let group = groups.get(hash)
+    if (!group) {
+      group = { operations: {}, fragments: {} }
+      groups.set(hash, group)
+    }
+    group.operations[name] = entry
+  }
+
+  for (const [name, entry] of Object.entries(manifest.fragments)) {
+    const hash = entry.schemaHash
+    if (!hash) {
+      for (const loc of entry.locs) {
+        unmatched.push({ name, loc })
+      }
+      continue
+    }
+    let group = groups.get(hash)
+    if (!group) {
+      group = { operations: {}, fragments: {} }
+      groups.set(hash, group)
+    }
+    group.fragments[name] = entry
+  }
+
+  for (const [hash, groupManifest] of groups) {
+    const schema = schemasByHash.get(hash)
+    if (!schema) {
+      for (const [name, entry] of Object.entries(groupManifest.operations)) {
+        for (const loc of entry.locs) {
+          unmatched.push({ name, loc })
+        }
+      }
+      for (const [name, entry] of Object.entries(groupManifest.fragments)) {
+        for (const loc of entry.locs) {
+          unmatched.push({ name, loc })
+        }
+      }
+      continue
+    }
+
+    const groupResult = validateManifest(groupManifest, schema)
+    errors.push(...groupResult.errors)
+    warnings.push(...groupResult.warnings)
+  }
+
+  return { errors, warnings, unmatched }
 }
 
 if (import.meta.vitest) {
@@ -323,6 +398,174 @@ if (import.meta.vitest) {
       const result = validateManifest(manifest, baseSchema)
       expect(result.errors).toEqual([])
       expect(result.warnings).toEqual([])
+    })
+  })
+
+  describe('validateManifestBySchema', async () => {
+    const { buildSchema } = await import('graphql')
+
+    function makeLoc() {
+      return { file: 'test.ts', start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } }
+    }
+
+    function makeManifestWithHash(
+      ops: Record<string, { body: string, schemaHash?: string }>,
+      frags: Record<string, { body: string, schemaHash?: string }> = {},
+    ): ExtractManifest {
+      return {
+        operations: Object.fromEntries(
+          Object.entries(ops).map(([k, v]) => [k, { body: v.body, hash: '', locs: [makeLoc()], schemaHash: v.schemaHash }]),
+        ),
+        fragments: Object.fromEntries(
+          Object.entries(frags).map(([k, v]) => [k, { body: v.body, hash: '', locs: [{ ...makeLoc(), fragmentMode: 'fragment' as const }], schemaHash: v.schemaHash }]),
+        ),
+      }
+    }
+
+    const schemaA = buildSchema(`
+      type Query {
+        user(id: ID!): User
+      }
+      type User {
+        id: ID!
+        name: String!
+      }
+    `)
+
+    const schemaB = buildSchema(`
+      type Query {
+        post(id: ID!): Post
+      }
+      type Post {
+        id: ID!
+        title: String!
+      }
+    `)
+
+    it('groups operations by schemaHash and validates against matching schema', () => {
+      const manifest = makeManifestWithHash({
+        GetUser: { body: `query GetUser($id: ID!) { user(id: $id) { id name } }`, schemaHash: 'hashA' },
+        GetPost: { body: `query GetPost($id: ID!) { post(id: $id) { id title } }`, schemaHash: 'hashB' },
+      })
+
+      const schemasByHash = new Map<string, typeof schemaA>([
+        ['hashA', schemaA],
+        ['hashB', schemaB],
+      ])
+
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors).toEqual([])
+      expect(result.warnings).toEqual([])
+      expect(result.unmatched).toEqual([])
+    })
+
+    it('reports errors only for the matching schema', () => {
+      const manifest = makeManifestWithHash({
+        BadUser: { body: `query BadUser { user(id: "1") { id bogus } }`, schemaHash: 'hashA' },
+        GoodPost: { body: `query GoodPost { post(id: "1") { id title } }`, schemaHash: 'hashB' },
+      })
+
+      const schemasByHash = new Map<string, typeof schemaA>([
+        ['hashA', schemaA],
+        ['hashB', schemaB],
+      ])
+
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors.length).toBe(1)
+      expect(result.errors[0]!.message).toContain('bogus')
+    })
+
+    it('reports unmatched operations when no schemaHash is set', () => {
+      const manifest = makeManifestWithHash({
+        NoHash: { body: `query NoHash { user(id: "1") { id } }` },
+      })
+
+      const schemasByHash = new Map<string, typeof schemaA>([
+        ['hashA', schemaA],
+      ])
+
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors).toEqual([])
+      expect(result.unmatched.length).toBe(1)
+      expect(result.unmatched[0]!.name).toBe('NoHash')
+    })
+
+    it('reports unmatched when schemaHash does not match any configured schema', () => {
+      const manifest = makeManifestWithHash({
+        Unknown: { body: `query Unknown { something }`, schemaHash: 'unknownHash' },
+      })
+
+      const schemasByHash = new Map<string, typeof schemaA>([
+        ['hashA', schemaA],
+      ])
+
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors).toEqual([])
+      expect(result.unmatched.length).toBe(1)
+      expect(result.unmatched[0]!.name).toBe('Unknown')
+    })
+
+    it('resolves fragments only within the same schema hash group', () => {
+      const manifest = makeManifestWithHash(
+        {
+          GetUser: { body: `query GetUser { user(id: "1") { ...UserFields } }`, schemaHash: 'hashA' },
+        },
+        {
+          UserFields: { body: `fragment UserFields on User { id name }`, schemaHash: 'hashA' },
+        },
+      )
+
+      const schemasByHash = new Map<string, typeof schemaA>([
+        ['hashA', schemaA],
+      ])
+
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors).toEqual([])
+      expect(result.warnings).toEqual([])
+    })
+
+    it('does not resolve fragments from different schema hash groups', () => {
+      const manifest = makeManifestWithHash(
+        {
+          GetPost: { body: `query GetPost { post(id: "1") { ...PostFields } }`, schemaHash: 'hashB' },
+        },
+        {
+          PostFields: { body: `fragment PostFields on Post { id title }`, schemaHash: 'hashB' },
+          UserFields: { body: `fragment UserFields on User { id name }`, schemaHash: 'hashA' },
+        },
+      )
+
+      const schemasByHash = new Map<string, typeof schemaA>([
+        ['hashA', schemaA],
+        ['hashB', schemaB],
+      ])
+
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors).toEqual([])
+      expect(result.warnings).toEqual([])
+    })
+
+    it('handles empty manifest', () => {
+      const manifest: ExtractManifest = { operations: {}, fragments: {} }
+      const schemasByHash = new Map<string, typeof schemaA>([
+        ['hashA', schemaA],
+      ])
+
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors).toEqual([])
+      expect(result.warnings).toEqual([])
+      expect(result.unmatched).toEqual([])
+    })
+
+    it('handles empty schemasByHash', () => {
+      const manifest = makeManifestWithHash({
+        Op: { body: `query Op { something }`, schemaHash: 'hashA' },
+      })
+
+      const schemasByHash = new Map<string, typeof schemaA>()
+      const result = validateManifestBySchema(manifest, schemasByHash)
+      expect(result.errors).toEqual([])
+      expect(result.unmatched.length).toBe(1)
     })
   })
 }
