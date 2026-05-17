@@ -118,6 +118,18 @@ export default defineConfig({
 ## Initialize the builder
 
 ```ts
+import { createGazania } from 'gazania'
+
+const gazania = createGazania('https://api.example.com/graphql')
+```
+
+The generated schema file registers itself by URL via module augmentation, so you can reference the schema by its URL without importing the generated type in every file.
+
+### Passing schema types directly
+
+As an alternative, you can import and pass the schema type:
+
+```ts
 import type { Schema } from './schema'
 import { createGazania } from 'gazania'
 
@@ -126,25 +138,18 @@ const gazania = createGazania({} as Schema)
 
 Always pass `{} as Schema` — never a real runtime object.
 
-### Named schema registration (optional)
+### Multiple schemas
 
-Register a schema by URL via module augmentation so it can be referenced by name:
-
-```ts
-// In your generated schema file
-declare module 'gazania' {
-  interface Schemas {
-    'https://api.example.com/graphql': Schema
-  }
-}
-```
+When using multiple schemas, create a separate `createGazania` instance for each URL:
 
 ```ts
-// Then use by name instead of passing the type
-const gazania = createGazania('https://api.example.com/graphql')
+import { createGazania } from 'gazania'
+
+const apiA = createGazania('https://api-a.example.com/graphql')
+const apiB = createGazania('https://api-b.example.com/graphql')
 ```
 
-When using multiple schemas, create a separate `createGazania` instance for each:
+Or with direct type imports:
 
 ```ts
 import type { Schema as SchemaA } from './schema-a'

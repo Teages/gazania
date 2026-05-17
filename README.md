@@ -13,14 +13,19 @@ Install:
 pnpm add gazania
 ```
 
-Generate types from your schema, then build typed queries:
+Generate types from your schema:
+
+```sh
+npx gazania generate --schema https://api.example.com/graphql --output src/schema.ts
+```
+
+Build typed queries:
 
 ```ts
 import type { ResultOf } from 'gazania'
-import type { Schema } from './generated-schema'
 import { createGazania } from 'gazania'
 
-const gazania = createGazania({} as Schema)
+const gazania = createGazania('https://api.example.com/graphql')
 
 const userQuery = gazania.query('GetUser')
   .vars({ id: 'Int!' })

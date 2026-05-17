@@ -18,15 +18,14 @@ Two steps:
 
 1. Generate TypeScript types from your GraphQL schema using the CLI or the codegen API.
 
-2. Use `createGazania()` with the generated types. The returned builder gives you typed methods for building operations.
+2. Use `createGazania()` with your schema URL. The returned builder gives you typed methods for building operations.
 
 ```ts
 import type { ResultOf, VariablesOf } from 'gazania'
-import type { Schema } from './generated-schema'
 import { createGazania } from 'gazania'
 
-// Create a typed builder from your schema
-const gazania = createGazania({} as Schema)
+// Create a typed builder from your schema URL
+const gazania = createGazania('https://api.example.com/graphql')
 
 // Build a query with full type inference
 const userQuery = gazania.query('GetUser')

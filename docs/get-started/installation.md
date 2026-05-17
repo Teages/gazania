@@ -54,13 +54,12 @@ src/schema.ts
 
 ## Basic setup
 
-Import the generated types and pass them to `createGazania`:
+The generated schema file registers itself via module augmentation. After generating types, use the schema URL with `createGazania`:
 
 ```ts
-import type { Schema } from './schema'
 import { createGazania } from 'gazania'
 
-const gazania = createGazania({} as Schema)
+const gazania = createGazania('https://api.example.com/graphql')
 ```
 
 The `gazania` object gives you typed builders for GraphQL operations:
@@ -72,23 +71,13 @@ The `gazania` object gives you typed builders for GraphQL operations:
 - `gazania.partial()`: reusable selection partials
 - `gazania.enum()`: typed enum values
 
-## Named schema registration
+### Passing schema types directly
 
-You can register schemas by name using module augmentation. The generated schema file can register itself:
-
-```ts
-// In your generated schema file
-declare module 'gazania' {
-  interface Schemas {
-    'https://api.example.com/graphql': Schema
-  }
-}
-```
-
-Then use the schema by URL:
+If you prefer not to use named schema registration, you can pass the schema type directly:
 
 ```ts
+import type { Schema } from './schema'
 import { createGazania } from 'gazania'
 
-const gazania = createGazania('https://api.example.com/graphql')
+const gazania = createGazania({} as Schema)
 ```
