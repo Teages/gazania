@@ -1,4 +1,5 @@
 import type {
+  ConstDirectiveNode,
   DocumentNode,
   EnumTypeDefinitionNode,
   FieldDefinitionNode,
@@ -7,6 +8,7 @@ import type {
   NameNode,
   ObjectTypeDefinitionNode,
   ScalarTypeDefinitionNode,
+  StringValueNode,
   UnionTypeDefinitionNode,
 } from 'graphql'
 import type { GenerateConfig } from './schema'
@@ -16,26 +18,45 @@ interface ScalarTypeData {
   name: string
   input: string
   output: string
+  description?: string
+}
+
+interface EnumValueData {
+  name: string
+  description?: string
+  deprecationReason?: string
 }
 
 interface EnumTypeData {
   name: string
-  values: string[]
+  description?: string
+  values: EnumValueData[]
 }
 
 interface FieldData {
   name: string
   res: string
   args: Record<string, string>
+  description?: string
+  deprecationReason?: string
+}
+
+interface InputFieldData {
+  name: string
+  type: string
+  description?: string
+  deprecationReason?: string
 }
 
 interface InputObjectData {
   name: string
-  args: Record<string, string>
+  description?: string
+  args: InputFieldData[]
 }
 
 interface TypeObjectData {
   name: string
+  description?: string
   fields: FieldData[]
   impl: string[]
 }
@@ -44,6 +65,7 @@ interface InterfaceObjectData extends TypeObjectData {}
 
 interface UnionData {
   name: string
+  description?: string
   types: string[]
 }
 
@@ -135,7 +157,12 @@ export class SchemaData {
 function parseEnumNode(def: EnumTypeDefinitionNode): EnumTypeData {
   return {
     name: parseName(def.name),
-    values: def.values?.map(v => parseName(v.name)) ?? [],
+    description: getDescription(def.description),
+    values: def.values?.map(v => ({
+      name: parseName(v.name),
+      description: getDescription(v.description),
+      deprecationReason: getDeprecationReason(v.directives),
+    })) ?? [],
   }
 }
 
@@ -147,21 +174,27 @@ function parseScalarNode(
   const option = scalars[name] ?? 'unknown'
   const input = typeof option === 'string' ? option : option.input
   const output = typeof option === 'string' ? option : option.output
-  return { name, input, output }
+  return { name, input, output, description: getDescription(def.description) }
 }
 
 function parseInputObjectNode(def: InputObjectTypeDefinitionNode): InputObjectData {
   const name = parseName(def.name)
-  const args: Record<string, string> = {}
+  const args: InputFieldData[] = []
   for (const field of def.fields ?? []) {
-    args[parseName(field.name)] = print(field.type)
+    args.push({
+      name: parseName(field.name),
+      type: print(field.type),
+      description: getDescription(field.description),
+      deprecationReason: getDeprecationReason(field.directives),
+    })
   }
-  return { name, args }
+  return { name, description: getDescription(def.description), args }
 }
 
 function parseInterfaceNode(def: InterfaceTypeDefinitionNode): InterfaceObjectData {
   return {
     name: parseName(def.name),
+    description: getDescription(def.description),
     fields: def.fields?.map(parseFieldNode) ?? [],
     impl: def.interfaces?.map(i => parseName(i.name)) ?? [],
   }
@@ -170,6 +203,7 @@ function parseInterfaceNode(def: InterfaceTypeDefinitionNode): InterfaceObjectDa
 function parseTypeObjectNode(def: ObjectTypeDefinitionNode): TypeObjectData {
   return {
     name: parseName(def.name),
+    description: getDescription(def.description),
     fields: def.fields?.map(parseFieldNode) ?? [],
     impl: def.interfaces?.map(i => parseName(i.name)) ?? [],
   }
@@ -178,6 +212,7 @@ function parseTypeObjectNode(def: ObjectTypeDefinitionNode): TypeObjectData {
 function parseUnionNode(def: UnionTypeDefinitionNode): UnionData {
   return {
     name: parseName(def.name),
+    description: getDescription(def.description),
     types: def.types?.map(t => parseName(t.name)) ?? [],
   }
 }
@@ -191,11 +226,34 @@ function parseFieldNode(def: FieldDefinitionNode): FieldData {
     name: parseName(def.name),
     res: print(def.type),
     args,
+    description: getDescription(def.description),
+    deprecationReason: getDeprecationReason(def.directives),
   }
 }
 
 function parseName(node: NameNode): string {
   return node.value
+}
+
+function getDescription(desc: StringValueNode | undefined): string | undefined {
+  return desc?.value || undefined
+}
+
+function getDeprecationReason(directives: readonly ConstDirectiveNode[] | undefined): string | undefined {
+  if (!directives) {
+    return undefined
+  }
+  for (const dir of directives) {
+    if (dir.name.value !== 'deprecated') {
+      continue
+    }
+
+    const reasonArg = dir.arguments?.find(
+      arg => arg.name.value === 'reason' && arg.value.kind === Kind.STRING,
+    )
+    return reasonArg ? (reasonArg.value as StringValueNode).value : ''
+  }
+  return undefined
 }
 
 export function parseSchema(sdl: string, options?: Pick<GenerateConfig, 'scalars'>): SchemaData {
@@ -324,7 +382,7 @@ if (import.meta.vitest) {
     it('parses enum types', () => {
       const data = parseSchema(SCHEMA_WITH_ENUM)
       expect(data.enumTypes).toHaveProperty('MediaType')
-      expect(data.enumTypes.MediaType!.values).toEqual(['ANIME', 'MANGA'])
+      expect(data.enumTypes.MediaType!.values.map(v => v.name)).toEqual(['ANIME', 'MANGA'])
     })
 
     it('parses union types', () => {
@@ -336,7 +394,7 @@ if (import.meta.vitest) {
     it('parses input object types', () => {
       const data = parseSchema(SCHEMA_WITH_INPUT)
       expect(data.inputObjects).toHaveProperty('CreateUserInput')
-      expect(data.inputObjects.CreateUserInput!.args).toHaveProperty('name')
+      expect(data.inputObjects.CreateUserInput!.args.some(a => a.name === 'name')).toBe(true)
     })
 
     it('parses interface types', () => {
