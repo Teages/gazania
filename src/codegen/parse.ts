@@ -244,16 +244,14 @@ function getDeprecationReason(directives: readonly ConstDirectiveNode[] | undefi
     return undefined
   }
   for (const dir of directives) {
-    if (dir.name.value === 'deprecated') {
-      if (dir.arguments) {
-        for (const arg of dir.arguments) {
-          if (arg.name.value === 'reason' && arg.value.kind === 'StringValue') {
-            return arg.value.value || undefined
-          }
-        }
-      }
-      return ''
+    if (dir.name.value !== 'deprecated') {
+      continue
     }
+
+    const reasonArg = dir.arguments?.find(
+      arg => arg.name.value === 'reason' && arg.value.kind === Kind.STRING,
+    )
+    return reasonArg ? (reasonArg.value as StringValueNode).value : ''
   }
   return undefined
 }
