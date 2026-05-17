@@ -65,8 +65,12 @@ export function defineConfig(config: UserConfig): UserConfig {
 const CONFIG_CANDIDATES = ['gazania.config.ts', 'gazania.config.js']
 
 function isValidConfigEntry(value: unknown): value is Config {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('schemas' in value) || !Array.isArray((value as Config).schemas) || (value as Config).schemas.length === 0) return false
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  if (!('schemas' in value) || !Array.isArray((value as Config).schemas) || (value as Config).schemas.length === 0) {
+    return false
+  }
   return (value as Config).schemas.every(
     s => typeof s === 'object' && s !== null && 'schema' in s && 'output' in s,
   )

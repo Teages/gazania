@@ -336,7 +336,7 @@ export default defineConfig({
 The config format matches the `Config` and `UserConfig` types exported from `gazania/config`:
 
 ```ts
-import type { Config, SchemaConfig, ExtractConfig, UserConfig } from 'gazania/config'
+import type { Config, ExtractConfig, SchemaConfig, UserConfig } from 'gazania/config'
 // UserConfig = Config | Config[]
 ```
 
