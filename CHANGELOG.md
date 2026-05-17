@@ -1,6 +1,33 @@
 # Changelog
 
 
+## v0.15.0
+
+[compare changes](https://github.com/Teages/gazania/compare/v0.14.0...v0.15.0)
+
+### 💅 Refactors
+
+- **config:** ⚠️  Remove multi-config (Config[]) support ([#22](https://github.com/Teages/gazania/pull/22))
+
+### 📖 Documentation
+
+- Update docs ([0c035b8](https://github.com/Teages/gazania/commit/0c035b8))
+- Remove Codegen API section from config format documentation ([a72b824](https://github.com/Teages/gazania/commit/a72b824))
+
+### 🏡 Chore
+
+- Make vue dep optional ([25198e6](https://github.com/Teages/gazania/commit/25198e6))
+- Update README.md ([55daa8d](https://github.com/Teages/gazania/commit/55daa8d))
+- Update Node.js version requirement to >= 22.12.0 ([bb32c36](https://github.com/Teages/gazania/commit/bb32c36))
+
+#### ⚠️ Breaking Changes
+
+- **config:** ⚠️  Remove multi-config (Config[]) support ([#22](https://github.com/Teages/gazania/pull/22))
+
+### ❤️ Contributors
+
+- Teages ([@Teages](https://github.com/Teages))
+
 ## v0.14.0
 
 [compare changes](https://github.com/Teages/gazania/compare/v0.13.1...v0.14.0)
