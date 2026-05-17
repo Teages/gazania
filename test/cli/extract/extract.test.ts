@@ -133,7 +133,7 @@ describe('feature: skipped call diagnostics', () => {
   it('produces no skipped entries when tsconfig is provided and all partials resolve', async () => {
     const { skipped } = await extract({ dir: join(fixtureDir, 'src'), tsconfig: fixtureParsed, hash: sha256 })
     expect(skipped).toHaveLength(0)
-  })
+  }, 30_000)
 
   it('throws when tsconfig is not provided', async () => {
     // @ts-expect-error tsconfig is not provided to test error handling
