@@ -242,7 +242,6 @@ export function printSchema(schemaData: SchemaData, options: Pick<GenerateConfig
 
   // Prepend imports
   lines.unshift(
-    `/* eslint-disable */`,
     `import type { ${[...helpers].sort().join(', ')} } from 'gazania'`,
     '',
   )

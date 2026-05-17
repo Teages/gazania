@@ -14,10 +14,6 @@ export default antfu({
     },
   })
 
-  .append({
-    ignores: ['playground/gazania/**/*.ts', 'examples/**/generated/**/*.ts'],
-  })
-
   // fixtures
   .append({
     files: ['test/**/fixtures/**/*'],

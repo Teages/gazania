@@ -1,4 +1,3 @@
-/* eslint-disable */
 import type { DefineSchema, EnumType, Field, Input, InputObjectType, ObjectType, ScalarType, UnionType } from 'gazania'
 
 type Scalar_Json = ScalarType<'Json', unknown, unknown>
