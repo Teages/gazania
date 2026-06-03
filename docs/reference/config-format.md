@@ -87,9 +87,11 @@ export default defineConfig({
 | `include` | `string` | `'**/*.{ts,tsx,js,jsx,vue,svelte}'` | File glob pattern |
 | `algorithm` | `string` | `'sha256'` | Hash algorithm |
 | `tsconfig` | `string` | `'tsconfig.json'` | Path to tsconfig.json |
-| `strict` | `boolean` | `false` | Treat deprecated field warnings as errors |
+| `strict` | `boolean` | `false` | Treat deprecated field warnings as errors during schema validation |
 | `noEmit` | `boolean` | `false` | Suppress manifest output |
 | `ignoreCategories` | `('unresolved' \| 'analysis' \| 'circular')[]` | `[]` | Error categories to ignore |
+
+When a config file defines schemas, `gazania extract` validates extracted operations against the matching schema using each entry's `schemaHash`. This happens automatically — no extra config field is required. Use `--schema` to validate against a single schema instead, or `--strict` to treat deprecated-field warnings as errors.
 
 ## SchemaConfig options
 
@@ -222,7 +224,9 @@ export default defineConfig({
     output: 'src/schema.ts',
   }],
 })
+```
 
+```ts
 export default defineConfig({
   schemas: [{
     schema: 'https://api.example.com/graphql',

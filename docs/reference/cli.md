@@ -186,28 +186,35 @@ npx gazania extract --schema schema.graphql --strict --no-emit
     "FetchAnime": {
       "body": "query FetchAnime($id: Int = 127549) { ... }",
       "hash": "sha256:a1b2c3d4...",
-      "loc": {
-        "file": "/project/src/queries/FetchAnime.ts",
-        "start": { "line": 10, "column": 1, "offset": 245 },
-        "end": { "line": 15, "column": 2, "offset": 412 }
-      }
+      "schemaHash": "sha256:7e7fb6abcc9a9c11e539e685ca95af09cca0b764a4e50c9a0ecedc020115dd56",
+      "locs": [
+        {
+          "file": "src/queries/FetchAnime.ts",
+          "start": { "line": 10, "column": 1, "offset": 245 },
+          "end": { "line": 15, "column": 2, "offset": 412 }
+        }
+      ]
     }
   },
   "fragments": {
     "UserFields": {
       "body": "fragment UserFields on User { id name email }",
       "hash": "sha256:e5f6a7b8...",
-      "loc": {
-        "file": "/project/src/fragments/UserFields.ts",
-        "start": { "line": 3, "column": 14, "offset": 88 },
-        "end": { "line": 3, "column": 52, "offset": 126 }
-      }
+      "schemaHash": "sha256:7e7fb6abcc9a9c11e539e685ca95af09cca0b764a4e50c9a0ecedc020115dd56",
+      "locs": [
+        {
+          "file": "src/fragments/UserFields.ts",
+          "fragmentMode": "fragment",
+          "start": { "line": 3, "column": 14, "offset": 88 },
+          "end": { "line": 3, "column": 52, "offset": 126 }
+        }
+      ]
     }
   }
 }
 ```
 
-See [Persisted Queries](/guides/persisted-queries) for a full guide on using this manifest with your GraphQL server.
+File paths in `locs` are relative to the current working directory. When the same operation or fragment is defined in multiple places with an identical body, all locations are collected in `locs`. See [Persisted Queries](/guides/persisted-queries) for a full guide on using this manifest with your GraphQL server.
 
 ## Schema sources
 
@@ -239,4 +246,5 @@ When both config file values and CLI flags are provided:
 1. CLI flags override config file values for `--schema`, `--output`, and `extract` options
 2. If both `--schema` and `--output` are provided via CLI, no config file is loaded for `generate`
 3. If only one is provided via CLI, a config file is still required for the missing value
-4. `--schema` and `--output` flags **cannot** be used when the config file exports an array of schemas; use `--config` to point to a single-schema config file instead
+4. For `generate`, `--schema` and `--output` flags cannot override a config file that defines **multiple** schemas in `schemas`. Run `gazania generate` without overrides, or pass both flags for each schema individually
+5. For `extract`, when no `--schema` flag is given, operations are validated against schemas defined in the config file (matched by `schemaHash`)
