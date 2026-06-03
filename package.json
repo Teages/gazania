@@ -93,7 +93,6 @@
     "@types/estree": "^1.0.8",
     "@types/node": "^24.12.0",
     "@vitest/coverage-v8": "^4.1.4",
-    "changelogen": "^0.6.2",
     "eslint": "^10.2.1",
     "jiti": "2.6.1",
     "obuild": "^0.4.33",
