@@ -579,6 +579,7 @@ const { manifest, skipped } = await extract({
   dir: resolve('src'),
   tsconfig: parsed,
   hash,
+  basePath: resolve('.'),
 })
 ```
 
@@ -646,6 +647,28 @@ Returns `{ errors: ValidationError[], warnings: ValidationWarning[] }`.
 - **Errors** — produced by GraphQL spec compliance rules (`specifiedRules`). These indicate queries that will fail at runtime (unknown fields, missing arguments, type mismatches, etc.).
 - **Warnings** — produced by `NoDeprecatedCustomRule`. These indicate usage of deprecated fields.
 
+### `validateManifestBySchema(manifest, schemasByHash)`
+
+Validates operations in a multi-schema project. Operations and fragments are grouped by their `schemaHash` and validated against the matching schema from the provided map.
+
+```ts
+import { validateManifestBySchema } from 'gazania/extract'
+import { buildASTSchema, parse } from 'graphql'
+
+const schemasByHash = new Map([
+  ['sha256:abc...', buildASTSchema(parse(blogSdl))],
+  ['sha256:def...', buildASTSchema(parse(shopSdl))],
+])
+
+const { errors, warnings, unmatched } = validateManifestBySchema(manifest, schemasByHash)
+```
+
+Returns `{ errors: ValidationError[], warnings: ValidationWarning[], unmatched: { name: string, loc: SourceLoc }[] }`.
+
+- **`unmatched`** — operations or fragments whose `schemaHash` does not match any schema in the map, or entries with no `schemaHash` when typed schemas are expected.
+
+The CLI uses this automatically when a config file defines schemas and `gazania extract` runs without `--schema`.
+
 ### Types
 
 #### `ValidationError`
@@ -673,6 +696,7 @@ Returns `{ errors: ValidationError[], warnings: ValidationWarning[] }`.
 | `hash` | `(body: string) => string` | — | **(required)** Hash function for computing operation identifiers |
 | `tsconfig` | `ts.ParsedCommandLine` | — | **(required)** Parsed TypeScript configuration. Use `parseTSConfig()` to create |
 | `ignoreCategories` | `SkippedExtractionCategory[]` | `[]` | Categories of failures to suppress |
+| `basePath` | `string` | `dir` | Base directory for relativizing `locs[].file` and `SkippedExtraction.file` paths in the result |
 | `logger` | `ExtractLogger` | — | Logger for extraction diagnostics |
 | `fs` | `ExtractFS` | `ts.sys` | File-system interface for all file operations |
 | `createHost` | `CreateHostFn` | — | Override the default CompilerHost construction |
@@ -741,13 +765,30 @@ type CreateHostFn = (
 |---|---|---|
 | `body` | `string` | The GraphQL operation or fragment body |
 | `hash` | `string` | Body hash in `algorithm:hex` format |
-| `loc` | `SourceLoc` | Source location in the original file |
+| `locs` | `SourceLoc[]` | Source locations where this document was defined |
+| `schemaHash` | `string` | *(optional)* Schema identity hash from generated types |
+
+#### `ManifestFragmentEntry`
+
+Extends `ManifestEntry` with fragment-specific location metadata.
+
+| Property | Type | Description |
+|---|---|---|
+| `locs` | `FragmentSourceLoc[]` | Source locations, each with a `fragmentMode` |
+
+#### `FragmentSourceLoc`
+
+Extends `SourceLoc` with:
+
+| Property | Type | Description |
+|---|---|---|
+| `fragmentMode` | `'fragment' \| 'partial' \| 'section'` | How the fragment was created |
 
 #### `SourceLoc`
 
 | Property | Type | Description |
 |---|---|---|
-| `file` | `string` | Absolute path of the source file |
+| `file` | `string` | Path to the source file (relative to `basePath` when set) |
 | `start` | `SourceLocation` | Start position of the operation |
 | `end` | `SourceLocation` | End position of the operation |
 
@@ -763,7 +804,7 @@ type CreateHostFn = (
 
 | Property | Type | Description |
 |---|---|---|
-| `file` | `string` | Absolute path of the file with the skipped call |
+| `file` | `string` | Path to the file with the skipped call (relative to `basePath` when set) |
 | `line` | `number` | 1-based line number |
 | `reason` | `string` | Error message from the failed evaluation |
 | `category` | `SkippedExtractionCategory` | Failure category |

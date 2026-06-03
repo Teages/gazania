@@ -24,36 +24,60 @@ By default this scans `src/` and outputs the manifest to stdout. Use `--output <
     "FetchAnime": {
       "body": "query FetchAnime($id: Int = 127549) {\n  Media(id: $id, type: ANIME) {\n    id\n    title {\n      romaji\n      english\n      native\n    }\n  }\n}",
       "hash": "sha256:a1b2c3d4...",
-      "loc": {
-        "start": { "line": 10, "column": 1, "offset": 245 },
-        "end": { "line": 15, "column": 2, "offset": 412 }
-      }
+      "schemaHash": "sha256:7e7fb6abcc9a9c11e539e685ca95af09cca0b764a4e50c9a0ecedc020115dd56",
+      "locs": [
+        {
+          "file": "src/queries/FetchAnime.ts",
+          "start": { "line": 10, "column": 1, "offset": 245 },
+          "end": { "line": 15, "column": 2, "offset": 412 }
+        }
+      ]
     },
     "CreateUser": {
       "body": "mutation CreateUser($input: CreateUserInput!) { ... }",
       "hash": "sha256:e5f6a7b8...",
-      "loc": {
-        "start": { "line": 20, "column": 1, "offset": 600 },
-        "end": { "line": 25, "column": 2, "offset": 820 }
-      }
+      "schemaHash": "sha256:7e7fb6abcc9a9c11e539e685ca95af09cca0b764a4e50c9a0ecedc020115dd56",
+      "locs": [
+        {
+          "file": "src/queries/CreateUser.ts",
+          "start": { "line": 20, "column": 1, "offset": 600 },
+          "end": { "line": 25, "column": 2, "offset": 820 }
+        }
+      ]
     }
   },
   "fragments": {
     "UserFields": {
       "body": "fragment UserFields on User {\n  id\n  name\n  email\n}",
       "hash": "sha256:c9d0e1f2...",
-      "loc": {
-        "start": { "line": 3, "column": 14, "offset": 88 },
-        "end": { "line": 3, "column": 52, "offset": 126 }
-      }
+      "schemaHash": "sha256:7e7fb6abcc9a9c11e539e685ca95af09cca0b764a4e50c9a0ecedc020115dd56",
+      "locs": [
+        {
+          "file": "src/fragments/UserFields.ts",
+          "fragmentMode": "fragment",
+          "start": { "line": 3, "column": 14, "offset": 88 },
+          "end": { "line": 3, "column": 52, "offset": 126 }
+        }
+      ]
     }
   }
 }
 ```
 
-Each entry includes a `loc` field with `start` and `end` source positions. Each position contains `line` (1-based), `column` (1-based), and `offset` (0-based character offset from file start).
+Each entry includes:
 
-Operations (queries, mutations, subscriptions) go into `operations`. Named fragments go into `fragments`.
+| Field | Description |
+|---|---|
+| `body` | Printed GraphQL operation or fragment |
+| `hash` | Body hash in `algorithm:hex` format |
+| `locs` | Array of source locations where this document was defined |
+| `schemaHash` | Schema identity hash from generated types (present when the builder was typed with a generated schema) |
+
+Each item in `locs` includes a `file` path (relative to the project root when using the CLI), plus `start` and `end` positions. Each position contains `line` (1-based), `column` (1-based), and `offset` (0-based character offset from file start). Fragment entries also include `fragmentMode`: `'fragment'`, `'partial'`, or `'section'`.
+
+When the same operation or fragment name appears in multiple files with an identical body and `schemaHash`, all definitions are collected in `locs`. If the bodies differ, extraction fails with an error.
+
+Operations (queries, mutations, subscriptions) go into `operations`. Named fragments, partials, and sections go into `fragments`.
 
 ## Partials and sections
 
@@ -95,7 +119,9 @@ Options:
   --ignore-analysis      Skip analysis failure errors
   --ignore-circular      Skip circular reference errors
   --ignore-all           Skip all extraction errors
-  --no-emit               Suppress manifest output (useful for validation)
+  --no-emit              Suppress manifest output (useful for validation)
+  -s, --schema <path>    Schema for query validation (file path, URL, or SDL string)
+  --strict               Treat validation warnings (deprecated fields) as errors
   -h, --help             Show help
 ```
 
@@ -137,6 +163,8 @@ npx gazania extract --ignore-all
 npx gazania extract --no-emit
 ```
 
+When a config file defines schemas, `gazania extract` automatically validates operations against the matching schema. See [CLI reference](/reference/cli) for `--schema` and `--strict` options.
+
 ## Typical workflow
 
 ### 1. Add extract to your build
@@ -172,4 +200,4 @@ Each client has a different mechanism for persisted queries. Consult your client
 - **Static analysis only**: The extractor evaluates builders with static analysis. When a Gazania call cannot be statically evaluated (e.g., unresolved references, runtime-dependent values, circular partials), extraction fails by default. Use `--ignore-*` flags to suppress specific failure categories and allow extraction to continue.
 - **Vue and Svelte**: `.vue` and `.svelte` files are supported. The extractor parses each `<script>` block (including `<script setup>` and `<script context="module">`) separately and treats them as independent JS/TS modules.
 - **Anonymous operations**: Unnamed operations receive an auto-generated key based on the first 8 hex characters of their hash (e.g. `Anonymous_a1b2c3d4`).
-- **Duplicate names**: If the same operation or fragment name is defined in multiple files with different bodies, extraction fails with an error. If the bodies are identical, the duplicate is silently skipped.
+- **Duplicate names**: If the same operation or fragment name is defined in multiple places with different bodies, extraction fails with an error. If the bodies (and `schemaHash`, when present) are identical, all source locations are merged into `locs`.

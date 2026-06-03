@@ -93,3 +93,27 @@ declare module 'gazania' {
   }
 }
 ```
+
+## Extract with multiple schemas
+
+When your project uses multiple schemas, run `gazania generate` once to produce all schema type files. Each generated file embeds a unique `schemaHash` in the `DefineSchema` type.
+
+Then run extract as usual:
+
+```sh
+npx gazania extract --output dist/manifest.json
+```
+
+Gazania matches each operation to the correct schema using `schemaHash` and validates it automatically. Use `--strict` to treat deprecated-field warnings as errors:
+
+```sh
+npx gazania extract --strict --no-emit
+```
+
+To validate against a single schema instead, pass `--schema`:
+
+```sh
+npx gazania extract --schema ./schemas/blog.graphql --no-emit
+```
+
+If operations cannot be matched to a configured schema (for example, after a schema change without regenerating types), the CLI prints a warning listing the unmatched operations. Re-run `gazania generate` to refresh schema hashes.

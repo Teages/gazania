@@ -135,7 +135,7 @@ const code = generate({
 await writeFile('src/schema.ts', code)
 ```
 
-`generate()` accepts a `GenerateConfig` object with a `source` field (SDL string, introspection JSON string, or `GraphQLSchema` object), plus optional `scalars` and `url` fields. For loading schemas from URLs or files, use the CLI.
+`generate()` accepts a `GenerateConfig` object with a `source` field (SDL string, introspection JSON string, or `GraphQLSchema` object), plus optional `scalars`, `url`, and `sourceHash` fields. For loading schemas from URLs or files, use the CLI.
 
 ## Typical project setup
 
