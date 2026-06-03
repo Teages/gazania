@@ -766,7 +766,7 @@ type CreateHostFn = (
 | `body` | `string` | The GraphQL operation or fragment body |
 | `hash` | `string` | Body hash in `algorithm:hex` format |
 | `locs` | `SourceLoc[]` | Source locations where this document was defined |
-| `schemaHash` | `string` | *(optional)* Schema identity hash from generated types |
+| `schemaHash` | `string` *(optional)* | Schema identity hash from generated types |
 
 #### `ManifestFragmentEntry`
 
