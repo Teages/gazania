@@ -23,4 +23,4 @@ jobs:
           cache: pnpm
       - run: pnpm install
       - run: pnpm build
-      - run: pnpx pkg-pr-new publish
+      - run: pnpm exec pkg-pr-new publish --commentWithSha
