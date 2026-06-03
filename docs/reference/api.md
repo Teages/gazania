@@ -692,14 +692,14 @@ The CLI uses this automatically when a config file defines schemas and `gazania 
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `dir` | `string` | — | **(required)** Absolute path to directory to scan for source files |
-| `include` | `string` | `'**/*.{ts,tsx,js,jsx,vue,svelte}'` | Glob pattern for files to include |
+| `include` | `string` *(optional)* | `'**/*.{ts,tsx,js,jsx,vue,svelte}'` | Glob pattern for files to include |
 | `hash` | `(body: string) => string` | — | **(required)** Hash function for computing operation identifiers |
 | `tsconfig` | `ts.ParsedCommandLine` | — | **(required)** Parsed TypeScript configuration. Use `parseTSConfig()` to create |
-| `ignoreCategories` | `SkippedExtractionCategory[]` | `[]` | Categories of failures to suppress |
-| `basePath` | `string` | `dir` | Base directory for relativizing `locs[].file` and `SkippedExtraction.file` paths in the result |
-| `logger` | `ExtractLogger` | — | Logger for extraction diagnostics |
-| `fs` | `ExtractFS` | `ts.sys` | File-system interface for all file operations |
-| `createHost` | `CreateHostFn` | — | Override the default CompilerHost construction |
+| `ignoreCategories` | `SkippedExtractionCategory[]` *(optional)* | `[]` | Categories of failures to suppress |
+| `basePath` | `string` *(optional)* | `dir` | Base directory for relativizing `locs[].file` and `SkippedExtraction.file` paths in the result |
+| `logger` | `ExtractLogger` *(optional)* | — | Logger for extraction diagnostics |
+| `fs` | `ExtractFS` *(optional)* | `ts.sys` | File-system interface for all file operations |
+| `createHost` | `CreateHostFn` *(optional)* | — | Override the default CompilerHost construction |
 
 #### `ExtractFS`
 
