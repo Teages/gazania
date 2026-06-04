@@ -1,3 +1,4 @@
+ignoreWorkspaceRootCheck: true
 shellEmulator: true
 
 trustPolicy: no-downgrade
@@ -6,9 +7,8 @@ packages:
   - docs
   - examples/*
 
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - esbuild
-  - unrs-resolver
-
 trustPolicyIgnoreAfter: 10080
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  unrs-resolver: true
