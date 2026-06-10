@@ -39,34 +39,44 @@ type UnpackDollar<T>
 export type AcceptVariable<Modifier extends string>
   = | Variable<Modifier>
     | AcceptVariableAsNull<Modifier>
-    | AcceptVariableAsSimplifiedList<Modifier>
+    | AcceptVariableAsCompatibleList<Modifier>
 
 type AcceptVariableAsNull<Modifier extends string>
   = Modifier extends `${string}!`
     ? never
     : Variable<`${Modifier}!`>
 
-type AcceptVariableAsSimplifiedList<Modifier extends string>
-  = Modifier extends `[${infer F}!]!`
-    ? Variable<`${AcceptSimplifiedListModifier<F>}!`>
-    : Modifier extends `[${infer F}]!`
-      ? | Variable<`${AcceptSimplifiedListModifier<F>}!`>
-      | Variable<`[${F}!]!`>
-      : Modifier extends `[${infer F}!]`
-        ? | Variable<`${AcceptSimplifiedListModifier<F>}!`>
-        | Variable<AcceptSimplifiedListModifier<F>>
-        : Modifier extends `[${infer F}]`
-          ? | Variable<`[${F}!]`> | Variable<`[${F}!]!`>
-          | Variable<`${AcceptSimplifiedListModifier<F>}!`>
-          | Variable<`${AcceptSimplifiedListModifier<F>}`>
+// GraphQL §5.8.5: variable types must be lists when the argument expects a list.
+// Only list-to-list nullability widening is allowed — not scalar-to-list (§3.11 is literals only).
+type AcceptVariableAsCompatibleList<Modifier extends string>
+  = Modifier extends `[${infer _Inner}!]!`
+    ? never
+    : Modifier extends `[${infer Inner}]!`
+      ? WrapOuterListVariants<Inner, true, true>
+      : Modifier extends `[${infer Inner}!]`
+        ? WrapOuterListVariants<Inner, true, true>
+        : Modifier extends `[${infer Inner}]`
+          ? | WrapOuterListVariants<Inner, true, false>
+          | WrapOuterListVariants<Inner, true, true>
+          | WrapOuterListVariants<Inner, false, true>
           : never
 
-type AcceptSimplifiedListModifier<Modifier extends string>
-  = Modifier extends `[${infer F}]`
-    ? AcceptSimplifiedListModifier<F>
-    : Modifier extends `${infer F}!`
-      ? AcceptSimplifiedListModifier<F>
-      : Modifier
+type ModifierStrings<T> = T extends Variable<infer M extends string> ? M : never
+
+type FormatListModifier<Inner extends string, ListNonNull extends boolean>
+  = ListNonNull extends true ? `[${Inner}]!` : `[${Inner}]`
+
+type CompatibleInnersForListItem<Inner extends string, ItemNonNull extends boolean>
+  = Inner extends `[${string}`
+    ? Inner | ModifierStrings<AcceptVariableAsCompatibleList<Inner>>
+    : ItemNonNull extends true
+      ? Inner extends `${string}!` ? Inner : `${Inner}!`
+      : Inner
+
+type WrapOuterListVariants<Inner extends string, ItemNonNull extends boolean, ListNonNull extends boolean>
+  = CompatibleInnersForListItem<Inner, ItemNonNull> extends infer I extends string
+    ? Variable<FormatListModifier<I, ListNonNull>>
+    : never
 
 export type RequireVariables<Schema, T extends VariablesDefinition<string>> = RelaxedOptional<{
   [K in keyof T]: UnpackDollar<T[K]> extends `${infer Modifier} = ${infer _Default}`

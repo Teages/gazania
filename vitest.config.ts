@@ -6,7 +6,7 @@ export default defineConfig({
     includeSource: ['src/**/*.ts'],
     typecheck: {
       enabled: true,
-      tsconfig: 'tsconfig.json',
+      tsconfig: 'tsconfig.vitest.json',
     },
     coverage: {
       include: ['src/**/*.ts'],
