@@ -1,7 +1,7 @@
 {
   "name": "gazania",
   "type": "module",
-  "version": "0.15.3",
+  "version": "0.15.4",
   "packageManager": "pnpm@11.5.1",
   "description": "Gazania lets you write GraphQL operations as TypeScript code with full type inference, autocompletion, and compile-time error checking.",
   "license": "MIT",
