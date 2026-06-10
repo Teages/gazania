@@ -49,7 +49,7 @@ type AcceptVariableAsNull<Modifier extends string>
 // GraphQL §5.8.5: variable types must be lists when the argument expects a list.
 // Only list-to-list nullability widening is allowed — not scalar-to-list (§3.11 is literals only).
 type AcceptVariableAsCompatibleList<Modifier extends string>
-  = Modifier extends `[${infer Inner}!]!`
+  = Modifier extends `[${infer _Inner}!]!`
     ? never
     : Modifier extends `[${infer Inner}]!`
       ? WrapOuterListVariants<Inner, true, true>
@@ -57,8 +57,8 @@ type AcceptVariableAsCompatibleList<Modifier extends string>
         ? WrapOuterListVariants<Inner, true, true>
         : Modifier extends `[${infer Inner}]`
           ? | WrapOuterListVariants<Inner, true, false>
-            | WrapOuterListVariants<Inner, true, true>
-            | WrapOuterListVariants<Inner, false, true>
+          | WrapOuterListVariants<Inner, true, true>
+          | WrapOuterListVariants<Inner, false, true>
           : never
 
 type ModifierStrings<T> = T extends Variable<infer M extends string> ? M : never
