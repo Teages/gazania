@@ -49,15 +49,34 @@ type AcceptVariableAsNull<Modifier extends string>
 // GraphQL §5.8.5: variable types must be lists when the argument expects a list.
 // Only list-to-list nullability widening is allowed — not scalar-to-list (§3.11 is literals only).
 type AcceptVariableAsCompatibleList<Modifier extends string>
-  = Modifier extends `[${infer _F}!]!`
+  = Modifier extends `[${infer Inner}!]!`
     ? never
-    : Modifier extends `[${infer F}]!`
-      ? Variable<`[${F}!]!`>
-      : Modifier extends `[${infer F}!]`
-        ? Variable<`[${F}!]!`>
-        : Modifier extends `[${infer F}]`
-          ? Variable<`[${F}!]`> | Variable<`[${F}!]!`> | Variable<`[${F}]!`>
+    : Modifier extends `[${infer Inner}]!`
+      ? WrapOuterListVariants<Inner, true, true>
+      : Modifier extends `[${infer Inner}!]`
+        ? WrapOuterListVariants<Inner, true, true>
+        : Modifier extends `[${infer Inner}]`
+          ? | WrapOuterListVariants<Inner, true, false>
+            | WrapOuterListVariants<Inner, true, true>
+            | WrapOuterListVariants<Inner, false, true>
           : never
+
+type ModifierStrings<T> = T extends Variable<infer M extends string> ? M : never
+
+type FormatListModifier<Inner extends string, ListNonNull extends boolean>
+  = ListNonNull extends true ? `[${Inner}]!` : `[${Inner}]`
+
+type CompatibleInnersForListItem<Inner extends string, ItemNonNull extends boolean>
+  = Inner extends `[${string}`
+    ? Inner | ModifierStrings<AcceptVariableAsCompatibleList<Inner>>
+    : ItemNonNull extends true
+      ? Inner extends `${string}!` ? Inner : `${Inner}!`
+      : Inner
+
+type WrapOuterListVariants<Inner extends string, ItemNonNull extends boolean, ListNonNull extends boolean>
+  = CompatibleInnersForListItem<Inner, ItemNonNull> extends infer I extends string
+    ? Variable<FormatListModifier<I, ListNonNull>>
+    : never
 
 export type RequireVariables<Schema, T extends VariablesDefinition<string>> = RelaxedOptional<{
   [K in keyof T]: UnpackDollar<T[K]> extends `${infer Modifier} = ${infer _Default}`

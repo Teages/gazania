@@ -25,8 +25,8 @@ describe('types/list-variable (issue #34)', () => {
   })
 
   test('scalar variables are rejected for list arguments', () => {
-    expectTypeOf<Variable<'String!'>>().not.toEqualTypeOf<NonNullStringListArg>()
-    expectTypeOf<Variable<'String'>>().not.toEqualTypeOf<NonNullStringListArg>()
+    expectTypeOf<Variable<'String!'>>().not.toMatchTypeOf<NonNullStringListArg>()
+    expectTypeOf<Variable<'String'>>().not.toMatchTypeOf<NonNullStringListArg>()
   })
 
   test('AcceptVariable does not widen list locations to scalar variables', () => {
@@ -37,7 +37,10 @@ describe('types/list-variable (issue #34)', () => {
       .toEqualTypeOf<Variable<'[String]!'> | Variable<'[String!]!'>>()
 
     expectTypeOf<AcceptVariable<'[String!]'>>()
-      .toEqualTypeOf<Variable<'[String!]'> | Variable<'[String!]!'> | Variable<'[String!]'>>()
+      .toEqualTypeOf<Variable<'[String!]'> | Variable<'[String!]!'> | Variable<'[String!]!'>>()
+
+    expectTypeOf<Variable<'[[String!]]'>>()
+      .toMatchTypeOf<AcceptVariable<'[[String]]'>>()
 
     expectTypeOf<AcceptVariable<'[String]'>>()
       .toEqualTypeOf<
