@@ -19,31 +19,20 @@ describe('types/variable', () => {
       .toEqualTypeOf<Variable<'String'> | Variable<'String!'>>()
 
     expectTypeOf<AcceptVariable<'[String!]!'>>()
-      .toEqualTypeOf<Variable<'[String!]!'> | Variable<'String!'>>()
+      .toEqualTypeOf<Variable<'[String!]!'>>()
 
     expectTypeOf<AcceptVariable<'[String]!'>>()
-      .toEqualTypeOf<
-        | Variable<'[String!]!'>
-        | Variable<'[String]!'>
-        | Variable<'String!'>
-    >()
+      .toEqualTypeOf<Variable<'[String]!'> | Variable<'[String!]!'>>()
 
     expectTypeOf<AcceptVariable<'[String!]'>>()
-      .toEqualTypeOf<
-        | Variable<'[String!]!'>
-        | Variable<'[String!]'>
-        | Variable<'String!'>
-        | Variable<'String'>
-    >()
+      .toEqualTypeOf<Variable<'[String!]'> | Variable<'[String!]!'> | Variable<'[String!]'>>()
 
     expectTypeOf<AcceptVariable<'[String]'>>()
       .toEqualTypeOf<
-        | Variable<'[String!]!'>
-        | Variable<'[String!]'>
-        | Variable<'[String]!'>
         | Variable<'[String]'>
-        | Variable<'String!'>
-        | Variable<'String'>
+        | Variable<'[String!]'>
+        | Variable<'[String!]!'>
+        | Variable<'[String]!'>
     >()
   })
 

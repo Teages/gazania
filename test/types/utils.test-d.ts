@@ -109,26 +109,33 @@ describe('types/utils', () => {
     expectTypeOf<RequireInputOrVariable<Input<Scalar_Int>>>()
       .toEqualTypeOf<number | Variable<'Int!'>>()
     expectTypeOf<RequireInputOrVariable<Input<Scalar_Int[]>>>()
-      .toEqualTypeOf<number[] | number | Variable<'[Int!]!'> | Variable<'Int!'>>()
+      .toEqualTypeOf<number[] | number | Variable<'[Int!]!'>>()
     expectTypeOf<RequireInputOrVariable<Input<(Scalar_Int | null)[]>>>()
       .toEqualTypeOf<
-        | number | (number | null | undefined)[]
-        | Variable<'[Int]!'> | Variable<'[Int!]!'>
-        | Variable<'Int!'>
+        | number
+        | (number | null | undefined)[]
+        | Variable<'[Int]!'>
+        | Variable<'[Int!]!'>
     >()
     expectTypeOf<RequireInputOrVariable<Input<Scalar_Int[] | null>>>()
       .toEqualTypeOf<
-        | number[] | number
-        | Variable<'[Int!]'> | Variable<'[Int!]!'>
-        | Variable<'Int!'> | Variable<'Int'>
-        | null | undefined
+        | number[]
+        | number
+        | Variable<'[Int!]'>
+        | Variable<'[Int!]!'>
+        | null
+        | undefined
     >()
     expectTypeOf<RequireInputOrVariable<Input<(Scalar_Int | null)[] | null>>>()
       .toEqualTypeOf<
-        | number | (number | null | undefined)[]
-        | Variable<'[Int]'> | Variable<'[Int]!'> | Variable<'[Int!]'> | Variable<'[Int!]!'>
-        | Variable<'Int!'> | Variable<'Int'>
-        | null | undefined
+        | number
+        | (number | null | undefined)[]
+        | Variable<'[Int]'>
+        | Variable<'[Int]!'>
+        | Variable<'[Int!]'>
+        | Variable<'[Int!]!'>
+        | null
+        | undefined
     >()
     expectTypeOf<RequireInputOrVariable<Input<Input_SayingDataInput>>>()
       .toEqualTypeOf<
@@ -149,7 +156,6 @@ describe('types/utils', () => {
           content: string | Variable<'String!'>
         }
         | Variable<'[SayingDataInput!]!'>
-        | Variable<'SayingDataInput!'>
     >()
     // Nullable input object field becomes an optional key
     expectTypeOf<RequireInputOrVariable<Input<Input_SayingWithSloganInput>>>()
