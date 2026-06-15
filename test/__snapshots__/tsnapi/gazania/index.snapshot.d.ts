@@ -33,7 +33,7 @@ export interface Gazania {
   'fragment': (_: string) => FragmentBuilder;
   'partial': <const Name extends string>(_: Name) => PartialBuilder<Name>;
   'section': <const Name extends string>(_: Name) => SectionBuilder<Name>;
-  'enum': EnumFunction$1;
+  'enum': EnumFunction;
 }
 export interface Input<T> {
   __define__?: () => T;

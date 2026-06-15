@@ -2,6 +2,11 @@ export interface EnumPackage<T extends string> {
   (): T
 }
 
+// PackedEnum distributes EnumPackage over a union of enum value literals.
+// Merged from src/types/enum.ts (was the only types-only member of the enum module).
+export type PackedEnum<T extends string>
+  = T extends any ? EnumPackage<T> : never
+
 export interface EnumFunction {
   <T extends string>(value: T): EnumPackage<T>
 }
