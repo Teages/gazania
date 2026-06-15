@@ -15,6 +15,38 @@ import { parseArguments } from './argument'
 import { parseDirectives } from './directive'
 import { createFieldDollar } from './dollar'
 
+// --- Phantom selection-set types (merged from src/types/selection.ts) ---
+// These are pure type-level markers: `TypedSelectionSet<T, IsOptional>` is the
+// terminal type returned by object-field `.select()` callbacks, and
+// `TypedScalarSelection<IsOptional>` the scalar-field equivalent. They carry no
+// runtime representation; the `unique symbol` keys are phantom-only and exist
+// so the result-inference layer (`ParseObjectSelection`) can read out the
+// inferred result `T` and the optional flag via conditional-type inference.
+
+declare const TypedSelectionSetContentSymbol: unique symbol
+declare const TypedSelectionSetIsOptionalSymbol: unique symbol
+
+/**
+ * Terminal type for object field callbacks, returned by `.select()`.
+ * Extends the GraphQL AST SelectionSet concept with phantom types
+ * for the selection content and the optional flag.
+ */
+export interface TypedSelectionSet<T = unknown, IsOptional extends boolean = false> {
+  [TypedSelectionSetContentSymbol]?: () => T
+  [TypedSelectionSetIsOptionalSymbol]?: () => IsOptional
+}
+
+declare const TypedScalarSelectionIsOptionalSymbol: unique symbol
+
+/**
+ * Terminal type for scalar field callbacks.
+ * Scalars have no SelectionSet in GraphQL, so this is a separate phantom type.
+ */
+export interface TypedScalarSelection<IsOptional extends boolean = false> {
+  [TypedScalarSelectionIsOptionalSymbol]?: () => IsOptional
+}
+// --- end phantom types ---
+
 export function parseSelectionSet(
   input: SelectionInput,
   ctx: DocumentNodeContext,

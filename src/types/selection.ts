@@ -1,22 +1,8 @@
-declare const TypedSelectionSetContentSymbol: unique symbol
-declare const TypedSelectionSetIsOptionalSymbol: unique symbol
-
 /**
- * Terminal type for object field callbacks, returned by `.select()`.
- * Extends the GraphQL AST SelectionSet concept with phantom types
- * for the selection content and the optional flag.
+ * Shim: phantom selection-set types now live in `src/runtime/selection.ts`
+ * alongside `parseSelectionSet`. Kept as a re-export so existing imports from
+ * `src/types/selection` continue to resolve during the incremental merge.
+ *
+ * @see .sisyphus/notepads/merge-types-into-runtime/research.md
  */
-export interface TypedSelectionSet<T = unknown, IsOptional extends boolean = false> {
-  [TypedSelectionSetContentSymbol]?: () => T
-  [TypedSelectionSetIsOptionalSymbol]?: () => IsOptional
-}
-
-declare const TypedScalarSelectionIsOptionalSymbol: unique symbol
-
-/**
- * Terminal type for scalar field callbacks.
- * Scalars have no SelectionSet in GraphQL, so this is a separate phantom type.
- */
-export interface TypedScalarSelection<IsOptional extends boolean = false> {
-  [TypedScalarSelectionIsOptionalSymbol]?: () => IsOptional
-}
+export type { TypedScalarSelection, TypedSelectionSet } from '../runtime/selection'
