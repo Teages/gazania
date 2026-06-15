@@ -10,7 +10,7 @@ import { createSectionBuilder } from '../../src/runtime/builder/section'
 describe('runtime generic builders', () => {
   test('createOperationBuilder can carry schema-aware result and variable types', () => {
     const builder = createOperationBuilder<Schema, Type_Query>('query')
-    const doc = builder
+    const _doc = builder
       .vars({ includeHello: 'Boolean!' })
       .select(($, vars) => $.select([
         {
@@ -18,41 +18,41 @@ describe('runtime generic builders', () => {
         },
       ]))
 
-    expectTypeOf<ResultOf<typeof doc>>().toEqualTypeOf<{
+    expectTypeOf<ResultOf<typeof _doc>>().toEqualTypeOf<{
       hello: string | null | undefined
     }>()
-    expectTypeOf<VariablesOf<typeof doc>>().toEqualTypeOf<{
+    expectTypeOf<VariablesOf<typeof _doc>>().toEqualTypeOf<{
       readonly includeHello: boolean
     }>()
   })
 
   test('createFragmentBuilder can carry schema-aware result types', () => {
-    const doc = createFragmentBuilder<Schema>('QueryFields')
+    const _doc = createFragmentBuilder<Schema>('QueryFields')
       .on('Query')
       .select($ => $.select(['hello', '__typename']))
 
-    expectTypeOf<ResultOf<typeof doc>>().toEqualTypeOf<{
+    expectTypeOf<ResultOf<typeof _doc>>().toEqualTypeOf<{
       hello: string
       __typename: 'Query'
     }>()
   })
 
   test('createPartialBuilder can carry schema-aware package result types', () => {
-    const partial = createPartialBuilder<Schema, 'QueryPartial'>('QueryPartial')
+    const _partial = createPartialBuilder<Schema, 'QueryPartial'>('QueryPartial')
       .on('Query')
       .select($ => $.select(['hello']))
 
-    expectTypeOf<RequireOperationPartialData<typeof partial>>().toEqualTypeOf<{
+    expectTypeOf<RequireOperationPartialData<typeof _partial>>().toEqualTypeOf<{
       hello: string
     }>()
   })
 
   test('createSectionBuilder can carry schema-aware package result types', () => {
-    const section = createSectionBuilder<Schema, 'QuerySection'>('QuerySection')
+    const _section = createSectionBuilder<Schema, 'QuerySection'>('QuerySection')
       .on('Query')
       .select($ => $.select(['hello']))
 
-    expectTypeOf<ResultOfSection<typeof section>>().toEqualTypeOf<{
+    expectTypeOf<ResultOfSection<typeof _section>>().toEqualTypeOf<{
       hello: string
     }>()
   })
