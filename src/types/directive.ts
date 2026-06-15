@@ -1,24 +1,9 @@
-import type { Argument } from './argument'
-import type { DirectiveDollar } from './dollar'
-import type { AnyVariables } from './variable'
-
-export type DirectiveInput = [
-  def: `@${string}`,
-  argument: Argument,
-]
-
-export type HasSkipDirective<Input extends Array<DirectiveInput>>
-  = Input extends Array<[infer Name, infer _Args]>
-    ? `@${string}` extends Name
-      ? false
-      : '@skip' extends Name
-        ? true
-        : '@include' extends Name
-          ? true
-          : false
-    : false
-
-export type DirectivesInputWithDollar<Variables>
-  = Variables extends AnyVariables
-    ? ($: DirectiveDollar<Variables>) => Array<DirectiveInput>
-    : never
+/**
+ * Shim: type-level directive helpers now live in
+ * `src/runtime/directive-types.ts` (separate from the runtime value helper
+ * `parseDirectives` in `src/runtime/directive.ts`). Re-export kept so existing
+ * imports resolve.
+ *
+ * @see .sisyphus/notepads/merge-types-into-runtime/research.md
+ */
+export type { DirectiveInput, DirectivesInputWithDollar, HasSkipDirective } from '../runtime/directive-types'

@@ -1,5 +1,5 @@
-import type { ModifierToType, RelaxedOptional, RequireInput } from '../types/utils'
 import type { Input } from './define'
+import type { ModifierToType, RelaxedOptional, RequireInput } from './utils'
 
 // Merged from src/types/variable.ts. These are the type-level variable
 // machinery (phantom Variable<T>, PrepareVariables, RequireVariables, ...).
