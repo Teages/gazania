@@ -36,4 +36,25 @@ export type {
 } from './dollar-types'
 export type { EnumFunction, EnumPackage } from './enum'
 export { readFragment } from './masking'
+export type { ObjectSelection, PrepareSelection, ScalarSelection } from './prepare'
+export type {
+  ParseObjectSelection,
+  ParseObjectSelectionContext,
+  ParseObjectSelectionContextField,
+  ParseObjectSelectionContextFields,
+  ParseSelection,
+  ParseSelectionName,
+} from './result'
+export type {
+  ParseUnknownSelection,
+  UnknownFieldCallback,
+  UnknownFieldDollar,
+  UnknownGazania,
+  UnknownOperationBuilderWithoutVars,
+  UnknownOperationBuilderWithVars,
+  UnknownRootDollar,
+  UnknownSelectionItem,
+  UnknownSelectionObject,
+  UnknownVariables,
+} from './unknown-types'
 export type { Variable, VariableDefinitions } from './variable'

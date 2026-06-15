@@ -1,4 +1,3 @@
-import type { Gazania } from './runtime'
 import type { DefineSchema, ReadFragmentFn, TypedGazania } from './types'
 import { readFragment as _readFragment, gazania } from './runtime'
 
@@ -20,8 +19,24 @@ export const readFragment: ReadFragmentFn = _readFragment as ReadFragmentFn
  */
 export interface Schemas {}
 
-/** @deprecated Unknown schema — register with the CLI or provide a schema type */
-export interface UnknownSchema extends Gazania {}
+/**
+ * Schema-unknown gazania instance.
+ *
+ * Operations still produce a typed `TypedDocumentNode`, but every selection
+ * leaf resolves to `unknown` and every object field recursively preserves its
+ * sub-selection shape. Aliases are honored.
+ *
+ * @example
+ * ```ts
+ * const g = createGazania()
+ * const doc = g.query().select($ => $.select([
+ *   'a',
+ *   { b: $ => $.select(['c']) },
+ * ]))
+ * type Result = ResultOf<typeof doc> // { a: unknown, b: { c: unknown } }
+ * ```
+ */
+export type UnknownSchema = import('./runtime/unknown-types').UnknownGazania
 
 export function createGazania(): UnknownSchema
 export function createGazania<T extends DefineSchema<any, any>>(schema: T): TypedGazania<T>
@@ -34,6 +49,34 @@ export function createGazania<T extends string | DefineSchema<any, any> = string
 export type {
   Gazania,
 } from './runtime'
+
+export type {
+  ObjectSelection,
+  PrepareSelection,
+  ScalarSelection,
+} from './runtime/prepare'
+
+export type {
+  ParseObjectSelection,
+  ParseObjectSelectionContext,
+  ParseObjectSelectionContextField,
+  ParseObjectSelectionContextFields,
+  ParseSelection,
+  ParseSelectionName,
+} from './runtime/result'
+
+export type {
+  ParseUnknownSelection,
+  UnknownFieldCallback,
+  UnknownFieldDollar,
+  UnknownGazania,
+  UnknownOperationBuilderWithoutVars,
+  UnknownOperationBuilderWithVars,
+  UnknownRootDollar,
+  UnknownSelectionItem,
+  UnknownSelectionObject,
+  UnknownVariables,
+} from './runtime/unknown-types'
 
 export type {
   ResultOfSection,
@@ -60,6 +103,18 @@ export type {
   TypedDocumentNode,
   VariablesOf,
 } from './types/document'
+
+export type {
+  DollarPayload,
+  ObjectFieldDollar,
+  ObjectFieldDollarAfterArgs,
+  ObjectFieldDollarAfterDirective,
+  RootDollar,
+  ScalarFieldDollar,
+  ScalarFieldDollarAfterArgs,
+  TypedScalarSelection,
+  TypedSelectionSet,
+} from './types/dollar'
 
 export type {
   FragmentOf,

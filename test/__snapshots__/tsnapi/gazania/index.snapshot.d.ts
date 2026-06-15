@@ -16,6 +16,10 @@ export interface DefineSchema<Namespace extends Record<string, BaseType<any, any
   '__define__'?: () => Namespace;
   readonly '~schemaHash'?: SchemaHash;
 }
+export interface DollarPayload<Variables extends AnyVariables> {
+  vars: Variables;
+  enum: EnumFunction;
+}
 export interface EnumType<Name extends string, Definition extends string> extends BaseScalar<Name, Definition, PackedEnum<Definition>> {
   __type__?: () => 'Enum';
 }
@@ -44,8 +48,33 @@ export interface InputObjectType<Name extends string, Fields extends Record<stri
 export interface InterfaceType<Name extends string, Fields extends Record<string, Field<any, any>>, Implements extends Record<string, BaseObject<any, any, any>>> extends BaseObject<Name, Fields, Implements> {
   __type__?: () => 'Interface';
 }
+export interface ObjectFieldDollar<Type extends BaseObject<any, any, any>, Args = Record<string, never>> {
+  enum: EnumFunction;
+  args: Args extends Record<string, never> ? never : (a: Args) => ObjectFieldDollarAfterArgs<Type>;
+  directives: <U extends DirectiveInput[]>(..._: U) => HasSkipDirective<U> extends true ? ObjectFieldDollarAfterDirective<Type, true> : ObjectFieldDollarAfterDirective<Type, false>;
+  select: <const T extends ObjectSelection<Type>>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseObjectSelection<Type, T>, false>;
+}
+export interface ObjectFieldDollarAfterArgs<Type extends BaseObject<any, any, any>> {
+  directives: <U extends DirectiveInput[]>(..._: U) => HasSkipDirective<U> extends true ? ObjectFieldDollarAfterDirective<Type, true> : ObjectFieldDollarAfterDirective<Type, false>;
+  select: <const T extends ObjectSelection<Type>>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseObjectSelection<Type, T>, false>;
+}
+export interface ObjectFieldDollarAfterDirective<Type extends BaseObject<any, any, any>, IsOptional extends boolean> {
+  select: <const T extends ObjectSelection<Type>>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseObjectSelection<Type, T>, IsOptional>;
+}
 export interface ObjectType<Name extends string, Fields extends Record<string, Field<any, any>>> extends BaseObject<Name, Fields, Record<string, never>> {
   __type__?: () => 'Type';
+}
+export interface RootDollar<Type extends BaseObject<any, any, any>> {
+  readonly enum: EnumFunction;
+  select: <const T extends ObjectSelection<Type>>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseObjectSelection<Type, T>>;
+}
+export interface ScalarFieldDollar<Output, Args = Record<string, never>> extends TypedScalarSelection<false> {
+  enum: EnumFunction;
+  args: Args extends Record<string, never> ? never : (a: Args) => ScalarFieldDollarAfterArgs<Output>;
+  directives: <U extends DirectiveInput[]>(..._: U) => HasSkipDirective<U> extends true ? TypedScalarSelection<true> : TypedScalarSelection<false>;
+}
+export interface ScalarFieldDollarAfterArgs<_Output> extends TypedScalarSelection<false> {
+  directives: <U extends DirectiveInput[]>(..._: U) => HasSkipDirective<U> extends true ? TypedScalarSelection<true> : TypedScalarSelection<false>;
 }
 export interface ScalarType<Name extends string, Output, Input> extends BaseScalar<Name, Output, Input> {
   __type__?: () => 'Scalar';
@@ -66,18 +95,76 @@ export interface TypedGazania<Schema extends DefineSchema<any, any>> {
   'section': <Name extends string>(_: Name) => TypedSectionBuilder<Schema, Name>;
   'enum': EnumFunction;
 }
+export interface TypedScalarSelection<IsOptional extends boolean = false> {
+  [TypedScalarSelectionIsOptionalSymbol]?: () => IsOptional;
+}
+export interface TypedSelectionSet<T = unknown, IsOptional extends boolean = false> {
+  [TypedSelectionSetContentSymbol]?: () => T;
+  [TypedSelectionSetIsOptionalSymbol]?: () => IsOptional;
+}
 export interface UnionType<Name extends string, Implements extends Record<string, BaseObject<any, any, any>>> extends BaseObject<Name, Record<string, never>, Implements> {
   __type__?: () => 'Union';
 }
-export interface UnknownSchema extends Gazania {}
+export interface UnknownFieldDollar extends TypedScalarSelection<false> {
+  readonly enum: EnumFunction;
+  args: (_: any) => UnknownFieldDollar;
+  directives: (..._: any[]) => UnknownFieldDollar;
+  select: <const T extends UnknownSelectionItem[]>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseUnknownSelection<T>, false>;
+}
+export interface UnknownGazania {
+  readonly '~isGazania': true;
+  'query': (_?: string) => UnknownOperationBuilderWithoutVars;
+  'mutation': (_?: string) => UnknownOperationBuilderWithoutVars;
+  'subscription': (_?: string) => UnknownOperationBuilderWithoutVars;
+  'fragment': (_: string) => FragmentBuilder;
+  'partial': <const Name extends string>(_: Name) => PartialBuilder<Name>;
+  'section': <const Name extends string>(_: Name) => SectionBuilder<Name>;
+  'enum': EnumFunction;
+}
+export interface UnknownOperationBuilderWithoutVars {
+  vars: <const V extends VariablesDefinition<string>>(_: V) => UnknownOperationBuilderWithVars<V>;
+  directives: (_: () => DirectiveInput[]) => UnknownOperationBuilderWithoutVars;
+  select: <Result>(_: (_: UnknownRootDollar) => TypedSelectionSet<Result>) => TypedDocumentNode<Expand<Result>, Record<string, never>>;
+}
+export interface UnknownOperationBuilderWithVars<V extends VariablesDefinition<string>> {
+  directives: (_: (_: PrepareVariables<V>) => DirectiveInput[]) => UnknownOperationBuilderWithVars<V>;
+  select: <Result>(_: (_: UnknownRootDollar, _: PrepareVariables<V>) => TypedSelectionSet<Result>) => TypedDocumentNode<Expand<Result>, UnknownVariables<V>>;
+}
+export interface UnknownRootDollar {
+  readonly enum: EnumFunction;
+  select: <const T extends UnknownSelectionItem[]>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseUnknownSelection<T>, false>;
+}
+export interface UnknownSelectionObject {
+  [key: string]: true | UnknownFieldCallback;
+}
 // #endregion
 
 // #region Types
 export type FragmentOf<T> = T extends {
   readonly ' $fragmentOf'?: infer Ref;
 } ? Ref : never;
+export type ObjectSelection<T extends BaseObject<any, any, any>> = ObjectSelectionSimple<ObjectSelectionContext<T>>[] | [...ObjectSelectionSimple<ObjectSelectionContext<T>>[], ObjectSelectionContext<T>] | [...(ObjectSelectionSimple<ObjectSelectionContext<T>> | PartialSpreadSelection)[], ObjectSelectionContext<T>] | (ObjectSelectionSimple<ObjectSelectionContext<T>> | PartialSpreadSelection)[];
+export type ParseObjectSelection<T extends BaseObject<any, any, any>, Selection extends Array<any>> = ParseObjectSelectionContext<T, AnalyzedObjectSelection<Selection>>;
+export type ParseObjectSelectionContext<T extends BaseObject<any, any, any>, Context> = Context extends Record<string, any> ? (_ParseObjectSelectionContextCore<T, OmitPartialSpreadKeys<OmitSectionSpreadKeys<Context>>> & ExtractPartialSpreadFragmentRefs<Context> & ExtractSectionSpreadResults<Context>) : never;
+export type ParseObjectSelectionContextField<T extends Field<any, any>, Selection> = T extends Field<infer FieldType, any> ? Selection extends ((...args: any) => TypedSelectionSet<infer Result, infer IsOptional>) ? true extends IsOptional ? WrapFieldResult<FieldType, Result> | null | undefined : WrapFieldResult<FieldType, Result> : Selection extends ((...args: any) => TypedScalarSelection<infer IsOptional>) ? true extends IsOptional ? WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, true>> | null | undefined : WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, true>> : WrapFieldResult<FieldType, ParseSelection<BaseOf<FieldType>, Selection>> : never;
+export type ParseObjectSelectionContextFields<T extends BaseObject<any, any, any>, SelectionObject extends Record<string, any>> = T extends BaseObject<any, infer Fields, any> ? { [K in keyof SelectionObject as ParseSelectionName<K & string>['Name']]: ParseSelectionName<K & string>['Field'] extends '__typename' ? Typename<T> : ParseObjectSelectionContextField<Fields[ParseSelectionName<K & string>['Field']], SelectionObject[K]> } : never;
+export type ParseSelection<T extends BaseType<any, any> | undefined, Selection> = T extends BaseType<any, any> ? Expand<T extends BaseScalar<any, infer Output, any> ? Selection extends true ? Output : never : T extends BaseObject<any, any, any> ? Selection extends Array<any> ? ParseObjectSelection<T, Selection> : never : never> : never;
+export type ParseSelectionName<T extends string> = T extends `${infer Name}:${infer Field}` ? {
+  Field: Trim<Field>;
+  Name: Name;
+} : {
+  Field: T;
+  Name: T;
+};
+export type ParseUnknownSelection<Selection extends Array<any>> = Expand<{ [K in keyof AnalyzedUnknownSelection<Selection> as ParseSelectionName<K & string>['Name']]: ParseUnknownFieldValue<AnalyzedUnknownSelection<Selection>[K]> }>;
+export type PrepareSelection<T extends BaseType<any, any>> = T extends BaseObject<any, any, any> ? ObjectSelection<T> : T extends BaseScalar<any, any, any> ? ScalarSelection : never;
 export type ResultOf<T> = T extends TypedDocumentNode<infer Result, any> ? Result : unknown;
 export type ResultOfSection<T> = T extends TypedSectionPackage<any, infer Result, any, any> ? Expand<Result> : never;
+export type ScalarSelection = true;
+export type UnknownFieldCallback = ((_: UnknownFieldDollar) => TypedScalarSelection<boolean>) | ((_: UnknownFieldDollar) => TypedSelectionSet<any, boolean>);
+export type UnknownSchema = UnknownGazania;
+export type UnknownSelectionItem = string | UnknownSelectionObject;
+export type UnknownVariables<V extends VariablesDefinition<string>> = RelaxedOptional<{ [K in keyof V]: UnpackUnknownModifier<V[K]> extends `${infer _Type} = ${infer _Default}` ? unknown | undefined : UnpackUnknownModifier<V[K]> extends `${string}!` ? unknown : unknown | undefined }>;
 export type VariablesOf<T> = T extends TypedDocumentNode<any, infer Variables> ? Variables : unknown;
 // #endregion
 
