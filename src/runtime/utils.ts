@@ -1,10 +1,9 @@
+import type { TypedGazania } from './builder-types'
 import type { BaseObject, BaseScalar, BaseType, DefineSchema, Field, Input, InputObjectType } from './define'
 import type { AcceptVariable } from './variable-types'
 
 // Merged from src/types/utils.ts. Type-level helpers for field/result analysis,
-// modifier-string parsing, and variable input resolution. The SchemaRequire
-// helper (which depends on TypedGazania) stays in src/types/utils.ts for now
-// and will move once the builder layer is merged.
+// modifier-string parsing, and variable input resolution.
 
 /**
  * Extract the base BaseType from a field/input type (unwrap Array and null).
@@ -270,3 +269,12 @@ type _RequireInputOrVariableBaseValue<T>
     : T extends InputObjectType<any, infer Fields>
       ? RelaxedOptional<{ [K in keyof Fields]: RequireInputOrVariable<Fields[K]> }>
       : never
+
+/**
+ * Resolve a GraphQL modifier string against a schema-bearing gazania instance
+ * to the required input type. Used by the variable-validation layer.
+ */
+export type SchemaRequire<Gazania extends TypedGazania<any>, Modifier extends string>
+  = Gazania extends TypedGazania<infer Schema>
+    ? RequireInput<Input<ModifierToType<Schema, Modifier>>>
+    : never
