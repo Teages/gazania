@@ -1,4 +1,6 @@
 import type { DocumentNode } from '../../lib/graphql'
+import type { TypedOperationBuilderWithoutVars } from '../builder-types'
+import type { BaseObject, DefineSchema } from '../define'
 import type { DirectiveInput } from '../directive'
 import type { SelectionInput } from '../dollar'
 import type { Variable, VariableDefinitions } from '../variable'
@@ -28,7 +30,18 @@ export interface OperationBuilderWithVars {
 export function createOperationBuilder(
   type: OperationType,
   name?: string,
-): OperationBuilderWithoutVars {
+): OperationBuilderWithoutVars
+export function createOperationBuilder<
+  Schema extends DefineSchema<any, any>,
+  OpType extends BaseObject<any, any, any>,
+>(
+  type: OperationType,
+  name?: string,
+): TypedOperationBuilderWithoutVars<Schema, OpType>
+export function createOperationBuilder(
+  type: OperationType,
+  name?: string,
+): OperationBuilderWithoutVars | TypedOperationBuilderWithoutVars<any, any> {
   const enumFn = createEnumFunction()
   let varDefs: VariableDefinitions | undefined
   let directivesFn: ((vars?: Record<string, Variable>) => DirectiveInput[]) | undefined

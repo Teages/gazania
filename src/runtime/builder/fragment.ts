@@ -1,4 +1,6 @@
 import type { DocumentNode } from '../../lib/graphql'
+import type { TypedFragmentBuilder } from '../builder-types'
+import type { DefineSchema } from '../define'
 import type { DirectiveInput } from '../directive'
 import type { SelectionInput } from '../dollar'
 import type { Variable, VariableDefinitions } from '../variable'
@@ -27,7 +29,9 @@ export interface FragmentBuilderOnTypeWithVar {
   select: (callback: SelectCallback<Record<string, Variable>>) => DocumentNode
 }
 
-export function createFragmentBuilder(name: string): FragmentBuilder {
+export function createFragmentBuilder(name: string): FragmentBuilder
+export function createFragmentBuilder<Schema extends DefineSchema<any, any>>(name: string): TypedFragmentBuilder<Schema>
+export function createFragmentBuilder(name: string): FragmentBuilder | TypedFragmentBuilder<any> {
   const enumFn = createEnumFunction()
 
   return {

@@ -1,6 +1,8 @@
 import type { DirectiveInput } from '../directive'
 import type { SelectionInput } from '../dollar'
 import type { FragmentRef } from '../masking'
+import type { TypedPartialBuilder } from '../builder-types'
+import type { DefineSchema } from '../define'
 import type { Variable, VariableDefinitions } from '../variable'
 import type { SelectCallback } from './root'
 import { createFieldDollar } from '../dollar'
@@ -32,7 +34,14 @@ export interface PartialBuilderOnTypeWithVar<Name extends string = string> {
   select: (callback: SelectCallback<Record<string, Variable>>) => PartialPackage<Name>
 }
 
-export function createPartialBuilder<const Name extends string>(name: Name): PartialBuilder<Name> {
+export function createPartialBuilder<const Name extends string>(name: Name): PartialBuilder<Name>
+export function createPartialBuilder<
+  Schema extends DefineSchema<any, any>,
+  const Name extends string = string,
+>(name: Name): TypedPartialBuilder<Schema, Name>
+export function createPartialBuilder<const Name extends string>(
+  name: Name,
+): PartialBuilder<Name> | TypedPartialBuilder<any, Name> {
   const enumFn = createEnumFunction()
 
   return {
