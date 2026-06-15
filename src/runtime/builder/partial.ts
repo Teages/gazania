@@ -1,6 +1,6 @@
-import type { FragmentRef } from '../../types/masking'
 import type { DirectiveInput } from '../directive'
 import type { SelectionInput } from '../dollar'
+import type { FragmentRef } from '../masking'
 import type { Variable, VariableDefinitions } from '../variable'
 import type { SelectCallback } from './root'
 import { createFieldDollar } from '../dollar'
