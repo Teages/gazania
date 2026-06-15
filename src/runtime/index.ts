@@ -2,6 +2,17 @@ export { gazania } from './builder'
 export type { Gazania, PartialPackage, SectionPackage } from './builder'
 export type { DirectiveInput } from './directive'
 export type { FieldDollar, SelectionInput, SelectionObject, SelectionValue } from './dollar'
+export type {
+  DollarPayload,
+  ObjectFieldDollar,
+  ObjectFieldDollarAfterArgs,
+  ObjectFieldDollarAfterDirective,
+  RootDollar,
+  ScalarFieldDollar,
+  ScalarFieldDollarAfterArgs,
+  TypedScalarSelection,
+  TypedSelectionSet,
+} from './dollar-types'
 export type { EnumFunction, EnumPackage } from './enum'
 export { readFragment } from './masking'
 export type { Variable, VariableDefinitions } from './variable'

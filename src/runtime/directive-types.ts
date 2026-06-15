@@ -1,5 +1,5 @@
-import type { DirectiveDollar } from '../types/dollar'
 import type { Argument } from './argument-types'
+import type { DirectiveDollar } from './dollar-types'
 import type { AnyVariables } from './variable-types'
 
 // Merged from src/types/directive.ts. Type-level directive helpers used by the

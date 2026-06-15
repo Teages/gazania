@@ -1,6 +1,6 @@
-import type { ObjectFieldDollar, ScalarFieldDollar, TypedScalarSelection, TypedSelectionSet } from '../types/dollar'
 import type { PrepareSelectionArgument } from './argument-types'
 import type { BaseObject, BaseScalar, BaseType, Field } from './define'
+import type { ObjectFieldDollar, ScalarFieldDollar, TypedScalarSelection, TypedSelectionSet } from './dollar-types'
 import type { PartialSpreadSelection } from './masking'
 import type { BaseOf, TypenameField } from './utils'
 
