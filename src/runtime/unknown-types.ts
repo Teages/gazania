@@ -189,7 +189,7 @@ export interface UnknownOperationBuilderWithVars<
  * their plain (untyped) builder shapes since they require a type name.
  */
 export interface UnknownGazania {
-  readonly '~isGazania': true
+  readonly ' $isGazania': true
   'query': (name?: string) => UnknownOperationBuilderWithoutVars
   'mutation': (name?: string) => UnknownOperationBuilderWithoutVars
   'subscription': (name?: string) => UnknownOperationBuilderWithoutVars

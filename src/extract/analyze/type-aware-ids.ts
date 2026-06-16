@@ -4,12 +4,12 @@ function hasGazaniaMarker(
   checker: ts.TypeChecker,
   type: ts.Type,
 ): boolean {
-  return !!checker.getPropertyOfType(type, '~isGazania')
+  return !!checker.getPropertyOfType(type, ' $isGazania')
 }
 
 /**
  * Walk a TS SourceFile and collect identifier names whose type carries
- * the ~isGazania marker. Uses the TypeChecker — no string matching.
+ * the ' $isGazania' marker. Uses the TypeChecker — no string matching.
  */
 export function collectBuilderNamesByType(
   ts: typeof import('typescript'),

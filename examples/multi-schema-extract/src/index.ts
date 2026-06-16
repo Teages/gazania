@@ -6,8 +6,6 @@ import { createGazania } from 'gazania'
 export const blog = createGazania('blog')
 export const shop = createGazania('shop')
 
-// --- Blog queries (validated against schemas/blog.graphql) ---
-
 export const allPosts = blog.query('AllPosts')
   .select($ => $.select([{
     posts: $ => $.select([
@@ -37,8 +35,6 @@ export const postById = blog.query('PostById')
         },
       ]),
   }]))
-
-// --- Shop queries (validated against schemas/shop.graphql) ---
 
 export const allProducts = shop.query('AllProducts')
   .select($ => $.select([{

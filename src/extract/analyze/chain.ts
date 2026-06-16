@@ -45,14 +45,14 @@ function hasGazaniaMarker(
   checker: import('typescript').TypeChecker,
   type: import('typescript').Type,
 ): boolean {
-  return !!checker.getPropertyOfType(type, '~isGazania')
+  return !!checker.getPropertyOfType(type, ' $isGazania')
 }
 
 export function getGazaniaSchemaHash(
   checker: import('typescript').TypeChecker,
   type: import('typescript').Type,
 ): string | undefined {
-  const hashProp = checker.getPropertyOfType(type, '~schemaHash')
+  const hashProp = checker.getPropertyOfType(type, ' $schemaHash')
   if (!hashProp) {
     return undefined
   }

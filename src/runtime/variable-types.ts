@@ -7,18 +7,14 @@ import type { ModifierToType, RelaxedOptional, RequireInput } from './utils'
 // `interface Variable<T>` would declaration-merge with the runtime
 // `class Variable` if colocated.
 
-declare const VariableIdentitySymbol: unique symbol
-
 export type AnyVariables = Record<string, Variable<string>>
 
 export interface Variable<T extends string> {
-  [VariableIdentitySymbol]?: () => T
+  readonly ' $variable'?: () => T
 }
 
-declare const VariableDefResultSymbol: unique symbol
-
 export interface VariableDefResult<T = unknown> {
-  [VariableDefResultSymbol]?: () => T
+  readonly ' $variableDefResult'?: () => T
 }
 
 export type VariablesDefinitionDollarPackage<T extends string>

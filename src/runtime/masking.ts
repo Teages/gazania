@@ -1,7 +1,5 @@
 import type { BaseObject } from './define'
 
-// --- Fragment masking types ---
-
 /**
  * Opaque fragment reference marker that appears in query result types.
  * When a partial is spread into a query, the corresponding position in the
@@ -165,7 +163,6 @@ type _CollectSectionResults<Context>
 
 type _SectionResultsToIntersection<U>
   = (U extends any ? (x: U) => void : never) extends ((x: infer I) => void) ? I : never
-// --- end fragment masking types ---
 
 /**
  * Unmask a fragment-masked data object.

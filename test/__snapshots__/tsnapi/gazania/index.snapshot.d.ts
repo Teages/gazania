@@ -3,34 +3,34 @@
  */
 // #region Interfaces
 export interface BaseObject<Name extends string, Fields extends Record<string, Field<any, any>>, Implements extends Record<string, BaseObject<string, any, any>>> extends BaseType<'BaseObject', Name> {
-  __define__?: (_: Implements) => Fields;
+  readonly ' $objectDefine'?: (_: Implements) => Fields;
 }
 export interface BaseScalar<Name extends string, Output, Input> extends BaseType<'BaseScalar', Name> {
-  __define__?: (_: Input) => Output;
+  readonly ' $scalarDefine'?: (_: Input) => Output;
 }
 export interface BaseType<Base extends string, Name extends string> {
-  __base__?: () => Base;
-  __name__?: () => Name;
+  readonly ' $baseType'?: () => Base;
+  readonly ' $baseName'?: () => Name;
 }
 export interface DefineSchema<Namespace extends Record<string, BaseType<any, any>>, SchemaHash extends string = string> {
-  '__define__'?: () => Namespace;
-  readonly '~schemaHash'?: SchemaHash;
+  readonly ' $schemaDefine'?: () => Namespace;
+  readonly ' $schemaHash'?: SchemaHash;
 }
 export interface DollarPayload<Variables extends AnyVariables> {
   vars: Variables;
   enum: EnumFunction;
 }
 export interface EnumType<Name extends string, Definition extends string> extends BaseScalar<Name, Definition, PackedEnum<Definition>> {
-  __type__?: () => 'Enum';
+  readonly ' $typeKind'?: () => 'Enum';
 }
 export interface Field<T, Args extends Record<string, Input<any>> = Record<string, never>> {
-  __define__?: (_: Args) => T;
+  readonly ' $fieldDefine'?: (_: Args) => T;
 }
 export interface FragmentRef<Name extends string, _TypeName extends string> {
   readonly ' $fragmentRefs'?: { [K in Name]: true };
 }
 export interface Gazania {
-  readonly '~isGazania': true;
+  readonly ' $isGazania': true;
   'query': (_?: string) => OperationBuilderWithoutVars;
   'mutation': (_?: string) => OperationBuilderWithoutVars;
   'subscription': (_?: string) => OperationBuilderWithoutVars;
@@ -40,13 +40,13 @@ export interface Gazania {
   'enum': EnumFunction;
 }
 export interface Input<T> {
-  __define__?: () => T;
+  readonly ' $inputDefine'?: () => T;
 }
 export interface InputObjectType<Name extends string, Fields extends Record<string, Input<any>>> extends BaseType<'InputObject', Name> {
-  __define__?: (_: Fields) => void;
+  readonly ' $inputObjectDefine'?: (_: Fields) => void;
 }
-export interface InterfaceType<Name extends string, Fields extends Record<string, Field<any, any>>, Implements extends Record<string, BaseObject<any, any, any>>> extends BaseObject<Name, Fields, Implements> {
-  __type__?: () => 'Interface';
+export interface InterfaceType<Name extends string, Fields extends Record<string, Field<any, any>>, Implements extends Record<string, BaseObject<string, any, any>>> extends BaseObject<Name, Fields, Implements> {
+  readonly ' $typeKind'?: () => 'Interface';
 }
 export interface ObjectFieldDollar<Type extends BaseObject<any, any, any>, Args = Record<string, never>> {
   enum: EnumFunction;
@@ -62,7 +62,7 @@ export interface ObjectFieldDollarAfterDirective<Type extends BaseObject<any, an
   select: <const T extends ObjectSelection<Type>>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseObjectSelection<Type, T>, IsOptional>;
 }
 export interface ObjectType<Name extends string, Fields extends Record<string, Field<any, any>>> extends BaseObject<Name, Fields, Record<string, never>> {
-  __type__?: () => 'Type';
+  readonly ' $typeKind'?: () => 'Type';
 }
 export interface RootDollar<Type extends BaseObject<any, any, any>> {
   readonly enum: EnumFunction;
@@ -77,7 +77,7 @@ export interface ScalarFieldDollarAfterArgs<_Output> extends TypedScalarSelectio
   directives: <U extends DirectiveInput[]>(..._: U) => HasSkipDirective<U> extends true ? TypedScalarSelection<true> : TypedScalarSelection<false>;
 }
 export interface ScalarType<Name extends string, Output, Input> extends BaseScalar<Name, Output, Input> {
-  __type__?: () => 'Scalar';
+  readonly ' $typeKind'?: () => 'Scalar';
 }
 export interface Schemas {}
 export interface TypedDocumentNode<Result = Record<string, any>, Variables = Record<string, any>> extends DocumentNode {
@@ -85,8 +85,8 @@ export interface TypedDocumentNode<Result = Record<string, any>, Variables = Rec
   __ensureTypesOfVariablesAndResultMatching?: (_: Variables) => Result;
 }
 export interface TypedGazania<Schema extends DefineSchema<any, any>> {
-  readonly '~isGazania': true;
-  readonly '~schemaHash'?: Schema extends DefineSchema<any, infer H> ? H : undefined;
+  readonly ' $isGazania': true;
+  readonly ' $schemaHash'?: Schema extends DefineSchema<any, infer H> ? H : undefined;
   'query': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Query'>>;
   'mutation': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Mutation'>>;
   'subscription': (_?: string) => TypedOperationBuilderWithoutVars<Schema, OperationTypeObject<Schema, 'Subscription'>>;
@@ -96,14 +96,14 @@ export interface TypedGazania<Schema extends DefineSchema<any, any>> {
   'enum': EnumFunction;
 }
 export interface TypedScalarSelection<IsOptional extends boolean = false> {
-  [TypedScalarSelectionIsOptionalSymbol]?: () => IsOptional;
+  readonly ' $typedScalarSelectionOptional'?: () => IsOptional;
 }
 export interface TypedSelectionSet<T = unknown, IsOptional extends boolean = false> {
-  [TypedSelectionSetContentSymbol]?: () => T;
-  [TypedSelectionSetIsOptionalSymbol]?: () => IsOptional;
+  readonly ' $typedSelectionSet'?: () => T;
+  readonly ' $typedSelectionSetOptional'?: () => IsOptional;
 }
 export interface UnionType<Name extends string, Implements extends Record<string, BaseObject<any, any, any>>> extends BaseObject<Name, Record<string, never>, Implements> {
-  __type__?: () => 'Union';
+  readonly ' $typeKind'?: () => 'Union';
 }
 export interface UnknownFieldDollar extends TypedScalarSelection<false> {
   readonly enum: EnumFunction;
@@ -112,7 +112,7 @@ export interface UnknownFieldDollar extends TypedScalarSelection<false> {
   select: <const T extends UnknownSelectionItem[]>(_: [...(T extends any[] ? T : never)]) => TypedSelectionSet<ParseUnknownSelection<T>, false>;
 }
 export interface UnknownGazania {
-  readonly '~isGazania': true;
+  readonly ' $isGazania': true;
   'query': (_?: string) => UnknownOperationBuilderWithoutVars;
   'mutation': (_?: string) => UnknownOperationBuilderWithoutVars;
   'subscription': (_?: string) => UnknownOperationBuilderWithoutVars;

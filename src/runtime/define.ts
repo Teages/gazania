@@ -5,8 +5,8 @@ import type { PackedEnum } from './enum'
 // Pure type-level; no runtime values.
 
 export interface BaseType<Base extends string, Name extends string> {
-  __base__?: () => Base
-  __name__?: () => Name
+  readonly ' $baseType'?: () => Base
+  readonly ' $baseName'?: () => Name
 }
 
 export interface BaseScalar<
@@ -14,7 +14,7 @@ export interface BaseScalar<
   Output,
   Input,
 > extends BaseType<'BaseScalar', Name> {
-  __define__?: (input: Input) => Output
+  readonly ' $scalarDefine'?: (input: Input) => Output
 }
 
 export interface BaseObject<
@@ -22,28 +22,28 @@ export interface BaseObject<
   Fields extends Record<string, Field<any, any>>,
   Implements extends Record<string, BaseObject<string, any, any>>,
 > extends BaseType<'BaseObject', Name> {
-  __define__?: (Implements: Implements) => Fields
+  readonly ' $objectDefine'?: (Implements: Implements) => Fields
 }
 
 export interface DefineSchema<
   Namespace extends Record<string, BaseType<any, any>>,
   SchemaHash extends string = string,
 > {
-  '__define__'?: () => Namespace
-  readonly '~schemaHash'?: SchemaHash
+  readonly ' $schemaDefine'?: () => Namespace
+  readonly ' $schemaHash'?: SchemaHash
 }
 
 export interface Input<
   T,
 > {
-  __define__?: () => T
+  readonly ' $inputDefine'?: () => T
 }
 
 export interface Field<
   T,
   Args extends Record<string, Input<any>> = Record<string, never>,
 > {
-  __define__?: (args: Args) => T
+  readonly ' $fieldDefine'?: (args: Args) => T
 }
 
 export interface ScalarType<
@@ -51,41 +51,41 @@ export interface ScalarType<
   Output,
   Input,
 > extends BaseScalar<Name, Output, Input> {
-  __type__?: () => 'Scalar'
+  readonly ' $typeKind'?: () => 'Scalar'
 }
 
 export interface EnumType<
   Name extends string,
   Definition extends string,
 > extends BaseScalar<Name, Definition, PackedEnum<Definition>> {
-  __type__?: () => 'Enum'
+  readonly ' $typeKind'?: () => 'Enum'
 }
 
 export interface ObjectType<
   Name extends string,
   Fields extends Record<string, Field<any, any>>,
 > extends BaseObject<Name, Fields, Record<string, never>> {
-  __type__?: () => 'Type'
+  readonly ' $typeKind'?: () => 'Type'
 }
 
 export interface UnionType<
   Name extends string,
   Implements extends Record<string, BaseObject<any, any, any>>,
 > extends BaseObject<Name, Record<string, never>, Implements> {
-  __type__?: () => 'Union'
+  readonly ' $typeKind'?: () => 'Union'
 }
 
 export interface InterfaceType<
   Name extends string,
   Fields extends Record<string, Field<any, any>>,
-  Implements extends Record<string, BaseObject<any, any, any>>,
+  Implements extends Record<string, BaseObject<string, any, any>>,
 > extends BaseObject<Name, Fields, Implements> {
-  __type__?: () => 'Interface'
+  readonly ' $typeKind'?: () => 'Interface'
 }
 
 export interface InputObjectType<
   Name extends string,
   Fields extends Record<string, Input<any>>,
 > extends BaseType<'InputObject', Name> {
-  __define__?: (fields: Fields) => void
+  readonly ' $inputObjectDefine'?: (fields: Fields) => void
 }

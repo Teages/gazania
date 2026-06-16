@@ -12,7 +12,7 @@ import { createSectionBuilder } from './section'
 export type { PartialPackage, SectionPackage }
 
 export interface Gazania {
-  readonly '~isGazania': true
+  readonly ' $isGazania': true
   'query': (name?: string) => OperationBuilderWithoutVars
   'mutation': (name?: string) => OperationBuilderWithoutVars
   'subscription': (name?: string) => OperationBuilderWithoutVars
@@ -33,7 +33,7 @@ function initGazania(): Gazania {
     'partial': <const Name extends string>(name: Name) => createPartialBuilder(name),
     'section': <const Name extends string>(name: Name) => createSectionBuilder(name),
     'enum': enumFn,
-    '~isGazania': true as const,
+    ' $isGazania': true as const,
   }
 }
 

@@ -1,16 +1,18 @@
 import type { DocumentNode } from '../lib/graphql'
 
-// Pure type-level; no runtime values.
-// These describe the typed view of a GraphQL document that the builder layer
-// overlays on top of the plain `DocumentNode` produced at runtime.
-
 export interface TypedDocumentNode<
   Result = Record<string, any>,
   Variables = Record<string, any>,
 > extends DocumentNode {
-  /** @internal */
+  /**
+   * For `@graphql-typed-document-node/core`
+   * @internal
+   */
   __apiType?: (variables: Variables) => Result
-  /** @internal */
+  /**
+   * For `graphql`
+   * @internal
+   */
   __ensureTypesOfVariablesAndResultMatching?: (variables: Variables) => Result
 }
 
