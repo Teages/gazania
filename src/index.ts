@@ -1,4 +1,5 @@
-import type { DefineSchema, ReadFragmentFn, TypedGazania } from './types'
+import type { ReadFragmentFn, TypedGazania } from './runtime/builder-types'
+import type { DefineSchema } from './runtime/define'
 import { readFragment as _readFragment, gazania } from './runtime'
 
 export { gazania }
@@ -81,7 +82,7 @@ export type {
 export type {
   ResultOfSection,
   TypedGazania,
-} from './types/builder'
+} from './runtime/builder-types'
 
 export type {
   BaseObject,
@@ -96,13 +97,13 @@ export type {
   ObjectType,
   ScalarType,
   UnionType,
-} from './types/define'
+} from './runtime/define'
 
 export type {
   ResultOf,
   TypedDocumentNode,
   VariablesOf,
-} from './types/document'
+} from './runtime/document'
 
 export type {
   DollarPayload,
@@ -114,9 +115,9 @@ export type {
   ScalarFieldDollarAfterArgs,
   TypedScalarSelection,
   TypedSelectionSet,
-} from './types/dollar'
+} from './runtime/dollar-types'
 
 export type {
   FragmentOf,
   FragmentRef,
-} from './types/masking'
+} from './runtime/masking'

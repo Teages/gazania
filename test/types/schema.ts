@@ -1,4 +1,4 @@
-import type { DefineSchema, EnumType, Field, Input, InputObjectType, InterfaceType, ObjectType, ScalarType, UnionType } from '../../src/types/define'
+import type { DefineSchema, EnumType, Field, Input, InputObjectType, InterfaceType, ObjectType, ScalarType, UnionType } from '../../src/runtime/define'
 
 export type CategoryEnum
   = | 'funny'

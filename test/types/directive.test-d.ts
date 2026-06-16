@@ -1,4 +1,4 @@
-import type { HasSkipDirective } from '../../src/types/directive'
+import type { HasSkipDirective } from '../../src/runtime/directive-types'
 import { describe, expectTypeOf, test } from 'vitest'
 
 describe('types/directive', () => {

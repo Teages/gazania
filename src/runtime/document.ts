@@ -1,6 +1,6 @@
 import type { DocumentNode } from '../lib/graphql'
 
-// Merged from src/types/document.ts. Pure type-level; no runtime values.
+// Pure type-level; no runtime values.
 // These describe the typed view of a GraphQL document that the builder layer
 // overlays on top of the plain `DocumentNode` produced at runtime.
 

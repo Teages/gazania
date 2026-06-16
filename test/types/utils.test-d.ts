@@ -1,8 +1,8 @@
-import type { TypedGazania } from '../../src/types/builder'
-import type { Input } from '../../src/types/define'
-import type { ParseObjectSelectionContextField } from '../../src/types/result'
-import type { FindType, ModifiedName, RequireInput, RequireInputOrVariable, SchemaRequire, Typename, TypenameField, WrapFieldResult } from '../../src/types/utils'
-import type { Variable } from '../../src/types/variable'
+import type { TypedGazania } from '../../src/runtime/builder-types'
+import type { Input } from '../../src/runtime/define'
+import type { ParseObjectSelectionContextField } from '../../src/runtime/result'
+import type { FindType, ModifiedName, RequireInput, RequireInputOrVariable, SchemaRequire, Typename, TypenameField, WrapFieldResult } from '../../src/runtime/utils'
+import type { Variable } from '../../src/runtime/variable-types'
 import type {
   Enum_CategoryEnum,
   Input_NestedInput,

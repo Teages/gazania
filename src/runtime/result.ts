@@ -3,7 +3,7 @@ import type { ExtractPartialSpreadFragmentRefs, ExtractSectionSpreadResults, Omi
 import type { TypedScalarSelection, TypedSelectionSet } from './selection'
 import type { BaseOf, Expand, FlatRecord, IntersectionAvoidEmpty, MayBePartial, Trim, Typename, UnionToIntersection, Values, WrapFieldResult } from './utils'
 
-// Merged from src/types/result.ts. Recursively parses a schema-aware selection
+// Recursively parses a schema-aware selection
 // into the concrete result type returned to the user.
 
 export type ParseSelection<

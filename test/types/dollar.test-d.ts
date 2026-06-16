@@ -1,4 +1,4 @@
-import type { ObjectFieldDollar, RootDollar, ScalarFieldDollar, ScalarFieldDollarAfterArgs, TypedScalarSelection, TypedSelectionSet } from '../../src/types/dollar'
+import type { ObjectFieldDollar, RootDollar, ScalarFieldDollar, ScalarFieldDollarAfterArgs, TypedScalarSelection, TypedSelectionSet } from '../../src/runtime/dollar-types'
 import type { Type_User } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
 

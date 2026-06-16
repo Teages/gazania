@@ -1,6 +1,6 @@
-import type { OperationTypeObject, ResultOfSection, TypedFragmentBuilder, TypedFragmentBuilderOnType, TypedFragmentBuilderOnTypeWithVar, TypedGazania, TypedOperationBuilderWithoutVars, TypedPartialBuilder, TypedPartialBuilderOnType, TypedPartialBuilderOnTypeWithVar, TypedSectionBuilder, TypedSectionBuilderOnType, TypedSectionBuilderOnTypeWithVar } from '../../src/types/builder'
-import type { ResultOf, VariablesOf } from '../../src/types/document'
-import type { RequireVariables } from '../../src/types/variable'
+import type { OperationTypeObject, ResultOfSection, TypedFragmentBuilder, TypedFragmentBuilderOnType, TypedFragmentBuilderOnTypeWithVar, TypedGazania, TypedOperationBuilderWithoutVars, TypedPartialBuilder, TypedPartialBuilderOnType, TypedPartialBuilderOnTypeWithVar, TypedSectionBuilder, TypedSectionBuilderOnType, TypedSectionBuilderOnTypeWithVar } from '../../src/runtime/builder-types'
+import type { ResultOf, VariablesOf } from '../../src/runtime/document'
+import type { RequireVariables } from '../../src/runtime/variable-types'
 import type { Schema, Type_Mutation, Type_Query, Type_Subscription } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
 

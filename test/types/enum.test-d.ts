@@ -1,4 +1,4 @@
-import type { EnumFunction, EnumPackage, PackedEnum } from '../../src/types/enum'
+import type { EnumFunction, EnumPackage, PackedEnum } from '../../src/runtime/enum'
 import { describe, expectTypeOf, test } from 'vitest'
 
 describe('types/enum', () => {

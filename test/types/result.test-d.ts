@@ -1,6 +1,6 @@
-import type { Field } from '../../src/types/define'
-import type { TypedSelectionSet } from '../../src/types/dollar'
-import type { AnalyzedObjectSelection, ParseInlineFragmentReturn, ParseObjectSelection, ParseObjectSelectionContext, ParseObjectSelectionContextField, ParseSelection, ParseSelectionName } from '../../src/types/result'
+import type { Field } from '../../src/runtime/define'
+import type { TypedSelectionSet } from '../../src/runtime/dollar-types'
+import type { AnalyzedObjectSelection, ParseInlineFragmentReturn, ParseObjectSelection, ParseObjectSelectionContext, ParseObjectSelectionContextField, ParseSelection, ParseSelectionName } from '../../src/runtime/result'
 import type { Scalar_Boolean, Scalar_MaybeInt, Scalar_String, Type_Query, Type_User } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
 

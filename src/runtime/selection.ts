@@ -15,7 +15,7 @@ import { parseArguments } from './argument'
 import { parseDirectives } from './directive'
 import { createFieldDollar } from './dollar'
 
-// --- Phantom selection-set types (merged from src/types/selection.ts) ---
+// --- Phantom selection-set types ---
 // These are pure type-level markers: `TypedSelectionSet<T, IsOptional>` is the
 // terminal type returned by object-field `.select()` callbacks, and
 // `TypedScalarSelection<IsOptional>` the scalar-field equivalent. They carry no

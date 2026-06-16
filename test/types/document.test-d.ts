@@ -1,4 +1,4 @@
-import type { ResultOf, TypedDocumentNode, VariablesOf } from '../../src/types/document'
+import type { ResultOf, TypedDocumentNode, VariablesOf } from '../../src/runtime/document'
 import { describe, expectTypeOf, test } from 'vitest'
 
 describe('types/document', () => {

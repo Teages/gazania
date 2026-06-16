@@ -2,7 +2,7 @@ import type { TypedGazania } from './builder-types'
 import type { BaseObject, BaseScalar, BaseType, DefineSchema, Field, Input, InputObjectType } from './define'
 import type { AcceptVariable } from './variable-types'
 
-// Merged from src/types/utils.ts. Type-level helpers for field/result analysis,
+// Type-level helpers for field/result analysis,
 // modifier-string parsing, and variable input resolution.
 
 /**

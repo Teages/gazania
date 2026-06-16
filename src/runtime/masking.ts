@@ -1,6 +1,6 @@
 import type { BaseObject } from './define'
 
-// --- Fragment masking types (merged from src/types/masking.ts) ---
+// --- Fragment masking types ---
 
 /**
  * Opaque fragment reference marker that appears in query result types.

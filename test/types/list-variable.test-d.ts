@@ -1,7 +1,7 @@
-import type { PrepareSelectionArgument } from '../../src/types/argument'
-import type { TypedGazania } from '../../src/types/builder'
-import type { DefineSchema, Field, Input, ObjectType } from '../../src/types/define'
-import type { AcceptVariable, Variable } from '../../src/types/variable'
+import type { PrepareSelectionArgument } from '../../src/runtime/argument-types'
+import type { TypedGazania } from '../../src/runtime/builder-types'
+import type { DefineSchema, Field, Input, ObjectType } from '../../src/runtime/define'
+import type { AcceptVariable, Variable } from '../../src/runtime/variable-types'
 import type { Scalar_String } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
 

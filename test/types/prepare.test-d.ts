@@ -1,5 +1,5 @@
-import type { Field, ObjectType } from '../../src/types/define'
-import type { ObjectSelection, ObjectSelectionContext, ObjectSelectionOnFields, ObjectSelectionOnInlineFragments, ObjectSelectionSimple, PrepareSelection, SelectionSimplyOnField, WithAlias } from '../../src/types/prepare'
+import type { Field, ObjectType } from '../../src/runtime/define'
+import type { ObjectSelection, ObjectSelectionContext, ObjectSelectionOnFields, ObjectSelectionOnInlineFragments, ObjectSelectionSimple, PrepareSelection, SelectionSimplyOnField, WithAlias } from '../../src/runtime/prepare'
 import type {
   Enum_CategoryEnum,
   Interface_ItemWithId,

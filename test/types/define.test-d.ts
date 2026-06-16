@@ -1,4 +1,4 @@
-import type { BaseObject, BaseScalar, BaseType, DefineSchema } from '../../src/types/define'
+import type { BaseObject, BaseScalar, BaseType, DefineSchema } from '../../src/runtime/define'
 import type {
   Enum_CategoryEnum,
   Input_SayingDataInput,

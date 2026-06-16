@@ -1,4 +1,4 @@
-import type { AcceptVariable, PrepareVariables, RequireVariables, Variable } from '../../src/types/variable'
+import type { AcceptVariable, PrepareVariables, RequireVariables, Variable } from '../../src/runtime/variable-types'
 import type { Schema } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
 

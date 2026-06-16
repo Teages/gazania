@@ -1,6 +1,6 @@
 import type { PackedEnum } from './enum'
 
-// Merged from src/types/define.ts. These are the phantom type constructors
+// These are the phantom type constructors
 // instantiated by generated schema files (via the `gazania` root export).
 // Pure type-level; no runtime values.
 

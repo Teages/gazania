@@ -4,7 +4,7 @@ import type { ObjectFieldDollar, ScalarFieldDollar, TypedScalarSelection, TypedS
 import type { PartialSpreadSelection } from './masking'
 import type { BaseOf, TypenameField } from './utils'
 
-// Merged from src/types/prepare.ts. Produces the schema-aware selection shape
+// Produces the schema-aware selection shape
 // for a given type (the argument type accepted by .select()).
 
 /**

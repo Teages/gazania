@@ -1,6 +1,6 @@
-import type { PrepareSelectionArgument } from '../../src/types/argument'
-import type { Input } from '../../src/types/define'
-import type { AcceptVariable } from '../../src/types/variable'
+import type { PrepareSelectionArgument } from '../../src/runtime/argument-types'
+import type { Input } from '../../src/runtime/define'
+import type { AcceptVariable } from '../../src/runtime/variable-types'
 import type { Scalar_String } from './schema'
 import { describe, expectTypeOf, test } from 'vitest'
 
