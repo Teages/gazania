@@ -12,6 +12,25 @@ What you get:
 - If a selection doesn't match the schema, TypeScript tells you
 - Autocompletion for field names, arguments, and types in your editor
 
+### Measured against the alternatives
+
+The same operations, built as gazania chains vs parsed with `graphql-tag` (mean times from the comparison suite in `bench/compare/`, single run on a dev laptop):
+
+| Scenario | gazania | graphql-tag | gazania faster |
+| --- | --- | --- | --- |
+| simple flat query | ~0.9µs | ~6.0µs | 7.0x |
+| variables + args | ~1.8µs | 11.7µs | 6.6x |
+| nested two levels | 2.4µs | 16.0µs | 6.8x |
+| union inline fragments | 2.0µs | 13.0µs | 6.5x |
+| complex mixed query | 4.0µs | 30.2µs | 7.5x |
+| build + print end-to-end | 10.9µs | 51.1µs | 4.7x |
+
+Gazania builds the AST programmatically and never runs a GraphQL parser, so the gap grows with query complexity.
+
+Compared to `@graphql-codegen/client-preset` at compile time, type-checking query usage is at parity (178–194ms vs 170–207ms per scenario, mostly within run noise) — but codegen needs a generation step (~6ms per run on this schema, growing with schema size), a watch process, and can serve stale types. Gazania has no build step at all.
+
+Run the comparison yourself with `BENCH_COMPARE=1 pnpm vitest bench --run bench/compare`.
+
 ## How it works
 
 Two steps:
