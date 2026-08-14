@@ -6,11 +6,18 @@
  *
  *   BENCH_COMPARE=1 pnpm vitest bench --run bench/compare
  *
- * The comparison measures three things:
+ * The comparison measures four things:
  * 1. The codegen build step itself (which gazania does not need).
  * 2. Type-checking query usage against generated documents (string-literal
  *    overload resolution over the generated `graphql()` function).
  * 3. The same query usage written with the gazania builder.
+ * 4. An imports-only baseline per framework, so the fixed cost of loading
+ *    each type system can be subtracted from the scenario numbers.
+ *
+ * Each style imports only its own implementation: `getSemanticDiagnostics()`
+ * checks the whole dependency graph, so a shared import block would make both
+ * sides pay for both frameworks and bury the per-query delta under the fixed
+ * cost of the heavier one.
  *
  * Codegen usage must match the generated document keys exactly (the printed
  * form of each operation); a mismatch falls through to the
@@ -52,13 +59,22 @@ if (RUN) {
 
 const typeCheck = createTypeCheck(resolve(__dirname, '_virtual_type_compare_.ts'))
 
-const IMPORTS = `
+const GAZANIA_IMPORTS = `
 import type { TypedGazania } from '../../src/index'
 import type { ResultOf } from '../../src/types/document'
 import type { Schema } from '../../test/types/schema'
-import { graphql } from './.generated/gql'
 declare const g: TypedGazania<Schema>
 `
+
+const CODEGEN_IMPORTS = `
+import type { ResultOf } from '@graphql-typed-document-node/core'
+import { graphql } from './.generated/gql'
+`
+
+const IMPORTS = {
+  gazania: GAZANIA_IMPORTS,
+  codegen: CODEGEN_IMPORTS,
+} as const
 
 /** Same operation expressed with the gazania builder and with codegen documents. */
 const SCENARIOS: Record<string, { gazania: string, codegen: string }> = {
@@ -234,9 +250,15 @@ const SCENARIOS: Record<string, { gazania: string, codegen: string }> = {
 }
 
 if (RUN) {
+  for (const style of ['gazania', 'codegen'] as const) {
+    const { diagnostics } = typeCheck(IMPORTS[style])
+    if (diagnostics.length > 0) {
+      throw new Error(formatTypeErrors(`imports only (${style})`, diagnostics))
+    }
+  }
   for (const [name, sources] of Object.entries(SCENARIOS)) {
     for (const style of ['gazania', 'codegen'] as const) {
-      const { diagnostics } = typeCheck(`${IMPORTS}${sources[style]}`)
+      const { diagnostics } = typeCheck(`${IMPORTS[style]}${sources[style]}`)
       if (diagnostics.length > 0) {
         throw new Error(formatTypeErrors(`${name} (${style})`, diagnostics))
       }
@@ -254,14 +276,21 @@ describe.skipIf(!RUN)('compare – type: gazania vs graphql codegen', () => {
     expect(files).toBeGreaterThan(0)
   }, { iterations: 2, warmupIterations: 1 })
 
+  for (const style of ['gazania', 'codegen'] as const) {
+    bench(`${style} – typecheck: imports only (baseline)`, () => {
+      const result = typeCheck(IMPORTS[style])
+      expect(result.diagnostics.length).toBe(0)
+    }, TYPE_BENCH_OPTIONS)
+  }
+
   for (const [name, { gazania, codegen }] of Object.entries(SCENARIOS)) {
     bench(`gazania – typecheck: ${name}`, () => {
-      const result = typeCheck(`${IMPORTS}${gazania}`)
+      const result = typeCheck(`${IMPORTS.gazania}${gazania}`)
       expect(result.diagnostics.length).toBe(0)
     }, TYPE_BENCH_OPTIONS)
 
     bench(`codegen – typecheck: ${name}`, () => {
-      const result = typeCheck(`${IMPORTS}${codegen}`)
+      const result = typeCheck(`${IMPORTS.codegen}${codegen}`)
       expect(result.diagnostics.length).toBe(0)
     }, TYPE_BENCH_OPTIONS)
   }
