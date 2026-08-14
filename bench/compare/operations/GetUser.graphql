@@ -1,0 +1,10 @@
+query GetUser($id: Int!) {
+  user(id: $id) {
+    id
+    name
+    sayings {
+      id
+      content
+    }
+  }
+}

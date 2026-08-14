@@ -1,21 +1,10 @@
-import type { DocumentNode } from '../src/lib/graphql'
 import { print } from 'graphql'
 import { bench, describe } from 'vitest'
 import { gazania } from '../src/runtime'
 import { createFragmentBuilder } from '../src/runtime/builder/fragment'
 import { createOperationBuilder } from '../src/runtime/builder/operation'
 import { createPartialBuilder } from '../src/runtime/builder/partial'
-
-/**
- * `.select()` returns a lazy DocumentNode: the callback runs and the selection
- * AST is built only on first `.definitions` access. Every bench case must
- * materialize the document, otherwise it measures closure creation instead of
- * the actual operation analysis.
- */
-function build(doc: DocumentNode): DocumentNode {
-  void doc.definitions
-  return doc
-}
+import { build } from './lib/build'
 
 // ─── Operation builder ────────────────────────────────────────────────────────
 

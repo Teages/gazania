@@ -12,29 +12,14 @@
 
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import ts from 'typescript'
 import { bench, describe, expect } from 'vitest'
+import { createTypeCheck, formatTypeErrors } from './lib/typecheck'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const projectRoot = resolve(__dirname, '..')
 
 // The virtual file is placed inside bench/ so that relative imports resolve
 // against the real project layout:  '../src/...' → 'src/...'
-const VIRTUAL_FILE = resolve(projectRoot, 'bench/_virtual_type_bench_.ts')
-
-// Compiler options that match the project's tsconfig.base.json.
-// `types` includes `vitest/importMeta` so the `import.meta.vitest` guards in
-// the library source files do not generate cascading errors.
-const COMPILER_OPTIONS: ts.CompilerOptions = {
-  target: ts.ScriptTarget.ESNext,
-  module: ts.ModuleKind.ESNext,
-  moduleResolution: ts.ModuleResolutionKind.Bundler,
-  strict: true,
-  skipLibCheck: true,
-  noEmit: true,
-  types: ['vitest/importMeta'],
-  typeRoots: [resolve(projectRoot, 'node_modules')],
-}
+const typeCheck = createTypeCheck(resolve(__dirname, '_virtual_type_bench_.ts'))
 
 // Imports that every scenario needs.
 const IMPORTS = `
@@ -43,54 +28,6 @@ import type { ResultOf } from '../src/types/document'
 import type { Schema } from '../test/types/schema'
 declare const g: TypedGazania<Schema>
 `
-
-interface TypeCheckResult {
-  diagnostics: ts.Diagnostic[]
-  durationMs: number
-}
-
-/**
- * Create a fresh TypeScript program from an in-memory `code` string and run
- * `getSemanticDiagnostics()`.  A new compiler host is constructed on every
- * call so that caches do not carry over between bench iterations.
- */
-function typeCheck(code: string): TypeCheckResult {
-  const defaultHost = ts.createCompilerHost(COMPILER_OPTIONS)
-
-  const customHost: ts.CompilerHost = {
-    ...defaultHost,
-    getSourceFile(fileName, languageVersion, ...rest) {
-      if (fileName === VIRTUAL_FILE) {
-        return ts.createSourceFile(fileName, code, languageVersion)
-      }
-      return defaultHost.getSourceFile(fileName, languageVersion, ...rest)
-    },
-    fileExists(fileName) {
-      if (fileName === VIRTUAL_FILE) {
-        return true
-      }
-      return defaultHost.fileExists(fileName)
-    },
-    readFile(fileName) {
-      if (fileName === VIRTUAL_FILE) {
-        return code
-      }
-      return defaultHost.readFile(fileName)
-    },
-  }
-
-  const program = ts.createProgram({
-    rootNames: [VIRTUAL_FILE],
-    options: COMPILER_OPTIONS,
-    host: customHost,
-  })
-
-  const start = performance.now()
-  const diagnostics = program.getSemanticDiagnostics()
-  const durationMs = performance.now() - start
-
-  return { diagnostics: [...diagnostics], durationMs }
-}
 
 // ─── Benchmark scenarios ──────────────────────────────────────────────────────
 
@@ -278,13 +215,7 @@ const SCENARIOS = {
 for (const [name, code] of Object.entries(SCENARIOS)) {
   const { diagnostics } = typeCheck(code)
   if (diagnostics.length > 0) {
-    const errors = diagnostics.map((d) => {
-      const line = d.file && d.start !== undefined
-        ? d.file.getLineAndCharacterOfPosition(d.start).line + 1
-        : 0
-      return `  ${d.file?.fileName ?? '?'}:${line} ${ts.flattenDiagnosticMessageText(d.messageText, '\n')}`
-    })
-    throw new Error(`type bench scenario "${name}" does not type-check:\n${errors.join('\n')}`)
+    throw new Error(formatTypeErrors(name, diagnostics))
   }
 }
 

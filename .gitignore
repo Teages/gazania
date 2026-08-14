@@ -10,3 +10,6 @@ dist
 # opencode
 .opencode
 .sisyphus
+
+# bench compare codegen output
+bench/compare/.generated

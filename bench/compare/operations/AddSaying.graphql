@@ -1,0 +1,7 @@
+mutation AddSaying($ownerId: Int!) {
+  addSaying(input: { content: "hello", category: funny }, ownerId: $ownerId) {
+    id
+    content
+    createdAt
+  }
+}
