@@ -29,7 +29,17 @@ Gazania builds the AST programmatically and never runs a GraphQL parser, so the 
 
 Compared to `@graphql-codegen/client-preset` at compile time, type-checking query usage is at parity (178–194ms vs 170–207ms per scenario, mostly within run noise) — but codegen needs a generation step (~6ms per run on this schema, growing with schema size), a watch process, and can serve stale types. Gazania has no build step at all.
 
-Run the comparison yourself with `BENCH_COMPARE=1 pnpm vitest bench --run bench/compare`.
+In the bundle, one `GetUserDeep` query costs (esbuild, ESM, minified):
+
+| | per query (min / gzip) | runtime (min / gzip) |
+| --- | --- | --- |
+| gazania | 181 B / 84 B | 9.2 KB / 3.0 KB |
+| graphql-tag | 155 B / 79 B | 36.4 KB / 9.5 KB |
+| codegen client-preset | 1510 B / 87 B | grows with every operation |
+
+A gazania query compiles to about the same bytes as a graphql-tag query string, and its runtime is 3x smaller because no GraphQL parser ships to the browser. Client-preset inlines each operation's full AST into the document map — 8x more raw bytes per query (it gzips well, but the browser still parses them all), and the map cannot be tree-shaken per operation.
+
+Run the comparisons yourself with `BENCH_COMPARE=1 pnpm vitest bench --run bench/compare` (speed) and `node bench/compare/size-compare.mjs` (size).
 
 ## How it works
 
