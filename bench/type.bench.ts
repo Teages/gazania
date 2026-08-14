@@ -39,6 +39,7 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
 // Imports that every scenario needs.
 const IMPORTS = `
 import type { TypedGazania } from '../src/index'
+import type { ResultOf } from '../src/types/document'
 import type { Schema } from '../test/types/schema'
 declare const g: TypedGazania<Schema>
 `
@@ -139,6 +140,35 @@ const SCENARIOS = {
       }]))
   `,
 
+  'nested – four levels deep': `
+    ${IMPORTS}
+    const _doc = g.query('Deep').select($ => $.select([{
+      user: $ => $.select([{
+        sayings: $ => $.select([{
+          owner: $ => $.select([{
+            friends: $ => $.select(['id', 'name']),
+          }]),
+        }]),
+      }]),
+    }]))
+  `,
+
+  'wide – 11 fields on two branches': `
+    ${IMPORTS}
+    const _doc = g.query('Wide').select($ => $.select([{
+      users: $ => $.select([
+        'id',
+        'name',
+        'email',
+        {
+          friends: $ => $.select(['id']),
+          sayings: $ => $.select(['id']),
+        },
+      ]),
+      sayings: $ => $.select(['id', 'content', 'category', 'createdAt', 'updatedAt']),
+    }]))
+  `,
+
   'union – inline fragments': `
     ${IMPORTS}
     const _doc = g.query('GetAll').select($ => $.select([{
@@ -148,6 +178,17 @@ const SCENARIOS = {
           '... on Saying': $ => $.select(['id', 'content', 'category']),
           '... on User': $ => $.select(['id', 'name', 'email']),
         },
+      ]),
+    }]))
+  `,
+
+  'interface – inline fragment': `
+    ${IMPORTS}
+    const _doc = g.query('GetAllIds').select($ => $.select([{
+      allId: $ => $.select([
+        '__typename',
+        'id',
+        { '... on Saying': $ => $.select(['content']) },
       ]),
     }]))
   `,
@@ -203,7 +244,49 @@ const SCENARIOS = {
         },
       ]))
   `,
+
+  'result type – flat data extraction': `
+    ${IMPORTS}
+    const doc = g.query('GetUsers').select($ => $.select([{
+      users: $ => $.select(['id', 'name', 'email']),
+    }]))
+    declare const data: ResultOf<typeof doc>
+    const _name: string = data.users[0].name
+  `,
+
+  'result type – union data extraction': `
+    ${IMPORTS}
+    const doc = g.query('GetAll').select($ => $.select([{
+      all: $ => $.select([
+        '__typename',
+        {
+          '... on Saying': $ => $.select(['id', 'content', { owner: $ => $.select(['name']) }]),
+          '... on User': $ => $.select(['id', 'name']),
+        },
+      ]),
+    }]))
+    declare const data: ResultOf<typeof doc>
+    const _id: number = data.all[0].id
+  `,
 } as const
+
+// ─── Fixture validation ───────────────────────────────────────────────────────
+
+// A scenario with type errors still gets measured by `bench` (yielding a NaN
+// mean and a passing exit code — `beforeAll` failures are swallowed too), so
+// every fixture is verified once at module load to fail loudly instead.
+for (const [name, code] of Object.entries(SCENARIOS)) {
+  const { diagnostics } = typeCheck(code)
+  if (diagnostics.length > 0) {
+    const errors = diagnostics.map((d) => {
+      const line = d.file && d.start !== undefined
+        ? d.file.getLineAndCharacterOfPosition(d.start).line + 1
+        : 0
+      return `  ${d.file?.fileName ?? '?'}:${line} ${ts.flattenDiagnosticMessageText(d.messageText, '\n')}`
+    })
+    throw new Error(`type bench scenario "${name}" does not type-check:\n${errors.join('\n')}`)
+  }
+}
 
 // ─── Vitest bench suite ───────────────────────────────────────────────────────
 
