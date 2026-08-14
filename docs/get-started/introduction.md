@@ -27,7 +27,7 @@ The same operations, built as gazania chains vs parsed with `graphql-tag` (mean 
 
 Gazania builds the AST programmatically and never runs a GraphQL parser, so the gap grows with query complexity.
 
-Compared to `@graphql-codegen/client-preset` at compile time, type-checking query usage is at parity (178–194ms vs 170–207ms per scenario, mostly within run noise) — but codegen needs a generation step (~6ms per run on this schema, growing with schema size), a watch process, and can serve stale types. Gazania has no build step at all.
+Compared to `@graphql-codegen/client-preset` at compile time, codegen type-checks query usage faster: ~140–175ms per scenario against ~240–340ms for gazania, with imports-only baselines of ~140ms and ~235ms (each variant loads only its own framework — codegen resolves each usage against pre-generated types, which is nearly free per query, while gazania infers the result type from your schema types at every usage site). What gazania avoids is the pipeline around it: no generation step (~8ms per run on this schema, growing with schema size), no watch process, and types that can never go stale.
 
 In the bundle, one mid-size query — `GetUserDeep`: 11 fields over 3 levels of nesting, about 115 characters of GraphQL — costs (esbuild, ESM, minified):
 
