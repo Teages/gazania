@@ -15,7 +15,7 @@
  */
 /* eslint-disable no-console */
 import { Buffer } from 'node:buffer'
-import { existsSync, readdirSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -145,9 +145,11 @@ const FRAMEWORKS = [
 async function main() {
   // Generate the document maps: full (6 ops) and without the measured query
   // (5 ops), so the codegen per-query cost can be measured as their delta.
-  if (!existsSync(resolve(GENERATED_DIR, 'gql.ts'))) {
-    await generate(GENERATED_DIR, `${OPERATIONS_DIR}/*.graphql`)
-  }
+  // Both are cleaned and regenerated every run — reusing a stale full map
+  // (e.g. after a schema or operation edit) against a fresh minus-one map
+  // would silently skew the delta.
+  await rm(GENERATED_DIR, { recursive: true, force: true })
+  await generate(GENERATED_DIR, `${OPERATIONS_DIR}/*.graphql`)
   await rm(MINUS_ONE_OPS, { recursive: true, force: true })
   await rm(MINUS_ONE_GEN, { recursive: true, force: true })
   await mkdir(MINUS_ONE_OPS, { recursive: true })
