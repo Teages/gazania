@@ -29,7 +29,8 @@ const GENERATED_DIR = resolve(__dirname, '.generated')
 const MINUS_ONE_OPS = resolve(__dirname, '.tmp-ops-minus-one')
 const MINUS_ONE_GEN = resolve(__dirname, '.generated-minus-one')
 
-// The query whose compiled size is measured, expressed once per framework.
+// The query whose compiled size is measured, expressed once per framework:
+// 11 fields over 3 levels of nesting (~115 chars of GraphQL).
 const QUERY = 'GetUserDeep'
 
 const GAZANIA_QUERY = `
@@ -157,7 +158,7 @@ async function main() {
   }
   await generate(MINUS_ONE_GEN, `${MINUS_ONE_OPS}/*.graphql`)
 
-  console.log(`Per-query compiled size — one ${QUERY} query, esbuild ESM minified\n`)
+  console.log(`Per-query compiled size — one ${QUERY} query (11 fields, 3 levels), esbuild ESM minified\n`)
   console.log('  framework                    per-query min / gzip     runtime min / gzip')
 
   for (const { name, baseline, withQuery } of FRAMEWORKS) {

@@ -29,7 +29,7 @@ Gazania builds the AST programmatically and never runs a GraphQL parser, so the 
 
 Compared to `@graphql-codegen/client-preset` at compile time, type-checking query usage is at parity (178–194ms vs 170–207ms per scenario, mostly within run noise) — but codegen needs a generation step (~6ms per run on this schema, growing with schema size), a watch process, and can serve stale types. Gazania has no build step at all.
 
-In the bundle, one `GetUserDeep` query costs (esbuild, ESM, minified):
+In the bundle, one mid-size query — `GetUserDeep`: 11 fields over 3 levels of nesting, about 115 characters of GraphQL — costs (esbuild, ESM, minified):
 
 | | per query (min / gzip) | runtime (min / gzip) |
 | --- | --- | --- |
