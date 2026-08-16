@@ -1,109 +1,105 @@
 /**
- * Framework comparison (bundle size): how much does one query cost in the
- * compiled bundle, and what is the fixed runtime cost around it.
+ * Production bundle comparison for paths that deliver a DocumentNode in the
+ * browser. Reports total bundles across an operation-count curve so fixed runtime
+ * cost and per-operation AST cost are visible without subtracting unrelated
+ * baselines.
  *
  *   node bench/compare/size-compare.mjs
- *
- * For gazania and graphql-tag the per-query cost is the delta between a
- * bundle that merely references the framework and one that also contains the
- * same GetUserDeep query. For @graphql-codegen/client-preset the document map
- * is a single constant and cannot be tree-shaken per operation, so its
- * per-query cost is the delta between the generated map with and without that
- * operation. All bundles go through esbuild (ESM, minified, browser). The
- * `import.meta.vitest` define dead-code-eliminates the inline test blocks in
- * gazania's source.
  */
 /* eslint-disable no-console */
 import { Buffer } from 'node:buffer'
-import { readdirSync } from 'node:fs'
-import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import { executeCodegen } from '@graphql-codegen/cli'
 import esbuild from 'esbuild'
+import { parse, print } from 'graphql'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OPERATIONS_DIR = resolve(__dirname, 'operations')
 const GENERATED_DIR = resolve(__dirname, '.generated')
-const MINUS_ONE_OPS = resolve(__dirname, '.tmp-ops-minus-one')
-const MINUS_ONE_GEN = resolve(__dirname, '.generated-minus-one')
+const TEMP_OPERATIONS_DIR = resolve(__dirname, '.tmp-operations')
 
-// The query whose compiled size is measured, expressed once per framework:
-// 11 fields over 3 levels of nesting (~115 chars of GraphQL).
-const QUERY = 'GetUserDeep'
+const BASE_QUERY_NAME = 'GetUserDeep'
+const BASE_QUERY_FILE = resolve(OPERATIONS_DIR, `${BASE_QUERY_NAME}.graphql`)
 
-const GAZANIA_QUERY = `
-  import { gazania } from '../../src/runtime'
-  gazania.query('${QUERY}')
-    .vars({ id: 'Int!' })
-    .select(($, vars) => $.select([{
-      user: $ => $.args({ id: vars.id }).select([
-        'id',
-        'name',
-        {
-          sayings: $ => $.select([
-            'id',
-            'content',
-            'category',
-            { owner: $ => $.select(['id', 'name', 'email']) },
-          ]),
-        },
-      ]),
-    }]))
-`
+function gazaniaBuilder(name) {
+  return `gazania.query('${name}')
+      .vars({ id: 'Int!' })
+      .select(($, vars) => $.select([{
+        user: $ => $.args({ id: vars.id }).select([
+          'id',
+          'name',
+          {
+            sayings: $ => $.select([
+              'id',
+              'content',
+              'category',
+              { owner: $ => $.select(['id', 'name', 'email']) },
+            ]),
+          },
+        ]),
+      }]))`
+}
 
-const GQL_TAG_QUERY = `
-  import gql from 'graphql-tag'
-  gql(\`query ${QUERY}($id: Int!) {
-    user(id: $id) {
-      id
-      name
-      sayings {
-        id
-        content
-        category
-        owner { id name email }
-      }
+function createOperations(source, count) {
+  return Array.from({ length: count }, (_, index) => {
+    const name = index === 0 ? BASE_QUERY_NAME : `${BASE_QUERY_NAME}${index + 1}`
+    return {
+      name,
+      exportName: `${name}Document`,
+      builder: gazaniaBuilder(name),
+      source: source.replace(`query ${BASE_QUERY_NAME}`, `query ${name}`),
     }
-  }\`)
-`
+  })
+}
 
-const CODEGEN_QUERY = `
-  import { graphql } from './.generated/gql'
-  graphql(\`query GetUserDeep($id: Int!) {
-  user(id: $id) {
-    id
-    name
-    sayings {
-      id
-      content
-      category
-      owner {
-        id
-        name
-        email
-      }
-    }
+async function generateDocuments(operations) {
+  await rm(GENERATED_DIR, { recursive: true, force: true })
+  await rm(TEMP_OPERATIONS_DIR, { recursive: true, force: true })
+  await mkdir(TEMP_OPERATIONS_DIR, { recursive: true })
+  for (const operation of operations) {
+    await writeFile(resolve(TEMP_OPERATIONS_DIR, `${operation.name}.graphql`), operation.source, 'utf8')
   }
-}\`)
-`
-
-const CODEGEN_BASELINE = `
-  import { graphql } from './.generated-minus-one/gql'
-  export default graphql
-`
-
-async function generate(target, documents) {
   const output = await executeCodegen({
     schema: resolve(__dirname, 'schema.graphql'),
-    documents,
-    generates: { [`${target}/`]: { preset: 'client', plugins: [] } },
+    documents: resolve(TEMP_OPERATIONS_DIR, '*.graphql'),
+    generates: { [`${GENERATED_DIR}/`]: { preset: 'client', plugins: [] } },
   })
   for (const file of output.result) {
     await mkdir(dirname(file.filename), { recursive: true })
     await writeFile(file.filename, file.content, 'utf8')
   }
+}
+
+function gazaniaEntry(operations) {
+  return `
+    import { gazania } from '../../src/runtime'
+    export default [${operations.map(operation => operation.builder).join(',\n')}]
+  `
+}
+
+function graphqlTagEntry(operations) {
+  return `
+    import gql from 'graphql-tag'
+    export default [${operations.map(operation => `gql(${JSON.stringify(operation.source)})`).join(',\n')}]
+  `
+}
+
+function defaultCodegenEntry(operations) {
+  return `
+    import { graphql } from './.generated/gql'
+    export default [${operations.map(operation => `graphql(${JSON.stringify(print(parse(operation.source)))})`).join(',\n')}]
+  `
+}
+
+function directDocumentEntry(operations) {
+  const names = operations.map(operation => operation.exportName)
+  return `
+    import { ${names.join(', ')} } from './.generated/graphql'
+    export default [${names.join(', ')}]
+  `
 }
 
 async function bundle(entry) {
@@ -117,68 +113,50 @@ async function bundle(entry) {
     define: { 'import.meta.vitest': 'undefined' },
     logLevel: 'silent',
   })
-  const code = result.outputFiles[0].text
-  return { min: Buffer.byteLength(code), gzip: gzipSync(Buffer.from(code)).length }
+  const code = Buffer.from(result.outputFiles[0].text)
+  return { min: code.length, gzip: gzipSync(code).length }
 }
 
-const FRAMEWORKS = [
-  {
-    name: 'gazania',
-    // `export default` keeps the framework in the bundle (a bare `void`
-    // reference is tree-shaken away); it adds identical bytes to both
-    // bundles, so the delta is unaffected.
-    baseline: `import { gazania } from '../../src/runtime'\nexport default gazania`,
-    withQuery: GAZANIA_QUERY,
-  },
-  {
-    name: 'graphql-tag',
-    baseline: `import gql from 'graphql-tag'\nexport default gql`,
-    withQuery: GQL_TAG_QUERY,
-  },
-  {
-    name: 'codegen client-preset',
-    baseline: CODEGEN_BASELINE,
-    withQuery: CODEGEN_QUERY,
-  },
-]
+function formatSize(size) {
+  return `${size.min} B / ${size.gzip} B`
+}
 
 async function main() {
-  // Generate the document maps: full (6 ops) and without the measured query
-  // (5 ops), so the codegen per-query cost can be measured as their delta.
-  // Both are cleaned and regenerated every run — reusing a stale full map
-  // (e.g. after a schema or operation edit) against a fresh minus-one map
-  // would silently skew the delta.
-  await rm(GENERATED_DIR, { recursive: true, force: true })
-  await generate(GENERATED_DIR, `${OPERATIONS_DIR}/*.graphql`)
-  await rm(MINUS_ONE_OPS, { recursive: true, force: true })
-  await rm(MINUS_ONE_GEN, { recursive: true, force: true })
-  await mkdir(MINUS_ONE_OPS, { recursive: true })
-  for (const file of readdirSync(OPERATIONS_DIR)) {
-    if (file !== `${QUERY}.graphql`) {
-      await copyFile(resolve(OPERATIONS_DIR, file), resolve(MINUS_ONE_OPS, file))
+  const source = await readFile(BASE_QUERY_FILE, 'utf8')
+  const counts = [1, 10, 50]
+  const strategies = [
+    { name: 'gazania (compact builder -> AST)', entry: gazaniaEntry },
+    { name: 'graphql-tag (source + parser)', entry: graphqlTagEntry },
+    { name: 'client-preset (default map)', entry: defaultCodegenEntry },
+    { name: 'client-preset (direct AST import)', entry: directDocumentEntry },
+  ]
+  const results = new Map(strategies.map(strategy => [strategy.name, []]))
+
+  for (const count of counts) {
+    const operations = createOperations(source, count)
+    // Regenerate for every project size so the default map contains exactly
+    // the same operations as the other strategies.
+    await generateDocuments(operations)
+    for (const strategy of strategies) {
+      results.get(strategy.name).push(await bundle(strategy.entry(operations)))
     }
   }
-  await generate(MINUS_ONE_GEN, `${MINUS_ONE_OPS}/*.graphql`)
 
-  console.log(`Per-query compiled size — one ${QUERY} query (11 fields, 3 levels), esbuild ESM minified\n`)
-  console.log('  framework                    per-query min / gzip     runtime min / gzip')
+  console.log('Total browser bundle size (esbuild ESM minified, min / gzip)\n')
+  console.log(`  ${'strategy'.padEnd(38)}${counts.map(count => `${count} operation${count === 1 ? '' : 's'}`.padStart(22)).join('')}`)
 
-  for (const { name, baseline, withQuery } of FRAMEWORKS) {
-    const base = await bundle(baseline)
-    const full = await bundle(withQuery)
+  for (const strategy of strategies) {
     console.log(
-      `  ${name.padEnd(24)}${`${full.min - base.min} B`.padStart(11)} / ${`${full.gzip - base.gzip} B`.padEnd(8)}`
-      + `${`${base.min} B`.padStart(13)} / ${`${base.gzip} B`.padEnd(8)}`,
+      `  ${strategy.name.padEnd(38)}${results.get(strategy.name).map(size => formatSize(size).padStart(22)).join('')}`,
     )
   }
 
-  await rm(MINUS_ONE_OPS, { recursive: true, force: true })
-  await rm(MINUS_ONE_GEN, { recursive: true, force: true })
+  await rm(TEMP_OPERATIONS_DIR, { recursive: true, force: true })
 
-  console.log('\nRuntime = bundle that only references the framework. The codegen row')
-  console.log('uses the 5-operation map as its baseline: the map is one constant')
-  console.log('that grows linearly with every operation and cannot be tree-shaken')
-  console.log('per operation.')
+  console.log('\nAll rows deliver a DocumentNode in the browser. The direct-import row')
+  console.log('represents client-preset with its optimizer rewriting calls to direct imports;')
+  console.log('tree shaking removes unused documents, but every used AST remains.')
+  console.log('String-only document modes are excluded because they do not deliver an AST.')
 }
 
 main()

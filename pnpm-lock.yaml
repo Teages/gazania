@@ -24,9 +24,6 @@ importers:
       '@graphql-codegen/client-preset':
         specifier: ^6.1.3
         version: 6.1.3(graphql@16.13.2)
-      '@graphql-typed-document-node/core':
-        specifier: ^3.2.0
-        version: 3.2.0(graphql@16.13.2)
       '@teages/oh-my-graphql':
         specifier: ^0.1.4
         version: 0.1.4(graphql@16.13.2)
@@ -66,9 +63,6 @@ importers:
       svelte2tsx:
         specifier: ^0.7.55
         version: 0.7.55(svelte@5.55.5(@typescript-eslint/types@8.59.2))(typescript@6.0.3)
-      tslib:
-        specifier: ^2.8.1
-        version: 2.8.1
       tsnapi:
         specifier: ^0.3.2
         version: 0.3.2(vitest@4.1.4)

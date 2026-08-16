@@ -12,34 +12,28 @@ What you get:
 - If a selection doesn't match the schema, TypeScript tells you
 - Autocompletion for field names, arguments, and types in your editor
 
-### Measured against the alternatives
+### Measured production trade-offs
 
-The same operations, built as gazania chains vs parsed with `graphql-tag` (mean times from the comparison suite in `bench/compare/`, single run on a dev laptop):
+Gazania targets clients that need a GraphQL `DocumentNode`. It ships a compact builder expression and constructs the AST without a GraphQL parser. The comparison suite verifies that Gazania and `graphql-tag` produce the same printed document before measuring them.
 
-| Scenario | gazania | graphql-tag | gazania faster |
-| --- | --- | --- | --- |
-| simple flat query | ~0.9µs | ~6.0µs | 7.0x |
-| variables + args | ~1.8µs | 11.7µs | 6.6x |
-| nested two levels | 2.4µs | 16.0µs | 6.8x |
-| union inline fragments | 2.0µs | 13.0µs | 6.5x |
-| complex mixed query | 4.0µs | 30.2µs | 7.5x |
-| build + print end-to-end | 10.9µs | 51.1µs | 4.7x |
+On a cold cache — the cost paid once for each distinct static operation during page or module startup — Gazania constructs the tested documents about 5–8x faster than `graphql-tag` parses them. A startup model with 100 definitions still measured Gazania about 2x faster when 75% of the `graphql-tag` definitions were duplicates and hit its cache. These are startup construction results, not per-request latency; both libraries normally reuse the resulting document after initialization.
 
-Gazania builds the AST programmatically and never runs a GraphQL parser, so the gap grows with query complexity.
+Gazania also removes operation-level code generation from the development loop. Editing a query updates its inferred result and variable types in the same TypeScript pass, without waiting for a document generator or watch process. Schema types are generated separately and only need to be regenerated when the schema changes.
 
-Compared to `@graphql-codegen/client-preset` at compile time, codegen type-checks query usage faster: ~140–175ms per scenario against ~240–340ms for gazania, with imports-only baselines of ~140ms and ~235ms (each variant loads only its own framework — codegen resolves each usage against pre-generated types, which is nearly free per query, while gazania infers the result type from your schema types at every usage site). What gazania avoids is the pipeline around it: no generation step (~8ms per run on this schema, growing with schema size), no watch process, and types that can never go stale.
+Bundle size has a real fixed-versus-variable trade-off. The table below repeats the same mid-size query shape with unique operation names and reports total browser bundles (esbuild, ESM, minified, min / gzip):
 
-In the bundle, one mid-size query — `GetUserDeep`: 11 fields over 3 levels of nesting, about 115 characters of GraphQL — costs (esbuild, ESM, minified):
+| DocumentNode path | 1 operation | 10 operations | 50 operations |
+| --- | ---: | ---: | ---: |
+| Gazania compact builder → AST | 9,419 B / 3,144 B | 11,337 B / 3,193 B | 19,897 B / 3,365 B |
+| `graphql-tag` source + runtime parser | 36,585 B / 9,631 B | 38,350 B / 9,676 B | 46,230 B / 9,834 B |
+| client-preset default document map | 1,611 B / 445 B | 15,492 B / 674 B | 77,294 B / 1,547 B |
+| client-preset optimized direct AST | 1,173 B / 293 B | 11,434 B / 432 B | 57,074 B / 949 B |
 
-| | per query (min / gzip) | runtime (min / gzip) |
-| --- | --- | --- |
-| gazania | 181 B / 84 B | 9.2 KB / 3.0 KB |
-| graphql-tag | 155 B / 79 B | 36.4 KB / 9.5 KB |
-| codegen client-preset | 1510 B / 87 B | grows with every operation |
+For one or a few operations, a directly imported precompiled AST is the smaller bundle. As the operation count grows, Gazania's fixed runtime is amortized and its raw JavaScript becomes smaller because it does not embed the full AST for every operation; precompiled ASTs remain highly gzip-compressible, so their transferred gzip size can still be lower. The `graphql-tag` runtime path pays both for source strings and for shipping a parser.
 
-A gazania query compiles to about the same bytes as a graphql-tag query string, and its runtime is 3x smaller because no GraphQL parser ships to the browser. Client-preset inlines each operation's full AST into the document map — 8x more raw bytes per query (it gzips well, but the browser still parses them all), and the map cannot be tree-shaken per operation.
+Tree-shaking or the client-preset optimizer removes unused documents, but every document used by a route still carries its AST. String-only document modes are a different trade-off and are excluded here because they do not provide a client-side `DocumentNode`.
 
-Run the comparisons yourself with `BENCH_COMPARE=1 pnpm vitest bench --run bench/compare` (speed) and `node bench/compare/size-compare.mjs` (size).
+Run the comparisons with `BENCH_COMPARE=1 pnpm vitest bench --run bench/compare/runtime-compare.bench.ts` (cold construction and cache model) and `node bench/compare/size-compare.mjs` (bundle scaling).
 
 ## How it works
 

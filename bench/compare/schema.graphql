@@ -1,4 +1,4 @@
-# SDL mirror of test/types/schema.ts, used by the codegen comparison bench.
+# SDL mirror of test/types/schema.ts, used by the bundle comparison.
 scalar Date
 scalar MaybeInt
 

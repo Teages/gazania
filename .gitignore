@@ -13,5 +13,4 @@ dist
 
 # bench compare codegen output
 bench/compare/.generated
-bench/compare/.generated-minus-one
-bench/compare/.tmp-ops-minus-one
+bench/compare/.tmp-operations
