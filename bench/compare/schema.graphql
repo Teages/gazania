@@ -1,0 +1,66 @@
+# SDL mirror of test/types/schema.ts, used by the bundle comparison.
+scalar Date
+scalar MaybeInt
+
+enum CategoryEnum {
+  funny
+  jokes
+  serious
+}
+
+input SayingDataInput {
+  category: CategoryEnum
+  content: String!
+}
+
+input SayingWithSloganInput {
+  category: CategoryEnum
+  content: String!
+  slogan: String
+}
+
+input NestedInput {
+  required: SayingWithSloganInput!
+  optional: SayingWithSloganInput
+}
+
+interface ItemWithId {
+  id: Int!
+}
+
+type Saying implements ItemWithId {
+  category: CategoryEnum
+  content: String!
+  createdAt: Date!
+  id: Int!
+  owner: User!
+  updatedAt: Date!
+}
+
+type User implements ItemWithId {
+  email: String!
+  friends: [User!]!
+  id: Int!
+  name: String!
+  sayings(category: CategoryEnum): [Saying!]!
+}
+
+union Data = Saying | User
+
+type Mutation {
+  addSaying(input: SayingDataInput, ownerId: Int!): Saying!
+}
+
+type Query {
+  all: [Data!]!
+  allId: [ItemWithId!]!
+  hello(name: String): String!
+  saying(id: Int!): Saying
+  sayings(category: CategoryEnum): [Saying!]!
+  user(id: Int!): User
+  users: [User!]!
+}
+
+type Subscription {
+  countdown(from: Int!): Int!
+}

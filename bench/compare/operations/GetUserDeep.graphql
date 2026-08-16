@@ -1,0 +1,16 @@
+query GetUserDeep($id: Int!) {
+  user(id: $id) {
+    id
+    name
+    sayings {
+      id
+      content
+      category
+      owner {
+        id
+        name
+        email
+      }
+    }
+  }
+}
